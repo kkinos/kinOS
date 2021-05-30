@@ -1,7 +1,5 @@
 .PHONY: all
 
-QEMU = qemu-system-x86_64
-
 all:
 	clang -target x86_64-pc-win32-coff \
 	-mno-red-zone -fno-stack-protector -fshort-wchar -Wall -c Main.c
