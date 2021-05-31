@@ -40,6 +40,8 @@ $ ln -s /path/to/kinos/kinLoaderPkg ./
 
 ```
 
+### ビルドする
+
 ```bash
 $ build
 ```
@@ -49,3 +51,6 @@ $ build
 ```bash
 $ ~/osbook/devenv/run_qemu.sh ~/edk2/Build/kinLoaderX64/DEBUG_CLANG38/X64/kinLoader.efi
 ```
+
+## 参考資料
+
