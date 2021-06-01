@@ -1,0 +1,5 @@
+*.img
+*.efi
+*.o
+*.elf
+mnt

@@ -1,5 +1,14 @@
 # kinOS
 
+## カーネルのビルド
+
+`kernel/`ディレクトリ内で
+
+```bash
+$ source ~/osbook/devenv/buildenv.sh
+$ make
+```
+
 ## ブートローダーのビルド
 
 ### EDK2をクローンする
@@ -49,7 +58,7 @@ $ build
 ## QEMUで起動
 
 ```bash
-$ ~/osbook/devenv/run_qemu.sh ~/edk2/Build/kinLoaderX64/DEBUG_CLANG38/X64/kinLoader.efi
+$ ~/osbook/devenv/run_qemu.sh ~/edk2/Build/kinLoaderX64/DEBUG_CLANG38/X64/kinLoader.efi ~/projects/kinOS/kernel/kernel.elf
 ```
 
 ## 参考資料
