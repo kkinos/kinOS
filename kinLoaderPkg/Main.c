@@ -11,6 +11,9 @@
 #include  <Guid/FileInfo.h>
 #include  "frame_buffer_config.hpp"
 #include  "elf.hpp"
+#include  "memory_map.hpp"
+
+
 
 
 #define MAX_COMMAND_LEN     100
@@ -72,15 +75,6 @@ int strcmp(const CHAR16 *s1, const CHAR16 *s2)
 	}
 }
 
-/*メモリマップ*/
-struct MemoryMap {
-    UINTN buffer_size;              /*メモリマップ全体を書き込むためのサイズ*/
-    VOID* buffer;                   /*メモリマップの先頭を指すポインタ*/
-    UINTN map_size;                 /*メモリマップのサイズ*/
-    UINTN map_key;                  /*メモリマップの種類*/
-    UINTN descriptor_size;          /*個々のEFI_MEMORY_DESCRIPTORのサイズ*/
-    UINT32 descriptor_version;      /*EFI_MEMORY_DESCRIPTORのバージョン*/
-};
 
 EFI_STATUS GetMemoryMap(struct MemoryMap* map) {
     if (map->buffer == NULL) {
@@ -422,7 +416,6 @@ void shell(EFI_HANDLE image_handle,
                 Halt();
             }
 
-            EFI_STATUS status;
             status = gBS->ExitBootServices(image_handle, memmap.map_key);
             if (EFI_ERROR(status)) {
                 status = GetMemoryMap(&memmap);
@@ -459,10 +452,11 @@ void shell(EFI_HANDLE image_handle,
             }
             
 
-            typedef void EntryPointType(const struct FrameBufferConfig*);
+            typedef void EntryPointType(const struct FrameBufferConfig*,
+                              const struct MemoryMap*);
             EntryPointType* entry_point = (EntryPointType*)entry_addr;
-            entry_point(&config);
-            // #@@range_end(call_kernel)
+            entry_point(&config, &memmap);
+            while(1);
 
         }
         else Print(L"Command not found\n");
