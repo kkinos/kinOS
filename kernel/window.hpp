@@ -9,6 +9,7 @@
 #include <vector>
 #include <optional>
 #include "graphics.hpp"
+#include "frame_buffer.hpp"
 
 /** @brief Window クラスはグラフィックの表示領域を表す。
  *
@@ -21,8 +22,8 @@ class Window {
          public:
          WindowWriter(Window& window) : window_{window} {}
          /** @brief 指定された位置に指定された色を描く */
-         virtual void Write(int x, int y, const PixelColor& c) override {
-            window_.At(x, y) = c;
+         virtual void Write(Vector2D<int> pos, const PixelColor& c) override {
+            window_.Write(pos, c);
         }
         /** @brief Width は関連付けられた Window の横幅をピクセル単位で返す。 */
         virtual int Width() const override { return window_.Width(); }
@@ -35,7 +36,7 @@ class Window {
      };
 
     /** @brief 指定されたピクセル数の平面描画領域を作成する。 */
-    Window(int width, int height);
+    Window(int width, int height, PixelFormat shadow_format);
     ~Window() = default;
     Window(const Window& rhs) = delete;
     Window& operator=(const Window& rhs) = delete;
@@ -45,25 +46,35 @@ class Window {
    * @param writer  描画先
    * @param position  writer の左上を基準とした描画位置
    */
-    void DrawTo(PixelWriter& writer, Vector2D<int> position);
+    void DrawTo(FrameBuffer& dst, Vector2D<int> position);
     /** @brief 透過色を設定する。 */
     void SetTransparentColor(std::optional<PixelColor> c);
     /** @brief このインスタンスに紐付いた WindowWriter を取得する。 */
     WindowWriter* Writer();
 
     /** @brief 指定した位置のピクセルを返す。 */
-    PixelColor& At(int x, int y);
-    /** @brief 指定した位置のピクセルを返す。 */
-    const PixelColor& At(int x, int y) const;
+    const PixelColor& At(Vector2D<int> pos) const;
+    /** @brief 指定した位置にピクセルを書き込む。 */
+    void Write(Vector2D<int> pos, PixelColor c);
 
     /** @brief 平面描画領域の横幅をピクセル単位で返す。 */
     int Width() const;
     /** @brief 平面描画領域の高さをピクセル単位で返す。 */
     int Height() const;
+    
+  /** @brief このウィンドウの平面描画領域内で，矩形領域を移動する。
+   *
+   * @param src_pos   移動元矩形の原点
+   * @param src_size  移動元矩形の大きさ
+   * @param dst_pos   移動先の原点
+   */
+    void Move(Vector2D<int> dst_pos, const Rectangle<int>& src);
 
     private:
     int width_, height_;
     std::vector<std::vector<PixelColor>> data_{};
     WindowWriter writer_{*this};
     std::optional<PixelColor> transparent_color_{std::nullopt};
+
+    FrameBuffer shadow_buffer_{};
 };
