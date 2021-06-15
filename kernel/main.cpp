@@ -44,12 +44,6 @@ int printk(const char* format, ...) {
   result = vsprintf(s, format, ap);
   va_end(ap);
 
-  StartLAPICTimer();
-  console->PutString(s);
-  auto elapsed = LAPICTimerElapsed();
-  StopLAPICTimer();
-
-  sprintf(s, "[%9d]", elapsed);
   console->PutString(s);
   return result;
 }
@@ -58,14 +52,38 @@ char memory_manager_buf[sizeof(BitmapMemoryManager)];
 BitmapMemoryManager* memory_manager;
 
 unsigned int mouse_layer_id;
+Vector2D<int> screen_size;
+Vector2D<int> mouse_position;
 
-void MouseObserver(int8_t displacement_x, int8_t displacement_y) {
-  layer_manager->MoveRelative(mouse_layer_id, {displacement_x, displacement_y});
-  StartLAPICTimer();
-  layer_manager->Draw();
-  auto elapsed = LAPICTimerElapsed();
-  StopLAPICTimer();
-  printk("MouseObserver: elapsed = %u\n", elapsed);
+void MouseObserver(uint8_t buttons, int8_t displacement_x, int8_t displacement_y) {
+  static unsigned int mouse_drag_layer_id = 0;
+  static uint8_t previous_buttons = 0;
+
+  const auto oldpos = mouse_position;
+  auto newpos = mouse_position + Vector2D<int>{displacement_x, displacement_y};
+  newpos = ElementMin(newpos, screen_size + Vector2D<int>{-1, -1});
+  mouse_position = ElementMax(newpos, {0, 0});
+
+  const auto posdiff = mouse_position - oldpos;
+
+  layer_manager->Move(mouse_layer_id, mouse_position);
+
+  const bool previous_left_pressed = (previous_buttons & 0x01);
+  const bool left_pressed = (buttons & 0x01);
+  if (!previous_left_pressed && left_pressed) {
+    auto layer = layer_manager->FindLayerByPosition(mouse_position, mouse_layer_id);
+    if (layer && layer->IsDraggable()) {
+      mouse_drag_layer_id = layer->ID();
+    }
+  } else if (previous_left_pressed && left_pressed) {
+    if (mouse_drag_layer_id > 0) {
+      layer_manager->MoveRelative(mouse_drag_layer_id, posdiff);
+    }
+  } else if (previous_left_pressed && !left_pressed) {
+    mouse_drag_layer_id = 0;
+  }
+
+  previous_buttons = buttons;
 }
 
 
@@ -135,7 +153,6 @@ extern "C" void KernelMainNewStack(
   printk("Welcome to kinOS!\n");
   SetLogLevel(kWarn);
   
-  InitializeLAPICTimer();
 
   /*GDTを再構築*/
   SetupSegments();
@@ -265,20 +282,29 @@ extern "C" void KernelMainNewStack(
     }
   }
 
-  const int kFrameWidth = frame_buffer_config.horizontal_resolution;
-  const int kFrameHeight = frame_buffer_config.vertical_resolution;
+  screen_size.x = frame_buffer_config.horizontal_resolution;
+  screen_size.y = frame_buffer_config.vertical_resolution;
 
   auto bgwindow = std::make_shared<Window>(
-      kFrameWidth, kFrameHeight, frame_buffer_config.pixel_format);
+      screen_size.x, screen_size.y, frame_buffer_config.pixel_format);
   auto bgwriter = bgwindow->Writer();
 
   DrawDesktop(*bgwriter);
-  console->SetWindow(bgwindow);
 
   auto mouse_window = std::make_shared<Window>(
       kMouseCursorWidth, kMouseCursorHeight, frame_buffer_config.pixel_format);
   mouse_window->SetTransparentColor(kMouseTransparentColor);
   DrawMouseCursor(mouse_window->Writer(), {0, 0});
+  mouse_position = {200, 200};
+
+  auto main_window = std::make_shared<Window>(
+      160, 52, frame_buffer_config.pixel_format);
+  DrawWindow(*main_window->Writer(), "Hello Window");
+
+  auto console_window = std::make_shared<Window>(
+    Console::kColumns * 8, Console::kRows * 16, frame_buffer_config.pixel_format);
+  console->SetWindow(console_window);
+  
 
   FrameBuffer screen;
   if (auto err = screen.Initialize(frame_buffer_config)) {
@@ -296,18 +322,37 @@ extern "C" void KernelMainNewStack(
     .ID();
   mouse_layer_id = layer_manager->NewLayer()
     .SetWindow(mouse_window)
-    .Move({200, 200})
+    .Move(mouse_position)
     .ID();
+  auto main_window_layer_id = layer_manager->NewLayer()
+    .SetWindow(main_window)
+    .SetDraggable(true)
+    .Move({300, 100})
+    .ID();
+  console->SetLayerID(layer_manager->NewLayer()
+    .SetWindow(console_window)
+    .Move({0, 0})
+    .ID());
 
   layer_manager->UpDown(bglayer_id, 0);
-  layer_manager->UpDown(mouse_layer_id, 1);
-  layer_manager->Draw();
+  layer_manager->UpDown(console->LayerID(), 1);
+  layer_manager->UpDown(main_window_layer_id, 2);
+  layer_manager->UpDown(mouse_layer_id, 3);
+  layer_manager->Draw({{0, 0}, screen_size});
+
+  char str[128];
+  unsigned int count = 0;
 
    while (true) {
-    
+    ++count;
+    sprintf(str, "%010u", count);
+    FillRectangle(*main_window->Writer(), {24, 28}, {8 * 10, 16}, {0xc6, 0xc6, 0xc6});
+    WriteString(*main_window->Writer(), {24, 28}, str, {0, 0, 0});
+    layer_manager->Draw(main_window_layer_id);
+
     __asm__("cli");
     if (main_queue.Count() == 0) {
-      __asm__("sti\n\thlt");
+      __asm__("sti");
       continue;
     }
 
