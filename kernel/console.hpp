@@ -28,3 +28,7 @@ class Console {
   unsigned int layer_id_;
 
 };
+
+extern Console* console;
+
+void InitializeConsole();

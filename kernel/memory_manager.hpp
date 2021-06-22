@@ -1,9 +1,16 @@
+/**
+ * @file memory_manager.hpp
+ *
+ * メモリ管理クラスと周辺機能を集めたファイル．
+ */
+
 #pragma once
 
 #include <array>
 #include <limits>
 
 #include "error.hpp"
+#include "memory_map.hpp"
 
 namespace {
   constexpr unsigned long long operator""_KiB(unsigned long long kib) {
@@ -41,7 +48,6 @@ static const FrameID kNullFrame{std::numeric_limits<size_t>::max()};
  * alloc_map[n] の m ビット目が対応する物理アドレスは次の式で求まる：
  *   kFrameBytes * (n * kBitsPerMapLine + m)
  */
-// #@@range_begin(bitmap_memory_manager)
 class BitmapMemoryManager {
  public:
   /** @brief このメモリ管理クラスで扱える最大の物理メモリ量（バイト） */
@@ -81,4 +87,4 @@ class BitmapMemoryManager {
   void SetBit(FrameID frame, bool allocated);
 };
 
-Error InitializeHeap(BitmapMemoryManager& memory_manager);
+void InitializeMemoryManager(const MemoryMap& memory_map);
