@@ -68,7 +68,6 @@ alignas(16) uint8_t kernel_main_stack[1024 * 1024];
 extern "C" void KernelMainNewStack(
   const FrameBufferConfig& frame_buffer_config_ref,
   const MemoryMap& memory_map_ref) {
-  FrameBufferConfig frame_buffer_config{frame_buffer_config_ref};
   MemoryMap memory_map{memory_map_ref};
 
   InitializeGraphics(frame_buffer_config_ref);
@@ -94,18 +93,21 @@ extern "C" void KernelMainNewStack(
   InitializeLAPICTimer();
 
   char str[128];
-  unsigned int count = 0;
 
    while (true) {
-    ++count;
-    sprintf(str, "%010u", count);
+
+    __asm__("cli");//割り込みを受け取らない
+    const auto tick = timer_manager->CurrentTick();
+    __asm__("sti");//割り込みを受け取る
+
+    sprintf(str, "%010lu", tick);
     FillRectangle(*main_window->Writer(), {24, 28}, {8 * 10, 16}, {0xc6, 0xc6, 0xc6});
     WriteString(*main_window->Writer(), {24, 28}, str, {0, 0, 0});
     layer_manager->Draw(main_window_layer_id);
 
     __asm__("cli");
     if (main_queue->size() == 0) {
-      __asm__("sti");
+      __asm__("sti\n\thlt");
       continue;
     }
 
