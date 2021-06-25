@@ -45,7 +45,7 @@ source edksetup.sh
 ### ブートローダーのリンクを貼る
 
 ```bash
-$ ln -s /path/to/kinos/kinLoaderPkg ./
+ln -s /path/to/kinos/kinLoaderPkg ./
 
 ```
 
