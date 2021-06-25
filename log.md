@@ -1,5 +1,38 @@
 # C\C++
 
+## 演算子のオーバーロード p137
+
+```c++
+template <typename T>
+struct Vector2D {
+  T x, y;
+
+  template <typename U>
+  Vector2D<T>& operator +=(const Vector2D<U>& rhs) {
+    x += rhs.x;
+    y += rhs.y;
+    return *this;
+  }
+};
+```
+
+自作クラスのインスタンス同士の演算を定義するときに演算子のオーバーロードを用いる。上記の例では`Vector2D<int> pos1 += Vector2D<int> pos2`ということができる。
+
+## 構造体の各フィードを詰める p167
+
+```c++
+struct InterruptDescriptor {
+  uint16_t offset_low;
+  uint16_t segment_selector;
+  InterruptDescriptorAttribute attr;
+  uint16_t offset_middle;
+  uint32_t offset_high;
+  uint32_t reserved;
+} __attribute__((packed));
+```
+
+コンパイラは何もしていないと記憶装置にデータを書き込むとき、パディングを挿入してデータの大きさや書き込む位置を調整してしまう。しかしハードウェアの仕様で定まったデータ構造を構造体として表現するときには隙間を入れられるのは困るので`__attribute__((packed))`をつける必要がある。
+
 ## テンプレートの特殊化　 p287
 
 ```c++
