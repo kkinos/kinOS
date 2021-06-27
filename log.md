@@ -1,5 +1,25 @@
 # C\C++
 
+## 動的にメモリを確保する
+
+```c++
+int n;
+int *a_heap;
+
+std::cin >> n; // nを入力
+
+a_heap = new int[n]; // new演算子を使うことで定数でなくとも配列を定義できる
+
+// 何かしらの処理
+
+delete[] a_heap; // 確保した領域は削除
+```
+
+スタック領域とヒープ領域があり、ヒープ領域はプログラムの中で領域を動的に確保できる。つまり new というのはヒープ領域で確保する領域の先頭アドレスをスタック領域に入れておくもの？
+
+[参考 1](https://brain.cc.kogakuin.ac.jp/~kanamaru/lecture/prog1/11-02.html)
+[参考 2](https://www.uquest.co.jp/embedded/learning/lecture16.html)
+
 ## 共用体
 
 ```c++
@@ -11,6 +31,19 @@ union UIntInByte
 ```
 
 i と c はメモリの同じ位置に存在する。つまり先頭アドレスが同じでメモリを共用している。共用体を使えば同じメモリ領域に違う名前を付けて、さらに違う型で扱うことができる。
+
+## 関数ポインタ
+
+```c++
+int add(int a, int b) {
+  return (a + b);
+}
+
+int (*func)(int, int) = add; // 戻り値の型 (*名前)(引数)
+
+```
+
+関数のアドレスは()を省いたもの。上記でいうと`add`
 
 ## 演算子のオーバーロード p137
 
