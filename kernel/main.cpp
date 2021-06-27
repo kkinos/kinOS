@@ -85,35 +85,6 @@ void InitializeTextWindow() {
     layer_manager->UpDown(text_window_layer_id, std::numeric_limits<int>::max());
 }
 
-std::shared_ptr<Window> task_b_window;
-unsigned int task_b_window_layer_id;
-void InitializeTaskBWindow() {
-  task_b_window = std::make_shared<Window>(
-    160, 52, screen_config.pixel_format);
-  DrawWindow(*task_b_window->Writer(), "TaskB Window");
-
-  task_b_window_layer_id = layer_manager->NewLayer()
-    .SetWindow(task_b_window)
-    .SetDraggable(true)
-    .Move({100, 100})
-    .ID();
-
-  layer_manager->UpDown(task_b_window_layer_id, std::numeric_limits<int>::max());
-}
-
-void TaskB(int task_id, int data) {
-  printk("TaskB: task_id=%d, data=%d\n", task_id, data);
-  char str[128];
-  int count = 0;
-  while(true) {
-    ++count;
-    sprintf(str, "%010d", count);
-    FillRectangle(*task_b_window->Writer(), {24, 28}, {8 * 10, 16}, {0xc6, 0xc6, 0xc6});
-    WriteString(*task_b_window->Writer(), {24, 28}, str, {0, 0, 0});
-    layer_manager->Draw(task_b_window_layer_id);
-  }
-}
-
 int text_window_index;
 
 void DrawTextCursor(bool visible) {
@@ -143,6 +114,42 @@ void InputTextWindow(char c) {
   }
 
   layer_manager->Draw(text_window_layer_id);
+}
+
+std::shared_ptr<Window> task_b_window;
+unsigned int task_b_window_layer_id;
+void InitializeTaskBWindow() {
+  task_b_window = std::make_shared<Window>(
+    160, 52, screen_config.pixel_format);
+  DrawWindow(*task_b_window->Writer(), "TaskB Window");
+
+  task_b_window_layer_id = layer_manager->NewLayer()
+    .SetWindow(task_b_window)
+    .SetDraggable(true)
+    .Move({100, 100})
+    .ID();
+
+  layer_manager->UpDown(task_b_window_layer_id, std::numeric_limits<int>::max());
+}
+
+void TaskB(uint64_t task_id, int64_t data) {
+  printk("TaskB: task_id=%d, data=%d\n", task_id, data);
+  char str[128];
+  int count = 0;
+  while(true) {
+    ++count;
+    sprintf(str, "%010d", count);
+    FillRectangle(*task_b_window->Writer(), {24, 28}, {8 * 10, 16}, {0xc6, 0xc6, 0xc6});
+    WriteString(*task_b_window->Writer(), {24, 28}, str, {0, 0, 0});
+    layer_manager->Draw(task_b_window_layer_id);
+  }
+}
+
+void TaskIdle(uint64_t task_id, int64_t data) {
+  printk("TaskIdle: task_id=%lu, data=%lx\n", task_id, data);
+
+  while (true) __asm__("hlt");
+  
 }
 
 std::deque<Message>* main_queue;
@@ -188,23 +195,8 @@ extern "C" void KernelMainNewStack(
   __asm__("sti");
   bool textbox_cursor_visible = false;
 
-  std::vector<uint64_t> task_b_stack(1024);
-  uint64_t task_b_stack_end = reinterpret_cast<uint64_t>(&task_b_stack[1024]);
-
-  memset(&task_b_ctx, 0, sizeof(task_b_ctx));
-  task_b_ctx.rip = reinterpret_cast<uint64_t>(TaskB);
-  task_b_ctx.rdi = 1;
-  task_b_ctx.rsi = 43;
-
-  task_b_ctx.cr3 = GetCR3();
-  task_b_ctx.rflags = 0x202;
-  task_b_ctx.cs = kKernelCS;
-  task_b_ctx.ss = kKernelSS;
-  task_b_ctx.rsp = (task_b_stack_end & ~0xflu) - 8;
-
-  *reinterpret_cast<uint32_t*>(&task_b_ctx.fxsave_area[24]) = 0x1f80;
-
   InitializeTask();
+  task_manager->NewTask().InitContext(TaskB, 45);
 
   char str[128];
 
