@@ -78,6 +78,39 @@ struct InterruptDescriptor {
 
 コンパイラは何もしていないと記憶装置にデータを書き込むとき、パディングを挿入してデータの大きさや書き込む位置を調整してしまう。しかしハードウェアの仕様で定まったデータ構造を構造体として表現するときには隙間を入れられるのは困るので`__attribute__((packed))`をつける必要がある。
 
+## std::priority_queue の優先度 p278
+
+```c++
+class Timer {
+    public:
+     Timer(unsigned long timeout, int value);
+     unsigned long Timeout() const { return timeout_; }
+     int Value() const { return value_; }
+
+    private:
+     unsigned long timeout_;
+     int value_;
+};
+
+inline bool operator<(const Timer& lhs, const Timer& rhs) {
+    return lhs.Timeout() > rhs.Timeout();
+}
+
+class TimerManager {
+    public:
+     TimerManager();
+     void AddTimer(const Timer& timer);
+     bool Tick();
+     unsigned long CurrentTick() const { return tick_; }
+
+    private:
+     volatile unsigned long tick_{0};
+     std::priority_queue<Timer> timers_{};
+};
+```
+
+`std::priority_queue`の優先度は less 演算子により決められるので上記のように priority_queue を定義したときは Timer 型を比較できるような less 演算子を定義する必要がある。
+
 ## テンプレートの特殊化　 p287
 
 ```c++
@@ -97,3 +130,19 @@ template <>
 ```
 
 上の template は一般的な定義で、下の template は T が uint8_t のときの処理。これにより関数を呼び出す側はキャストする必要がなくなる
+
+## 好きな型に無効値を付ける p341
+
+```c++
+std::optional<Message> Task::ReceiveMessage() {
+    if (msgs_.empty()) {
+        return std::nullopt;
+    }
+
+    auto m = msgs_.front();
+    msgs_.pop_front();
+    return m;
+}
+```
+
+上記はあるときは`std::nullopt`無効値を返すが、あるときは Message 型を返すような型

@@ -46,6 +46,21 @@ Task& Task::Wakeup() {
   return *this;
 }
 
+void Task::SendMessage(const Message& msg) {
+    msgs_.push_back(msg);
+    Wakeup();
+}
+
+std::optional<Message> Task::ReceiveMessage() {
+    if (msgs_.empty()) {
+        return std::nullopt;
+    }
+
+    auto m = msgs_.front();
+    msgs_.pop_front();
+    return m;
+}
+
 TaskManager::TaskManager() {
     running_.push_back(&NewTask());
 }
@@ -70,6 +85,7 @@ void TaskManager::Sleep(Task* task) {
 
     if (it == running_.begin()) {
         SwitchTask(true);
+        return;
     }
 
     if (it == running_.end()) {
@@ -106,6 +122,21 @@ Error TaskManager::Wakeup(uint64_t id) {
 
   Wakeup(it->get());
   return MAKE_ERROR(Error::kSuccess);
+}
+
+Error TaskManager::SendMessage(uint64_t id, const Message& msg) {
+    auto it = std::find_if(tasks_.begin(), tasks_.end(),
+                            [id](const auto& t){ return t->ID() == id; });
+    if (it == tasks_.end()) {
+        return MAKE_ERROR(Error::kNoSuchTask);
+    }   
+
+    (*it)->SendMessage(msg);
+    return MAKE_ERROR(Error::kSuccess);
+}
+
+Task& TaskManager::CurrentTask() {
+    return *running_.front();
 }
 
 TaskManager* task_manager;
