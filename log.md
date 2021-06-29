@@ -1,5 +1,59 @@
 # C\C++
 
+## 継承と仮想関数 p102
+
+```c++
+// 親クラス
+class PixelWriter {
+    public:
+        PixelWriter(const FrameBufferConfig& config) : config_{config} {  // 戻り値が書いていなくてクラス名と同じ名前の関数はコンストラクタ
+        }
+        virtual ~PixelWriter() = default; // 頭にチルダがついているものはデストラクタ　c++ではデストラクタは仮想にしなければならない
+        virtual void Write(int x, int y, const PixelColor& c) = 0; // 純粋仮想関数
+
+    protected: // クラス外では使えないが派生（子？）クラスからは使える
+        uint8_t* PixelAt(int x, int y) {
+            return config_.frame_buffer + 4 * (config_.pixels_per_scan_line * y + x);
+        }
+
+    private:
+        const FrameBufferConfig& config_;
+};
+
+// 子クラス
+class RGBResv8BitPerColorPixelWriter : public PixelWriter {　// 親クラスを継承
+    public:
+        using PixelWriter::PixelWriter // 親クラスのコンストラクタをそのまま使える
+
+        virtual void Write(int x, int y, const PixelColor& c) override { // オーバーライド
+            auto p = PixelAt(x, y);
+            p[0] = c.r;
+            p[1] = c.g;
+            p[2] = c.b;
+        }
+}
+
+```
+
+親クラスに純粋仮想関数を用いて戻り値と引数、関数名を定義しておき、それを継承した子クラスで実際の実装を書く。
+
+使い方
+
+```c++
+char pixel_writer_buf[sizeof(RGBResv8BitPerColorPixelWriter)]
+PixelWriter* pixel_writer;
+
+pixel_writer = new(pixel_writer_buf)RGBResv8BitPerColorPixelWriter{frame_buffer_config};
+
+for (int x = 0; x < 200; ++x) {
+    for (int y = 0; y < 200; ++y) {
+            pixel_writer->Write(x, y, {0, 255, 0});
+    }
+}
+```
+
+子クラスのポインタをPixelWriter型のポインタ変数pixel_writerに代入することで親クラスのように子クラスを操作することができる。
+
 ## 動的にメモリを確保する
 
 ```c++

@@ -35,7 +35,7 @@ namespace {
   };
 }
 
-  void DrawMouseCursor(PixelWriter* pixel_writer, Vector2D<int> position) {
+void DrawMouseCursor(PixelWriter* pixel_writer, Vector2D<int> position) {
   for (int dy = 0; dy < kMouseCursorHeight; ++dy) {
     for (int dx = 0; dx < kMouseCursorWidth; ++dx) {
       if (mouse_cursor_shape[dy][dx] == '@') {
@@ -69,12 +69,16 @@ void Mouse::OnInterrupt(uint8_t buttons, int8_t displacement_x, int8_t displacem
 
   const bool previous_left_pressed = (previous_buttons_ & 0x01);
   const bool left_pressed = (buttons & 0x01);
-  if (!previous_left_pressed && left_pressed) {
+   if (!previous_left_pressed && left_pressed) {
     auto layer = layer_manager->FindLayerByPosition(position_, layer_id_);
     if (layer && layer->IsDraggable()) {
       drag_layer_id_ = layer->ID();
+      active_layer->Activate(layer->ID());
+    } else {
+      active_layer->Activate(0);
     }
   } else if (previous_left_pressed && left_pressed) {
+  // #@@range_end(mouse_handler)
     if (drag_layer_id_ > 0) {
       layer_manager->MoveRelative(drag_layer_id_, posdiff);
     }
@@ -103,4 +107,8 @@ void InitializeMouse() {
     [mouse](uint8_t buttons, int8_t displacement_x, int8_t displacement_y) {
       mouse->OnInterrupt(buttons, displacement_x, displacement_y);
     };
+
+  // #@@range_begin(set_mouse_layer)
+  active_layer->SetMouseLayer(mouse_layer_id);
+  // #@@range_end(set_mouse_layer)
 }
