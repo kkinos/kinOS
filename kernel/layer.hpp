@@ -12,6 +12,7 @@
 
 #include "graphics.hpp"
 #include "window.hpp"
+#include "message.hpp"
 
 /** @brief Layer は 1 つの層を表す。
  *
@@ -100,3 +101,4 @@ class LayerManager {
 extern LayerManager* layer_manager;
 
 void InitializeLayer();
+void ProcessLayerMessage(const Message& msg);
