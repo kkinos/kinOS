@@ -52,7 +52,7 @@ for (int x = 0; x < 200; ++x) {
 }
 ```
 
-子クラスのポインタをPixelWriter型のポインタ変数pixel_writerに代入することで親クラスのように子クラスを操作することができる。
+子クラスのポインタを PixelWriter 型のポインタ変数 pixel_writer に代入することで親クラスのように子クラスを操作することができる。
 
 ## 動的にメモリを確保する
 
@@ -200,3 +200,26 @@ std::optional<Message> Task::ReceiveMessage() {
 ```
 
 上記はあるときは`std::nullopt`無効値を返すが、あるときは Message 型を返すような型
+
+## ラムダ式 p385
+
+基本構文
+
+```c++
+[キャプチャリスト](パラメータリスト){ 関数の本体 }
+```
+
+関数として作るほどではないものの共通化したい式のときに使える。[]にキャプチャできる。
+
+```c++
+auto newline = [this]() {
+    cursor_.x = 0;
+    if (cursor_.y < kRows - 1) {
+        ++cursor_.y;
+    } else {
+        Scroll1();
+    }
+};
+```
+
+上の例では this をキャプチャしている。

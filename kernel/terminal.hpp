@@ -35,6 +35,8 @@ class Terminal {
         std::array<char, kLineMax> linebuf_{};
         void Scroll1();
 
+        void ExecuteLine();
+        void Print(const char* s);
 };
 
 void TaskTerminal(uint64_t task_id, int64_t data);
