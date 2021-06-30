@@ -49,6 +49,9 @@ int printk(const char* format, ...) {
   return result;
 }
 
+/*window_layer_id の配列*/
+std::vector<unsigned int> window_layer_id;
+
 std::shared_ptr<ToplevelWindow> main_window;
 unsigned int main_window_layer_id;
 void InitializeMainWindow() {
@@ -60,6 +63,8 @@ void InitializeMainWindow() {
     .SetDraggable(true)
     .Move({300, 100})
     .ID();
+
+  window_layer_id.push_back(main_window_layer_id);
 
   layer_manager->UpDown(main_window_layer_id, std::numeric_limits<int>::max());
 }
@@ -79,6 +84,8 @@ void InitializeTextWindow() {
     .SetDraggable(true)
     .Move({350, 200})
     .ID();
+  
+  window_layer_id.push_back(text_window_layer_id);
 
   layer_manager->UpDown(text_window_layer_id, std::numeric_limits<int>::max());
 }
@@ -125,6 +132,8 @@ void InitializeTaskBWindow() {
     .SetDraggable(true)
     .Move({100, 100})
     .ID();
+  
+  window_layer_id.push_back(task_b_window_layer_id);
 
   layer_manager->UpDown(task_b_window_layer_id, std::numeric_limits<int>::max());
 }
@@ -193,7 +202,7 @@ extern "C" void KernelMainNewStack(
   InitializeTextWindow();
   InitializeTaskBWindow();
   layer_manager->Draw({{0, 0}, ScreenSize()});
-
+  
   acpi::Initialize(acpi_table);
   InitializeLAPICTimer();
 
@@ -213,6 +222,8 @@ extern "C" void KernelMainNewStack(
   InitializeKeyboard();
   InitializeMouse();
 
+  active_layer->Activate(task_b_window_layer_id);
+  
   char str[128];
 
    while (true) {
@@ -255,19 +266,34 @@ extern "C" void KernelMainNewStack(
       break;
     // #@@range_begin(sendkey_to_active)
     case Message::kKeyPush:
-      if (auto act = active_layer->GetActive(); act == text_window_layer_id) {
-        InputTextWindow(msg->arg.keyboard.ascii);
+      /*タブキーを押したときにアクティブなウィンドウを切り替える*/
+      if (msg->arg.keyboard.ascii == '\t') {
+          printk("switch active window\n");
+          auto act_id = active_layer->GetActive();
+          unsigned int next_act_window_id;
+          for (int i = 0; i < window_layer_id.size(); ++i) {
+            if (act_id == window_layer_id[i]) {
+              if (i == window_layer_id.size() - 1) {
+                next_act_window_id = window_layer_id[0];
+              } else {
+                next_act_window_id = window_layer_id[i + 1];
+              }
+            }
+          }
+          active_layer->Activate(next_act_window_id);
+      } else if (auto act = active_layer->GetActive(); act == text_window_layer_id) {
+          InputTextWindow(msg->arg.keyboard.ascii);
       } else if (act == task_b_window_layer_id) {
         if (msg->arg.keyboard.ascii == 's') {
           printk("sleep TaskB: %s\n", task_manager->Sleep(taskb_id).Name());
         } else if (msg->arg.keyboard.ascii == 'w') {
           printk("wakeup TaskB: %s\n", task_manager->Wakeup(taskb_id).Name());
         }
-      } else {
+        } else {
         printk("key push not handled: keycode %02x, ascii %02x\n",
             msg->arg.keyboard.keycode,
             msg->arg.keyboard.ascii);
-      }
+        }
       break;
     // #@@range_end(sendkey_to_active)
     case Message::kLayer:
