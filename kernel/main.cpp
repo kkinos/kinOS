@@ -34,6 +34,7 @@
 #include "acpi.hpp"
 #include "keyboard.hpp"
 #include "task.hpp"
+#include "terminal.hpp"
 
 /*printkを実装する*/
 int printk(const char* format, ...) {
@@ -48,8 +49,7 @@ int printk(const char* format, ...) {
   console->PutString(s);
   return result;
 }
-
-/*window_layer_id の配列*/
+/*ウインドウごとのlayer_idの配列*/
 std::vector<unsigned int> window_layer_id;
 
 std::shared_ptr<ToplevelWindow> main_window;
@@ -218,6 +218,11 @@ extern "C" void KernelMainNewStack(
     .Wakeup()
     .ID();
 
+  const uint64_t task_terminal_id = task_manager->NewTask()
+    .InitContext(TaskTerminal, 0)
+    .Wakeup()
+    .ID();
+
   usb::xhci::Initialize();
   InitializeKeyboard();
   InitializeMouse();
@@ -262,9 +267,13 @@ extern "C" void KernelMainNewStack(
         textbox_cursor_visible = !textbox_cursor_visible;
         DrawTextCursor(textbox_cursor_visible);
         layer_manager->Draw(text_window_layer_id);
+
+        __asm__("cli");
+        task_manager->SendMessage(task_terminal_id, *msg);
+        __asm__("sti");
       }
       break;
-    // #@@range_begin(sendkey_to_active)
+    
     case Message::kKeyPush:
       /*タブキーを押したときにアクティブなウィンドウを切り替える*/
       if (msg->arg.keyboard.ascii == '\t') {
@@ -295,7 +304,7 @@ extern "C" void KernelMainNewStack(
             msg->arg.keyboard.ascii);
         }
       break;
-    // #@@range_end(sendkey_to_active)
+  
     case Message::kLayer:
       ProcessLayerMessage(*msg);
       __asm__("cli");

@@ -116,6 +116,7 @@ class ActiveLayer {
 };
 
 extern ActiveLayer* active_layer;
+extern std::vector<unsigned int> window_layer_id;
 
 void InitializeLayer();
 void ProcessLayerMessage(const Message& msg);
