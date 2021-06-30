@@ -49,8 +49,6 @@ int printk(const char* format, ...) {
   console->PutString(s);
   return result;
 }
-/*ウインドウごとのlayer_idの配列*/
-std::vector<unsigned int> window_layer_id;
 
 std::shared_ptr<ToplevelWindow> main_window;
 unsigned int main_window_layer_id;
@@ -299,9 +297,18 @@ extern "C" void KernelMainNewStack(
           printk("wakeup TaskB: %s\n", task_manager->Wakeup(taskb_id).Name());
         }
         } else {
-        printk("key push not handled: keycode %02x, ascii %02x\n",
-            msg->arg.keyboard.keycode,
-            msg->arg.keyboard.ascii);
+          __asm__("cli");
+          auto task_it = layer_task_map->find(act);
+          __asm__("sti");
+          if (task_it != layer_task_map->end()) {
+            __asm__("cli");
+            task_manager->SendMessage(task_it->second, *msg);
+            __asm__("sti");
+          } else {
+            printk("key push not handled: keycode %02x, ascii %02x\n",
+              msg->arg.keyboard.keycode,
+              msg->arg.keyboard.ascii);
+          }
         }
       break;
   

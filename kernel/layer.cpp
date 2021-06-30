@@ -222,6 +222,10 @@ void ActiveLayer::Activate(unsigned int layer_id) {
 }
 
 ActiveLayer* active_layer;
+std::map<unsigned int, uint64_t>* layer_task_map;
+
+/*ウインドウごとのlayer_idの配列*/
+std::vector<unsigned int> window_layer_id;
 
 void InitializeLayer() {
   const auto screen_size = ScreenSize();
