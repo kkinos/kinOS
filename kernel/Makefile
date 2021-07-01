@@ -11,9 +11,9 @@ DEPENDS = $(join $(dir $(OBJS)),$(addprefix .,$(notdir $(OBJS:.o=.d))))
 
 
 WORK_DIR=..
-LIBC_DIR=$(WORKDIR)/tools/x86_64-elf
-EDK2_DIR=$(WORKDIR)/tools/edk2
-MKFONT_CMD=$(WORKDIR)/tools/mkfont/makefont.py
+LIBC_DIR=$(WORK_DIR)/tools/x86_64-elf
+EDK2_DIR=$(WORK_DIR)/tools/edk2
+MKFONT_CMD=$(WORK_DIR)/tools/mkfont/makefont.py
 
 
 CPPFLAGS += -I$(LIBC_DIR)/include/c++/v1 -I$(LIBC_DIR)/include -I$(LIBC_DIR)/include/freetype2 \

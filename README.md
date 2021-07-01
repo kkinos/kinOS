@@ -51,5 +51,5 @@ make
 ルートディレクトリ内で
 
 ```bash
-~/osbook/devenv/run_qemu.sh ~projects/kinOS/tools/edk2/Build/kinLoaderX64/DEBUG_CLANG38/X64/kinLoader.efi ~/projects/kinOS/kernel/kernel.elf
+~/osbook/devenv/run_qemu.sh ~/projects/kinOS/tools/edk2/Build/kinLoaderX64/DEBUG_CLANG38/X64/kinLoader.efi ~/projects/kinOS/kernel/kernel.elf
 ```
