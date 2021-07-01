@@ -1,6 +1,21 @@
-QEMU = qemu-system-x86_64
+SHELL=/bin/bash
+WORKDIR=$(CURDIR)
+EDK2_DIR=$(WORKDIR)/tools/edk2
+KER_DIR=$(WORKDIR)/kernel
 
-.PHONY: boot
+.PHONY: all
+all: Loader kernel.elf
 
-boot:
-> make -C kinLoderPkg
+.PHONY: Loader
+Loader:	
+		WORKSPACE=$(EDK2_DIR) source $(EDK2_DIR)/edksetup.sh; \
+		WORKSPACE=$(EDK2_DIR) build
+
+.PHONY: kernel.elf
+kernel.elf:
+		make -C $(KER_DIR)
+
+
+
+
+

@@ -336,7 +336,7 @@ EFI_STATUS OpenBlockIoProtocolForLoadedImage(
 void efi_init(void) {
     Print(L"welcome to \n");
     Print(L"\n");
-    Print(L":::    ::: ::::::::::: ::::    :::  ::::::::   ::::::::\n");
+    Print(L":::    ::: ::::::::::: ::::    :::  ::::::::   :::::::\n");
     Print(L":+:   :+:      :+:     :+:+:   :+: :+:    :+: :+:    :+:\n");
     Print(L"+:+  +:+       +:+     :+:+:+  +:+ +:+    +:+ +:+\n");
     Print(L"+#++:++        +#+     +#+ +:+ +#+ +#+    +:+ +#++:++#++\n");

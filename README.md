@@ -13,15 +13,18 @@ make
 
 ### EDK2 をクローンする
 
+`tools/`ディレクトリで
+
 ```bash
-git clone https://github.com/tianocore/edk2.git
+git clone https://github.com/tianocore/edk2.git -b edk2-stable202102
 ```
 
 ### 環境変数設定
 
-`edk2/`ディレクトリ内で
+`edk2/`ディレクトリで
 
 ```bash
+git submodule update --init
 make -C BaseTools/Source/C
 ```
 
@@ -44,12 +47,16 @@ source edksetup.sh
 
 ### ブートローダーのリンクを貼る
 
+`edk2/`ディレクトリで
+
 ```bash
 ln -s /path/to/kinos/kinLoaderPkg ./
 
 ```
 
 ### ビルドする
+
+`edk2/`ディレクトリで
 
 ```bash
 build
@@ -60,7 +67,7 @@ build
 ルートディレクトリ内で
 
 ```bash
-~/osbook/devenv/run_qemu.sh ~/edk2/Build/kinLoaderX64/DEBUG_CLANG38/X64/kinLoader.efi ~/projects/kinOS/kernel/kernel.elf
+~/osbook/devenv/run_qemu.sh ~projects/kinOS/tools/edk2/Build/kinLoaderX64/DEBUG_CLANG38/X64/kinLoader.efi ~/projects/kinOS/kernel/kernel.elf
 ```
 
 ## 参考資料

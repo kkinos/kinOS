@@ -9,11 +9,23 @@ OBJS = main.o graphics.o mouse.o font.o hankaku.o newlib_support.o console.o \
        usb/classdriver/mouse.o
 DEPENDS = $(join $(dir $(OBJS)),$(addprefix .,$(notdir $(OBJS:.o=.d))))
 
-CPPFLAGS += -I.
+
+WORK_DIR=..
+LIBC_DIR=$(WORKDIR)/tools/x86_64-elf
+EDK2_DIR=$(WORKDIR)/tools/edk2
+MKFONT_CMD=$(WORKDIR)/tools/mkfont/makefont.py
+
+
+CPPFLAGS += -I$(LIBC_DIR)/include/c++/v1 -I$(LIBC_DIR)/include -I$(LIBC_DIR)/include/freetype2 \
+            -I$(EDK2_DIR)/MdePkg/Include -I$(EDK2_DIR)/MdePkg/Include/X64 \
+			-I$(WORK_DIR)/kinLoaderPkg \
+			-I$(WORK_DIR)/kernel \
+			-nostdlibinc -D__ELF__ -D_LDBL_EQ_DBL -D_GNU_SOURCE -D_POSIX_TIMERS\
+			-DEFIAPI='__attribute__((ms_abi))'
 CFLAGS   += -O2 -Wall -g --target=x86_64-elf -ffreestanding -mno-red-zone
 CXXFLAGS += -O2 -Wall -g --target=x86_64-elf -ffreestanding -mno-red-zone \
-            -fno-exceptions -fno-rtti -std=c++17
-LDFLAGS  += --entry KernelMain -z norelro --image-base 0x100000 --static
+	        -fno-exceptions -fno-rtti -std=c++17
+LDFLAGS += -L${LIBC_DIR}/lib --entry KernelMain -z norelro --image-base 0x100000  --static
 
 
 .PHONY: all
@@ -46,7 +58,7 @@ kernel.elf: $(OBJS) Makefile
 	nasm -f elf64 -o $@ $<
 
 hankaku.bin: hankaku.txt
-	../tools/makefont.py -o $@ $<
+	$(MKFONT_CMD) -o $@ $<
 
 hankaku.o: hankaku.bin
 	objcopy -I binary -O elf64-x86-64 -B i386:x86-64 $< $@
