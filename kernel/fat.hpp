@@ -71,6 +71,7 @@ struct DirectoryEntry {
 } __attribute__((packed));
 
 extern BPB* boot_volume_image;
+extern unsigned long bytes_per_cluster;
 void Initialize(void* volume_image);
 
 /** @brief 指定されたクラスタの先頭セクタが置いてあるメモリアドレスを返す。
@@ -101,4 +102,12 @@ T* GetSectorByCluster(unsigned long cluster) {
  */
 void ReadName(const DirectoryEntry& entry, char* base, char* ext);
 
-} 
+static const unsigned long kEndOfClusterchain = 0x0ffffffflu;
+
+unsigned long NextCluster(unsigned long cluster);
+
+DirectoryEntry* FindFile(const char* name, unsigned long directory_cluster = 0);
+
+bool NameIsEqual(const DirectoryEntry& entry, const char* name);
+
+}
