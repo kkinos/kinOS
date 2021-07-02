@@ -16,7 +16,13 @@ git clone https://github.com/tianocore/edk2.git -b edk2-stable202102
 
 ```bash
 git submodule update --init
+```
+
+```bash
 make -C BaseTools/Source/C
+```
+
+```bash
 source edksetup.sh
 ```
 

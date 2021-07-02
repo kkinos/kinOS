@@ -9,7 +9,7 @@ LOA_EFI=$(EDK2_DIR)/Build/kinLoaderX64/DEBUG_CLANG38/X64/kinLoader.efi
 all: build run
 
 .PHONY: build
-build: Loader kernel.elf
+build: Loader kernel.elf app
 
 .PHONY: Loader
 Loader:	
@@ -20,8 +20,12 @@ Loader:
 kernel.elf:
 		make -C $(KER_DIR)
 
+.PHONY: app
+app:
+		./appbuild.sh
+
 .PHONY: run
 run: 
-		$(CURDIR)/tools/run_qemu.sh $(LOA_EFI) $(KER_ELF)
+		KINOS_DIR=$(WORKDIR) $(WORKDIR)/tools/run_kinos.sh
 
 
