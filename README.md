@@ -43,7 +43,7 @@ ln -s /path/to/kinos/kinLoaderPkg ./
 ルートディレクトリ内で
 
 ```bash
-make
+make build
 ```
 
 ## QEMU で起動
@@ -51,5 +51,13 @@ make
 ルートディレクトリ内で
 
 ```bash
-~/osbook/devenv/run_qemu.sh ~/projects/kinOS/tools/edk2/Build/kinLoaderX64/DEBUG_CLANG38/X64/kinLoader.efi ~/projects/kinOS/kernel/kernel.elf
+make run
+```
+
+## ビルドして起動
+
+ルートディレクトリ内で
+
+```bash
+make
 ```
