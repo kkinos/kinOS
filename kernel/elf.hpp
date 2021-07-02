@@ -30,6 +30,12 @@ typedef struct {
   Elf64_Half    e_shstrndx;
 } Elf64_Ehdr;
 
+#define ET_NONE 0
+#define ET_REL  1
+#define ET_EXEC 2
+#define ET_DYN  3
+#define ET_CORE 4
+
 /*ELFファイルのプログラムヘッダの構造*/
 typedef struct {
   Elf64_Word  p_type;       /*PHDR, LOADなどのセグメント種別*/ 
