@@ -92,45 +92,29 @@ Task& TaskManager::NewTask() {
     return *tasks_.emplace_back(new Task{latest_id_});
 }
 
-void TaskManager::SwitchTask(bool current_sleep) {
-    auto& level_queue = running_[current_level_];
-    Task* current_task = level_queue.front();
-    level_queue.pop_front();
-    if (!current_sleep) {
-        level_queue.push_back(current_task);
-    }
-    if (level_queue.empty()) {
-        level_changed_ = true;
-    }
-
-    if (level_changed_) {
-        level_changed_ = false;
-        for (int lv = kMaxLevel; lv >= 0; --lv) {
-            if (!running_[lv].empty()) {
-                current_level_ = lv;
-                break;
-            }
-        }
-    }
-
-    Task* next_task = running_[current_level_].front();
-
-    SwitchContext(&next_task->Context(), &current_task->Context());
+void TaskManager::SwitchTask(const TaskContext& current_ctx) {
+  TaskContext& task_ctx = task_manager->CurrentTask().Context();
+  memcpy(&task_ctx, &current_ctx, sizeof(TaskContext));
+  Task* current_task = RotateCurrentRunQueue(false);
+  if (&CurrentTask() != current_task) {
+    RestoreContext(&CurrentTask().Context());
+  }
 }
 
 void TaskManager::Sleep(Task* task) {
-    if (!task->Running()) {
-        return;        
-    }
+  if (!task->Running()) {
+    return;
+  }
 
-    task->SetRunning(false);
+  task->SetRunning(false);
 
-    if (task == running_[current_level_].front()) {
-        SwitchTask(true);
-        return;
-    }
+  if (task == running_[current_level_].front()) {
+    Task* current_task = RotateCurrentRunQueue(true);
+    SwitchContext(&CurrentTask().Context(), &current_task->Context());
+    return;
+  }
 
-    Erase(running_[task->Level()], task);
+  Erase(running_[task->Level()], task);
 }
 
 Error TaskManager::Sleep(uint64_t id) {
@@ -191,31 +175,56 @@ Task& TaskManager::CurrentTask() {
 }
 
 void TaskManager::ChangeLevelRunning(Task* task, int level) {
-    if (level < 0 || level == task->Level()) {
-        return;
-    }
+  if (level < 0 || level == task->Level()) {
+    return;
+  }
 
-    if (task != running_[current_level_].front()) {
-        Erase(running_[task->Level()], task);
-        running_[level].push_back(task);
-        task->SetLevel(level);
-        if (level > current_level_) {
-            level_changed_ = true;
-        }
-        return;
-    }
-
-    running_[current_level_].pop_front();
-    running_[level].push_front(task);
+  if (task != running_[current_level_].front()) {
+    // change level of other task
+    Erase(running_[task->Level()], task);
+    running_[level].push_back(task);
     task->SetLevel(level);
-    if (level >= current_level_) {
-        current_level_ = level;
-    } else {
-        current_level_ = level;
-        level_changed_ = true;
+    if (level > current_level_) {
+      level_changed_ = true;
     }
+    return;
+  }
+
+  // change level myself
+  running_[current_level_].pop_front();
+  running_[level].push_front(task);
+  task->SetLevel(level);
+  if (level >= current_level_) {
+    current_level_ = level;
+  } else {
+    current_level_ = level;
+    level_changed_ = true;
+  }
 }
 
+Task* TaskManager::RotateCurrentRunQueue(bool current_sleep) {
+  auto& level_queue = running_[current_level_];
+  Task* current_task = level_queue.front();
+  level_queue.pop_front();
+  if (!current_sleep) {
+    level_queue.push_back(current_task);
+  }
+  if (level_queue.empty()) {
+    level_changed_ = true;
+  }
+
+  if (level_changed_) {
+    level_changed_ = false;
+    for (int lv = kMaxLevel; lv >= 0; --lv) {
+      if (!running_[lv].empty()) {
+        current_level_ = lv;
+        break;
+      }
+    }
+  }
+
+  return current_task;
+}
 
 TaskManager* task_manager;
 

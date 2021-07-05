@@ -32,11 +32,6 @@ namespace {
     NotifyEndOfInterrupt();
   }
 
-  __attribute__((interrupt))
-  void IntHandlerLAPITimer(InterruptFrame* frame){
-    LAPICTimerOnInterrupt();
-  }
-
 }
 
 void InitializeInterrupt() {
@@ -46,7 +41,7 @@ void InitializeInterrupt() {
               kKernelCS);
   SetIDTEntry(idt[InterruptVector::kLAPICTimer],
               MakeIDTAttr(DescriptorType::kInterruptGate, 0),
-              reinterpret_cast<uint64_t>(IntHandlerLAPITimer),
+              reinterpret_cast<uint64_t>(IntHandlerLAPICTimer),
               kKernelCS);
 
   LoadIDT(sizeof(idt) - 1, reinterpret_cast<uintptr_t>(&idt[0]));
