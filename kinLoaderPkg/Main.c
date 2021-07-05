@@ -237,9 +237,9 @@ void Halt(void) {
   while (1) __asm__("hlt");
 }
 
-/*LOADセグメントすべて合わせたものの先頭と末尾のアドレスを求める*/
+/*プログラムヘッダからkernel_fileのLOADセグメントの大きさを計算する*/
 void CalcLoadAddressRange(Elf64_Ehdr* ehdr, UINT64* first, UINT64* last) {
-  Elf64_Phdr* phdr = (Elf64_Phdr*)((UINT64)ehdr + ehdr->e_phoff);
+  Elf64_Phdr* phdr = (Elf64_Phdr*)((UINT64)ehdr + ehdr->e_phoff); /*プログラムヘッダの先頭に合わせる*/
   *first = MAX_UINT64;
   *last = 0;
   for (Elf64_Half i = 0; i < ehdr->e_phnum; ++i) {
@@ -336,33 +336,20 @@ EFI_STATUS OpenBlockIoProtocolForLoadedImage(
 void efi_init(void) {
     Print(L"welcome to \n");
     Print(L"\n");
-    Print(L":::    ::: ::::::::::: ::::    :::  ::::::::   :::::::\n");
-    Print(L":+:   :+:      :+:     :+:+:   :+: :+:    :+: :+:    :+:\n");
-    Print(L"+:+  +:+       +:+     :+:+:+  +:+ +:+    +:+ +:+\n");
-    Print(L"+#++:++        +#+     +#+ +:+ +#+ +#+    +:+ +#++:++#++\n");
-    Print(L"+#+  +#+       +#+     +#+  +#+#+# +#+    +#+        +#+\n");
-    Print(L"#+#   #+#      #+#     #+#   #+#+# #+#    #+# #+#    #+#\n");
-    Print(L"###    ### ########### ###    ####  ########   ########\n");
+    Print(L"###    ###                            #######       #######  \n");
+    Print(L"###   ###                           ###     ###   ###     ###\n");
+    Print(L"###  ###       ###                  ###     ###    ###       \n");
+    Print(L"### ###        ###     ##########   ###     ###      ###     \n");
+    Print(L"#######        ###     ###    ###   ###     ###         ###  \n");
+    Print(L"###   ###      ###     ###    ###   ###     ###  ###     ### \n");
+    Print(L"###    ###     ###     ###    ###     #######      #######   \n");
     Print(L"\n");
     Print(L"\n");
-    Print(L"this is kinos's bootloader\n");
-    Print(L"command 'kinos' to go kernel\n");
-    Print(L"command 'help' for command list\n");
+    Print(L"this is boot menu\n");
+    Print(L"command 'kinos' and press [Enter] to go kernel\n");
     Print(L"\n");
     Print(L"\n");
     gBS->SetWatchdogTimer(0, 0, 0, NULL);
-}
-
-/*シェルで呼び出す関数*/
-void hello(void) {
-    Print(L"Hello!\n");
-}
-
-void help(void) {
-    Print(L"kinos --- go kernel\n");
-    Print(L"welcome --- show welcome page again\n");
-    Print(L"hello --- Hello!\n");
-
 }
 
 void shell(EFI_HANDLE image_handle,
@@ -413,10 +400,6 @@ void shell(EFI_HANDLE image_handle,
         Print(L"kinos:>\n");
         Print(L"$ ");
         if (gets(com, MAX_COMMAND_LEN) <= 0) continue;
-        if(!strcmp(L"hello", com)) hello();
-        else if(!strcmp(L"help", com)) help();
-        else if(!strcmp(L"welcome", com)) efi_init();
-
         /*カーネル*/
         else if(!strcmp(L"kinos",com)) {
             /*ピクセルgopを取得*/
@@ -450,24 +433,26 @@ void shell(EFI_HANDLE image_handle,
             EFI_FILE_INFO* file_info = (EFI_FILE_INFO*)file_info_buffer;
             UINTN kernel_file_size = file_info->FileSize;
             
-            /*カーネルファイルを一時的に読み込む*/
             VOID* kernel_buffer;
+            /*kernel_fileを読み込む一時的な領域を確保、先頭アドレスは&kernel_bufferに格納*/
             status = gBS->AllocatePool(EfiLoaderData, kernel_file_size, &kernel_buffer);
             if (EFI_ERROR(status)) {
                 Print(L"failed to allocate pool: %r\n", status);
                 Halt();
             }
+            /*一時的な領域へkernel_fileを読み込む*/
             status = kernel_file->Read(kernel_file, &kernel_file_size, kernel_buffer);
             if (EFI_ERROR(status)) {
                 Print(L"error: %r", status);
                 Halt();
             }
             
-            /*LOADセグメントの全体のアドレスを計算*/
+            /*kernelfileのLOADセグメントのための確保すべきページ数を計算*/
             Elf64_Ehdr* kernel_ehdr = (Elf64_Ehdr*)kernel_buffer;
             UINT64 kernel_first_addr, kernel_last_addr;
             CalcLoadAddressRange(kernel_ehdr, &kernel_first_addr, &kernel_last_addr);
 
+            /*ページを計算する。1ページ4KiB=4096=0x1000で0xfffはあまりの部分を含めるために足す*/
             UINTN num_pages = (kernel_last_addr - kernel_first_addr + 0xfff) / 0x1000;
             status = gBS->AllocatePages(AllocateAddress, EfiLoaderData,
                                         num_pages, &kernel_first_addr);
