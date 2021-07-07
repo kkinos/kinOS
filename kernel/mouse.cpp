@@ -108,7 +108,7 @@ void InitializeMouse() {
       mouse->OnInterrupt(buttons, displacement_x, displacement_y);
     };
 
-  // #@@range_begin(set_mouse_layer)
+  
   active_layer->SetMouseLayer(mouse_layer_id);
-  // #@@range_end(set_mouse_layer)
+
 }
