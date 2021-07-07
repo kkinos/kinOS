@@ -18,7 +18,7 @@ LDFLAGS += -L${LIBC_DIR}/lib --entry main -z norelro --image-base 0xffff80000000
 OBJS += ../syscall.o ../newlib_support.o
 
 $(TARGET): $(OBJS) Makefile
-	ld.lld $(LDFLAGS) -o $@ $(OBJS) -lc -lc++ -lc++abi
+	ld.lld $(LDFLAGS) -o $@ $(OBJS) -lc -lc++ -lc++abi -lm
 
 %.o: %.c Makefile
 	clang $(CPPFLAGS) $(CFLAGS) -c $< -o $@

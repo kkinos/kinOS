@@ -4,6 +4,14 @@
 #include "console.hpp"
 #include "logger.hpp"
 
+namespace {
+  template <class T, class U>
+  void EraseIf(T& c, const U& pred) {
+    auto it = std::remove_if(c.begin(), c.end(), pred);
+    c.erase(it, c.end());
+  }
+}
+
 Layer::Layer(unsigned int id) : id_{id} {
 }
 
@@ -49,6 +57,8 @@ void Layer::DrawTo(FrameBuffer& screen, const Rectangle<int>& area) const {
   }
 }
 
+/*ウインドウごとのlayer_idの配列*/
+std::vector<unsigned int> window_layer_id;
 
 void LayerManager::SetWriter(FrameBuffer* screen) {
   screen_ = screen;
@@ -61,6 +71,20 @@ void LayerManager::SetWriter(FrameBuffer* screen) {
 Layer& LayerManager::NewLayer() {
   ++latest_id_;
   return *layers_.emplace_back(new Layer{latest_id_});
+}
+
+void LayerManager::RemoveLayer(unsigned int id) {
+  Hide(id);
+
+  auto pred = [id](const std::unique_ptr<Layer>& elem) {
+    return elem->ID() == id;
+  };
+
+
+  EraseIf(layers_, pred);
+
+  std::vector<unsigned int>::iterator e = remove(window_layer_id.begin(), window_layer_id.end(), id);
+  window_layer_id.erase(e, window_layer_id.end());
 }
 
 void LayerManager::Draw(const Rectangle<int>& area) const {
@@ -192,14 +216,14 @@ namespace {
 
 LayerManager* layer_manager;
 
-// #@@range_begin(al_ctor)
+
 ActiveLayer::ActiveLayer(LayerManager& manager) : manager_{manager} {
 }
 
 void ActiveLayer::SetMouseLayer(unsigned int mouse_layer) {
   mouse_layer_ = mouse_layer;
 }
-// #@@range_end(al_ctor)
+
 
 void ActiveLayer::Activate(unsigned int layer_id) {
   if (active_layer_ == layer_id) {
@@ -224,8 +248,6 @@ void ActiveLayer::Activate(unsigned int layer_id) {
 ActiveLayer* active_layer;
 std::map<unsigned int, uint64_t>* layer_task_map;
 
-/*ウインドウごとのlayer_idの配列*/
-std::vector<unsigned int> window_layer_id;
 
 void InitializeLayer() {
   const auto screen_size = ScreenSize();
