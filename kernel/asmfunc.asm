@@ -92,11 +92,10 @@ KernelMain:
     hlt
     jmp .fin
 
-; #@@range_begin(switch_ctx)
+
 global SwitchContext
 SwitchContext:  ; void SwitchContext(void* next_ctx, void* current_ctx);
     mov [rsi + 0x40], rax
-; #@@range_end(switch_ctx)
     mov [rsi + 0x48], rbx
     mov [rsi + 0x50], rcx
     mov [rsi + 0x58], rdx
@@ -132,7 +131,7 @@ SwitchContext:  ; void SwitchContext(void* next_ctx, void* current_ctx);
     mov dx, gs
     mov [rsi + 0x38], rdx
 
-; #@@range_begin(restore_ctx)
+
     fxsave [rsi + 0xc0]
     ; fall through to RestoreContext
 
@@ -140,13 +139,13 @@ global RestoreContext
 RestoreContext:  ; void RestoreContext(void* task_context);
     ; iret 用のスタックフレーム
     push qword [rdi + 0x28] ; SS
-; #@@range_end(restore_ctx)
+
     push qword [rdi + 0x70] ; RSP
     push qword [rdi + 0x10] ; RFLAGS
     push qword [rdi + 0x20] ; CS
     push qword [rdi + 0x08] ; RIP
 
-    ; コンテキストの復帰
+
     fxrstor [rdi + 0xc0]
 
     mov rax, [rdi + 0x00]
@@ -173,22 +172,29 @@ RestoreContext:  ; void RestoreContext(void* task_context);
 
     mov rdi, [rdi + 0x60]
 
-; #@@range_begin(restore_ctx_ret)
+
     o64 iret
-; #@@range_end(restore_ctx_ret)
+
 
 global CallApp
-CallApp:  ; void CallApp(int argc, char** argv, uint16_t cs, uint16_t ss, uint64_t rip, uint64_t rsp);
+CallApp:  ; void CallApp(int argc, char** argv, uint16_t ss, uint64_t rip, uint64_t rsp, uint64_t* os_stack_ptr);
+    push rbx
     push rbp
-    mov rbp, rsp
-    push rcx  ; SS
-    push r9   ; RSP
+    push r12
+    push r13
+    push r14
+    push r15
+    mov [r9], rsp ; OS 用のスタックポインタを保存
+
+    push rdx  ; SS
+    push r8   ; RSP
+    add rdx, 8
     push rdx  ; CS
-    push r8   ; RIP
+    push rcx  ; RIP
     o64 retf
     ; アプリケーションが終了してもここには来ない
 
-; #@@range_begin(inthandler_timer)
+
 extern LAPICTimerOnInterrupt
 ; void LAPICTimerOnInterrupt(const TaskContext& ctx_stack);
 
@@ -276,6 +282,8 @@ SyscallEntry:  ; void SyscallEntry(void);
     push rcx  ; original RIP
     push r11  ; original RFLAGS
 
+    push rax  ; システムコール番号を保存
+
     mov rcx, r10
     and eax, 0x7fffffff
     mov rbp, rsp
@@ -287,7 +295,24 @@ SyscallEntry:  ; void SyscallEntry(void);
 
     mov rsp, rbp
 
+    pop rsi
+    cmp esi, 0x80000002
+    je  .exit
+
     pop r11
     pop rcx
     pop rbp
     o64 sysret
+
+.exit:
+    mov rsp, rax
+    mov eax, edx
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
+    pop rbx
+
+    ret  ; CallApp の次の行に飛ぶ
