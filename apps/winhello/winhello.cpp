@@ -1,4 +1,5 @@
 #include "../syscall.h"
+#include <cstdlib>
 
 extern "C" void main(int argc, char** argv) {
     auto [layer_id, err_openwin]
@@ -10,5 +11,5 @@ extern "C" void main(int argc, char** argv) {
     SyscallWinWriteString(layer_id, 7, 24, 0xc00000, "hello world!");
     SyscallWinWriteString(layer_id, 24, 40, 0x00c000, "hello world!");
     SyscallWinWriteString(layer_id, 40, 56, 0x0000c0, "hello world!");
-    SyscallExit(0);
+    exit(0);
 }
