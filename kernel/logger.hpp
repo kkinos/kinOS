@@ -12,7 +12,7 @@ enum LogLevel {
  * グローバルなログ優先度のしきい値を level に設定する．
  * 以降の Log の呼び出しでは，ここで設定した優先度以上のログのみ記録される．
  */
-void SetLogLevel(LogLevel level);
+void SetLogLevel(enum LogLevel level);
 
 /** @brief ログを指定された優先度で記録する．
  *

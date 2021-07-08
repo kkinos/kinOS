@@ -156,7 +156,7 @@ extern "C" void KernelMainNewStack(
 
   const int kTextboxCursorTimer = 1;
   const int kTimer05Sec = static_cast<int>(kTimerFreq * 0.5);
-  timer_manager->AddTimer(Timer{kTimer05Sec, kTextboxCursorTimer});
+  timer_manager->AddTimer(Timer{kTimer05Sec, kTextboxCursorTimer, 1});
   bool textbox_cursor_visible = false;
 
   InitializeSyscall();
@@ -206,7 +206,7 @@ extern "C" void KernelMainNewStack(
       if (msg->arg.timer.value == kTextboxCursorTimer) {
         __asm__("cli");
         timer_manager->AddTimer(
-            Timer{msg->arg.timer.timeout + kTimer05Sec, kTextboxCursorTimer});
+            Timer{msg->arg.timer.timeout + kTimer05Sec, kTextboxCursorTimer, 1});
         __asm__("sti");
         textbox_cursor_visible = !textbox_cursor_visible;
         DrawTextCursor(textbox_cursor_visible);
@@ -221,6 +221,7 @@ extern "C" void KernelMainNewStack(
     case Message::kKeyPush:
       /*タブキーを押したときにアクティブなウィンドウを切り替える*/
       if (msg->arg.keyboard.ascii == '\t') {
+        if (msg->arg.keyboard.press) {
           printk("switch active window\n");
           auto act_id = active_layer->GetActive();
           unsigned int next_act_window_id;
@@ -232,10 +233,13 @@ extern "C" void KernelMainNewStack(
                 next_act_window_id = window_layer_id[i + 1];
               }
             }
-          }
+            }
           active_layer->Activate(next_act_window_id);
+        }
       } else if (auto act = active_layer->GetActive(); act == text_window_layer_id) {
-          InputTextWindow(msg->arg.keyboard.ascii);
+            if (msg->arg.keyboard.press) {
+              InputTextWindow(msg->arg.keyboard.ascii);
+            }
       } else {
           __asm__("cli");
           auto task_it = layer_task_map->find(act);

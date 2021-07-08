@@ -2,6 +2,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdint.h>
+#include <signal.h>
+
+#include "syscall.h"
 
 int close(int fd) {
   errno = EBADF;
@@ -13,8 +16,17 @@ int fstat(int fd, struct stat* buf) {
   return -1;
 }
 
+pid_t getpid(void) {
+  return 0;
+}
+
 int isatty(int fd) {
   errno = EBADF;
+  return -1;
+}
+
+int kill(pid_t pid, int sig) {
+  errno = EPERM;
   return -1;
 }
 
@@ -33,14 +45,8 @@ caddr_t sbrk(int incr) {
   return (caddr_t)-1;
 }
 
-struct SyscallResult {
-    uint64_t value;
-    int error;
-};
-struct SyscallResult SyscallPutString(uint64_t, uint64_t, uint64_t);
-
 ssize_t write(int fd, const void* buf, size_t count) {
-  struct SyscallResult res = SyscallPutString(fd, (uint64_t)buf, count);
+  struct SyscallResult res = SyscallPutString(fd, buf, count);
   if (res.error == 0) {
     return res.value;
   }
