@@ -334,3 +334,17 @@ SyscallEntry:  ; void SyscallEntry(void);
     pop rbx
 
     ret  ; CallApp の次の行に飛ぶ
+
+global ExitApp  ; void ExitApp(uint64_t rsp, int32_t ret_val);
+ExitApp:
+    mov rsp, rdi
+    mov eax, esi
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
+    pop rbx
+
+    ret  ; CallApp の次の行に飛ぶ
