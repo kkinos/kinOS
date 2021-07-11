@@ -35,6 +35,7 @@
 #include "keyboard.hpp"
 #include "task.hpp"
 #include "terminal.hpp"
+#include "mainterminal.hpp"
 #include "fat.hpp"
 #include "syscall.hpp"
 
@@ -165,12 +166,18 @@ extern "C" void KernelMainNewStack(
   Task& main_task = task_manager->CurrentTask();
   terminals = new std::map<uint64_t, Terminal*>;
 
+  mainterminals = new std::map<uint64_t, MainTerminal*>; 
+
   usb::xhci::Initialize();
   InitializeKeyboard();
   InitializeMouse();
 
   task_manager->NewTask()
       .InitContext(TaskTerminal, 0)
+      .Wakeup();
+
+  task_manager->NewTask()
+      .InitContext(TaskMainTerminal, 0)
       .Wakeup();
   
   char str[128];
@@ -218,9 +225,8 @@ extern "C" void KernelMainNewStack(
       /*タブキーを押したときにアクティブなウィンドウを切り替える*/
       if (msg->arg.keyboard.ascii == '\t') {
         if (msg->arg.keyboard.press) {
-          printk("switch active window\n");
           auto act_id = active_layer->GetActive();
-          unsigned int next_act_window_id;
+          unsigned int next_act_window_id = window_layer_id[0];
           for (int i = 0; i < window_layer_id.size(); ++i) {
             if (act_id == window_layer_id[i]) {
               if (i == window_layer_id.size() - 1) {
