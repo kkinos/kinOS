@@ -250,7 +250,13 @@ void ActiveLayer::Activate(unsigned int layer_id) {
   }
 
   active_layer_ = layer_id;
-  if (active_layer_ > 0) {
+  if (active_layer_ == manager_.GetMainTerminalID()) {
+    Layer* layer = manager_.FindLayer(active_layer_);
+    layer->GetWindow()->Activate();
+    manager_.Draw(active_layer_);
+    SendWindowActiveMessage(active_layer_, 1);
+
+  } else if (active_layer_ > 0) {
     Layer* layer = manager_.FindLayer(active_layer_);
     layer->GetWindow()->Activate();
     manager_.UpDown(active_layer_, 0);
@@ -297,9 +303,9 @@ void InitializeLayer() {
   layer_manager->UpDown(bglayer_id, 0);
   layer_manager->UpDown(console->LayerID(), 1);
 
-  // #@@range_begin(new_al)
+  
   active_layer = new ActiveLayer{*layer_manager};
-  // #@@range_end(new_al)
+  
 }
 
 void ProcessLayerMessage(const Message& msg) {

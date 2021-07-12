@@ -15,7 +15,7 @@
 
 class MainTerminal {
     public:
-        static const int kRows = 15, kColumns = 60;
+        static const int kRows = 30, kColumns = 80;
         static const int kLineMax = 128;
 
         MainTerminal(uint64_t task_id);

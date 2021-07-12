@@ -96,12 +96,17 @@ class LayerManager {
   /** @brief 指定されたレイヤーの現在の高さを返す。 */
   int GetHeight(unsigned int id);
 
+  void SetMainTerminal(unsigned int id) { mainterm_id_ = id; }
+  unsigned int GetMainTerminalID() { return mainterm_id_; }
+  
  private:
   FrameBuffer* screen_{nullptr};
   mutable FrameBuffer back_buffer_{};
   std::vector<std::unique_ptr<Layer>> layers_{};
   std::vector<Layer*> layer_stack_{};
   unsigned int latest_id_{0};
+
+  unsigned int mainterm_id_{0};
 };
 
 extern LayerManager* layer_manager;

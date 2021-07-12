@@ -263,7 +263,7 @@ MainTerminal::MainTerminal(uint64_t task_id) : task_id_{task_id} {
 
     layer_id_ = layer_manager->NewLayer()
         .SetWindow(window_)
-        .SetDraggable(false)
+        .SetDraggable(true)
         .ID();
     
     window_layer_id.push_back(layer_id_);
@@ -595,6 +595,8 @@ void TaskMainTerminal(uint64_t task_id, int64_t data) {
     layer_manager->Move(mainterminal->LayerID(), {0, 0});
     layer_task_map->insert(std::make_pair(mainterminal->LayerID(), task_id));
     active_layer->Activate(mainterminal->LayerID());
+    
+    layer_manager->SetMainTerminal(mainterminal->LayerID());
     
     (*mainterminals)[task_id] = mainterminal;
     __asm__("sti");
