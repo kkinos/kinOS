@@ -67,3 +67,9 @@ make run
 ```bash
 make
 ```
+
+## 参考
+- [MikanOS](https://github.com/uchan-nos/mikanos)
+- [SaintOS](https://github.com/rkarsnk/SaintOS)
+- [フルスクラッチで作る!x86_64自作OS](http://yuma.ohgami.jp/x86_64-Jisaku-OS/index.html)
+- [EDK2](https://github.com/tianocore/edk2)
