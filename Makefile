@@ -26,6 +26,6 @@ app:
 
 .PHONY: run
 run: 
-		KINOS_DIR=$(WORKDIR) $(WORKDIR)/tools/run_kinos.sh
+		APPS_DIR=apps KINOS_DIR=$(WORKDIR) $(WORKDIR)/tools/run_kinos.sh
 
 
