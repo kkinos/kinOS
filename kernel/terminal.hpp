@@ -15,9 +15,10 @@
 
 class Terminal {
     public:
-        static const int kRows = 15, kColumns = 60;
-        static const int kLineMax = 128;
+        /*メインターミナルのコンストラクタ*/
+        Terminal(uint64_t task_id);
 
+        /*サブターミナルのコンストラクタ*/
         Terminal(uint64_t task_id, bool show_window);
         unsigned int LayerID() const { return layer_id_; }
         Rectangle<int> BlinkCursor();
@@ -26,6 +27,11 @@ class Terminal {
         void Print(const char* s, std::optional<size_t> len = std::nullopt);
 
     private:
+
+        int kRows;
+        int kColumns;
+        static const int kLineMax = 128;
+
         std::shared_ptr<ToplevelWindow> window_;
         unsigned int layer_id_;
         uint64_t task_id_;
@@ -48,7 +54,9 @@ class Terminal {
         Rectangle<int> HistoryUpDown(int direction);
 
         bool show_window_;
+
 };
 
 extern std::map<uint64_t, Terminal*>* terminals;
 void TaskTerminal(uint64_t task_id, int64_t data);
+void TaskMainTerminal(uint64_t task_id, int64_t data);

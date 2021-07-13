@@ -35,7 +35,6 @@
 #include "keyboard.hpp"
 #include "task.hpp"
 #include "terminal.hpp"
-#include "mainterminal.hpp"
 #include "fat.hpp"
 #include "syscall.hpp"
 
@@ -166,7 +165,6 @@ extern "C" void KernelMainNewStack(
   Task& main_task = task_manager->CurrentTask();
   terminals = new std::map<uint64_t, Terminal*>;
 
-  mainterminals = new std::map<uint64_t, MainTerminal*>; 
 
   usb::xhci::Initialize();
   InitializeKeyboard();

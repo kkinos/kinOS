@@ -250,9 +250,43 @@ namespace {
         return memory_manager->Free(frame, 1);
     }
 }
+/*メインターミナルのコンストラクタ*/
+Terminal::Terminal(uint64_t task_id) {
+    kRows = 30;
+    kColumns = 80;
+    window_ = std::make_shared<ToplevelWindow>(
+        ScreenSize().x - 8 + ToplevelWindow::kMarginX,
+        ScreenSize().y - 8 - 50 - 18 + ToplevelWindow::kMarginY,
+        screen_config.pixel_format,
+        "MainTerm");
+    DrawTerminal(*window_->InnerWriter(), {0, 0}, window_->InnerSize());
 
+    layer_id_ = layer_manager->NewLayer()
+        .SetWindow(window_)
+        .SetDraggable(true)
+        .ID();
+    
+    window_layer_id.push_back(layer_id_);
+
+    Print("###    ###                            #######       #######  \n");
+    Print("###   ###                           ###     ###   ###     ###\n");
+    Print("###  ###       ###                  ###     ###    ###       \n");
+    Print("### ###        ###     ##########   ###     ###      ###     \n");
+    Print("#######        ###     ###    ###   ###     ###         ###  \n");
+    Print("###   ###      ###     ###    ###   ###     ###  ###     ### \n");
+    Print("###    ###     ###     ###    ###     #######      #######   \n");
+    Print("\n");
+    Print("by kinpoko based on Mikanos\n");
+    Print("\n");
+    Print("$>");
+    cmd_history_.resize(8);
+}
+
+/*サブターミナルのコンストラクタ*/
 Terminal::Terminal(uint64_t task_id, bool show_window) 
     : task_id_{task_id}, show_window_{show_window} {
+    kRows = 15;
+    kColumns = 60;
     if (show_window) {
         window_ = std::make_shared<ToplevelWindow>(
             kColumns * 8 + 8 + ToplevelWindow::kMarginX,
@@ -268,7 +302,7 @@ Terminal::Terminal(uint64_t task_id, bool show_window)
 
         window_layer_id.push_back(layer_id_);
 
-        Print(">");
+        Print("$>");
     }
     cmd_history_.resize(8);
 }
@@ -313,7 +347,7 @@ Rectangle<int> Terminal::InputKey(
                 Scroll1();
             }
             ExecuteLine();
-            Print(">");
+            Print("$>");
             draw_area.pos = ToplevelWindow::kTopLeftMargin;
             draw_area.size = window_->InnerSize();
         } else if (ascii == '\b') {
@@ -658,6 +692,84 @@ void TaskTerminal(uint64_t task_id, int64_t data) {
                     task_manager->SendMessage(1, msg);
                     __asm__("sti");
                 }
+                }
+                break;
+            case Message::kWindowActive:
+                window_isactive = msg->arg.window_active.activate;
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+void TaskMainTerminal(uint64_t task_id, int64_t data) {
+    const char* command_line = reinterpret_cast<char*>(data);
+
+    __asm__("cli");
+    Task& task = task_manager->CurrentTask();
+    Terminal* mainterminal = new Terminal{task_id};
+   
+    layer_manager->Move(mainterminal->LayerID(), {0, 0});
+    layer_task_map->insert(std::make_pair(mainterminal->LayerID(), task_id));
+    active_layer->Activate(mainterminal->LayerID());
+    
+    layer_manager->SetMainTerminal(mainterminal->LayerID());
+    
+    (*terminals)[task_id] = mainterminal;
+    __asm__("sti");
+
+    if (command_line) {
+        for (int i = 0; command_line[i] != '\0'; ++i) {
+            mainterminal->InputKey(0, 0, command_line[i]);
+        }
+
+        mainterminal->InputKey(0, 0, '\n');
+    }
+
+    auto add_blink_timer = [task_id](unsigned long t) {
+        timer_manager->AddTimer(Timer{t + static_cast<int>(kTimerFreq * 0.5),
+                                      1, task_id});
+    };
+
+    add_blink_timer(timer_manager->CurrentTick());
+
+    bool window_isactive = false;
+
+    while (true) {
+        __asm__("cli");
+        auto msg = task.ReceiveMessage();
+        if (!msg) {
+            task.Sleep();
+            __asm__("sti");
+            continue;
+        }
+        __asm__("sti");
+
+        switch (msg->type) {
+            case Message::kTimerTimeout:
+                add_blink_timer(msg->arg.timer.timeout);
+                if (window_isactive) {
+                    const auto area = mainterminal->BlinkCursor();
+                    Message msg = MakeLayerMessage(
+                    task_id, mainterminal->LayerID(), LayerOperation::DrawArea, area);
+                    __asm__("cli");
+                    task_manager->SendMessage(1, msg);
+                    __asm__("sti");
+                }
+                break;
+            case Message::kKeyPush:
+                if (msg->arg.keyboard.press) {
+                    const auto area = mainterminal->InputKey(msg->arg.keyboard.modifier,
+                                                         msg->arg.keyboard.keycode,
+                                                         msg->arg.keyboard.ascii);
+                    
+                    Message msg = MakeLayerMessage(
+                        task_id, mainterminal->LayerID(), LayerOperation::DrawArea, area);
+                    __asm__("cli");
+                    task_manager->SendMessage(1, msg);
+                    __asm__("sti");
+                
                 }
                 break;
             case Message::kWindowActive:
