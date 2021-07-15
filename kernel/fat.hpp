@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include "file.hpp"
 
 namespace fat {
 
@@ -129,10 +130,10 @@ bool NameIsEqual(const DirectoryEntry& entry, const char* name);
  */
 size_t LoadFile(void* buf, size_t len, const DirectoryEntry& entry);
 
-class FileDescriptor {
+class FileDescriptor : public ::FileDescriptor {
  public:
   explicit FileDescriptor(DirectoryEntry& fat_entry);
-  size_t Read(void* buf, size_t len);
+  size_t Read(void* buf, size_t len) override;
 
  private:
   DirectoryEntry& fat_entry_;
