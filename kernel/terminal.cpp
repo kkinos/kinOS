@@ -557,8 +557,10 @@ Error Terminal::ExecuteFile(const fat::DirectoryEntry& file_entry, char* command
         return err;
     }
 
+    for (int i = 0; i < 3; ++i) {
     task.Files().push_back(
         std::make_unique<TerminalFileDescriptor>(task, *this));
+    }
 
 
 
@@ -663,7 +665,6 @@ Rectangle<int> Terminal::HistoryUpDown(int direction) {
     return draw_area;
 }
 
-std::map<uint64_t, Terminal*>* terminals;
 
 void TaskTerminal(uint64_t task_id, int64_t data) {
     const char* command_line = reinterpret_cast<char*>(data);
@@ -677,7 +678,7 @@ void TaskTerminal(uint64_t task_id, int64_t data) {
         layer_task_map->insert(std::make_pair(terminal->LayerID(), task_id));
         active_layer->Activate(terminal->LayerID());
     }
-    (*terminals)[task_id] = terminal;
+    
     __asm__("sti");
 
     if (command_line) {
@@ -755,7 +756,6 @@ void TaskMainTerminal(uint64_t task_id, int64_t data) {
     
     layer_manager->SetMainTerminal(mainterminal->LayerID());
     
-    (*terminals)[task_id] = mainterminal;
     __asm__("sti");
 
     if (command_line) {
@@ -857,5 +857,11 @@ size_t TerminalFileDescriptor::Read(void* buf, size_t len) {
     }
     
 }
+
+size_t TerminalFileDescriptor::Write(const void* buf, size_t len) {
+    term_.Print(reinterpret_cast<const char*>(buf), len);
+    return len;
+}
+
 
 
