@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "error.hpp"
 
-#include "usb/xhci/registers.hpp"
+#include "server/OS/usb/xhci/registers.hpp"
 
 #define CLEAR_STATUS_BIT(bitname) \
   [this](){ \

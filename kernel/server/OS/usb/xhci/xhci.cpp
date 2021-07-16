@@ -1,13 +1,13 @@
-#include "usb/xhci/xhci.hpp"
+#include "server/OS/usb/xhci/xhci.hpp"
 
 #include <cstring>
 #include "logger.hpp"
 #include "pci.hpp"
 #include "interrupt.hpp"
-#include "usb/setupdata.hpp"
-#include "usb/device.hpp"
-#include "usb/descriptor.hpp"
-#include "usb/xhci/speed.hpp"
+#include "server/OS/usb/setupdata.hpp"
+#include "server/OS/usb/device.hpp"
+#include "server/OS/usb/descriptor.hpp"
+#include "server/OS/usb/xhci/speed.hpp"
 
 namespace {
   using namespace usb::xhci;

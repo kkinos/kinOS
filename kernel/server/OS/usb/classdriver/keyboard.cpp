@@ -1,9 +1,9 @@
-#include "usb/classdriver/keyboard.hpp"
+#include "server/OS/usb/classdriver/keyboard.hpp"
 
 #include <algorithm>
 #include <bitset>
-#include "usb/memory.hpp"
-#include "usb/device.hpp"
+#include "server/OS/usb/memory.hpp"
+#include "server/OS/usb/device.hpp"
 
 namespace usb {
   HIDKeyboardDriver::HIDKeyboardDriver(Device* dev, int interface_index)

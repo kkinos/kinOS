@@ -3,10 +3,10 @@ OBJS = main.o graphics.o mouse.o font.o hankaku.o newlib_support.o console.o \
        pci.o asmfunc.o libcxx_support.o logger.o interrupt.o segment.o paging.o memory_manager.o \
        window.o layer.o timer.o frame_buffer.o acpi.o keyboard.o task.o terminal.o \
        fat.o syscall.o \
-       usb/memory.o usb/device.o usb/xhci/ring.o usb/xhci/trb.o usb/xhci/xhci.o \
-       usb/xhci/port.o usb/xhci/device.o usb/xhci/devmgr.o usb/xhci/registers.o \
-       usb/classdriver/base.o usb/classdriver/hid.o usb/classdriver/keyboard.o \
-       usb/classdriver/mouse.o
+       server/OS/usb/memory.o server/OS/usb/device.o server/OS/usb/xhci/ring.o server/OS/usb/xhci/trb.o server/OS/usb/xhci/xhci.o \
+       server/OS/usb/xhci/port.o server/OS/usb/xhci/device.o server/OS/usb/xhci/devmgr.o server/OS/usb/xhci/registers.o \
+       server/OS/usb/classdriver/base.o server/OS/usb/classdriver/hid.o server/OS/usb/classdriver/keyboard.o \
+       server/OS/usb/classdriver/mouse.o
 DEPENDS = $(join $(dir $(OBJS)),$(addprefix .,$(notdir $(OBJS:.o=.d))))
 
 

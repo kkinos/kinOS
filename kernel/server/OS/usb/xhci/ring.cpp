@@ -1,6 +1,6 @@
-#include "usb/xhci/ring.hpp"
+#include "server/OS/usb/xhci/ring.hpp"
 
-#include "usb/memory.hpp"
+#include "server/OS/usb/memory.hpp"
 
 namespace usb::xhci {
   Ring::~Ring() {

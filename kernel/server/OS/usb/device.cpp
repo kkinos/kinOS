@@ -1,10 +1,10 @@
-#include "usb/device.hpp"
+#include "server/OS/usb/device.hpp"
 
-#include "usb/descriptor.hpp"
-#include "usb/setupdata.hpp"
-#include "usb/classdriver/base.hpp"
-#include "usb/classdriver/keyboard.hpp"
-#include "usb/classdriver/mouse.hpp"
+#include "server/OS/usb/descriptor.hpp"
+#include "server/OS/usb/setupdata.hpp"
+#include "server/OS/usb/classdriver/base.hpp"
+#include "server/OS/usb/classdriver/keyboard.hpp"
+#include "server/OS/usb/classdriver/mouse.hpp"
 
 #include "logger.hpp"
 

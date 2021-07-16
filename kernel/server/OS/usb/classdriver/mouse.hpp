@@ -1,7 +1,7 @@
 #pragma once
 
 #include <functional>
-#include "usb/classdriver/hid.hpp"
+#include "server/OS/usb/classdriver/hid.hpp"
 
 namespace usb {
   class HIDMouseDriver : public HIDBaseDriver {

@@ -4,11 +4,11 @@
 #include <cstdint>
 
 #include "error.hpp"
-#include "usb/device.hpp"
-#include "usb/arraymap.hpp"
-#include "usb/xhci/context.hpp"
-#include "usb/xhci/trb.hpp"
-#include "usb/xhci/registers.hpp"
+#include "server/OS/usb/device.hpp"
+#include "server/OS/usb/arraymap.hpp"
+#include "server/OS/usb/xhci/context.hpp"
+#include "server/OS/usb/xhci/trb.hpp"
+#include "server/OS/usb/xhci/registers.hpp"
 
 namespace usb::xhci {
   class Device : public usb::Device {

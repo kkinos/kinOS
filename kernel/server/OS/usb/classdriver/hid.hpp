@@ -1,6 +1,6 @@
 #pragma once
 
-#include "usb/classdriver/base.hpp"
+#include "server/OS/usb/classdriver/base.hpp"
 
 namespace usb {
   class HIDBaseDriver : public ClassDriver {

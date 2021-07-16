@@ -8,11 +8,11 @@
 
 #include <memory>
 #include "error.hpp"
-#include "usb/xhci/registers.hpp"
-#include "usb/xhci/context.hpp"
-#include "usb/xhci/ring.hpp"
-#include "usb/xhci/port.hpp"
-#include "usb/xhci/devmgr.hpp"
+#include "server/OS/usb/xhci/registers.hpp"
+#include "server/OS/usb/xhci/context.hpp"
+#include "server/OS/usb/xhci/ring.hpp"
+#include "server/OS/usb/xhci/port.hpp"
+#include "server/OS/usb/xhci/devmgr.hpp"
 
 namespace usb::xhci {
   class Controller {

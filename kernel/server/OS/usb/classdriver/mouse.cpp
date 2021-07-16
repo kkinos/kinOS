@@ -1,8 +1,8 @@
-#include "usb/classdriver/mouse.hpp"
+#include "server/OS/usb/classdriver/mouse.hpp"
 
 #include <algorithm>
-#include "usb/memory.hpp"
-#include "usb/device.hpp"
+#include "server/OS/usb/memory.hpp"
+#include "server/OS/usb/device.hpp"
 #include "logger.hpp"
 
 namespace usb {

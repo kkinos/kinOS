@@ -1,8 +1,8 @@
 #pragma once
 
 #include "error.hpp"
-#include "usb/endpoint.hpp"
-#include "usb/setupdata.hpp"
+#include "server/OS/usb/endpoint.hpp"
+#include "server/OS/usb/setupdata.hpp"
 
 namespace usb {
   class Device;

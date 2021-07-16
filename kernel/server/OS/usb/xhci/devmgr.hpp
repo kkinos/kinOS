@@ -4,8 +4,8 @@
 #include <cstdint>
 
 #include "error.hpp"
-#include "usb/xhci/context.hpp"
-#include "usb/xhci/device.hpp"
+#include "server/OS/usb/xhci/context.hpp"
+#include "server/OS/usb/xhci/device.hpp"
 
 namespace usb::xhci {
   class DeviceManager {

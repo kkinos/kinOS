@@ -1,7 +1,7 @@
-#include "usb/classdriver/hid.hpp"
+#include "server/OS/usb/classdriver/hid.hpp"
 
 #include <algorithm>
-#include "usb/device.hpp"
+#include "server/OS/usb/device.hpp"
 #include "logger.hpp"
 
 namespace usb {

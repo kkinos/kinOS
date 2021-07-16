@@ -1,6 +1,6 @@
 #pragma once
 
-#include "usb/endpoint.hpp"
+#include "server/OS/usb/endpoint.hpp"
 
 namespace usb::xhci {
   class Ring;

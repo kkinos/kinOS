@@ -3,9 +3,9 @@
 #include <array>
 
 #include "error.hpp"
-#include "usb/setupdata.hpp"
-#include "usb/endpoint.hpp"
-#include "usb/arraymap.hpp"
+#include "server/OS/usb/setupdata.hpp"
+#include "server/OS/usb/endpoint.hpp"
+#include "server/OS/usb/arraymap.hpp"
 
 namespace usb {
   class ClassDriver;

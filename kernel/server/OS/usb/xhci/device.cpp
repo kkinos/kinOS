@@ -1,8 +1,8 @@
-#include "usb/xhci/device.hpp"
+#include "server/OS/usb/xhci/device.hpp"
 
 #include "logger.hpp"
-#include "usb/memory.hpp"
-#include "usb/xhci/ring.hpp"
+#include "server/OS/usb/memory.hpp"
+#include "server/OS/usb/xhci/ring.hpp"
 
 namespace {
   using namespace usb::xhci;
