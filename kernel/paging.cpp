@@ -116,6 +116,30 @@ Error CleanPageMap(
   return MAKE_ERROR(Error::kSuccess);
 }
 
+const FileMapping* FindFileMapping(const std::vector<FileMapping>& fmaps,
+                                   uint64_t causal_vaddr) {
+  for (const FileMapping& m : fmaps) {
+    if (m.vaddr_begin <= causal_vaddr && causal_vaddr < m.vaddr_end) {
+      return &m;
+    }
+  }
+  return nullptr;
+}
+
+Error PreparePageCache(FileDescriptor& fd, const FileMapping& m,
+                       uint64_t causal_vaddr) {
+  LinearAddress4Level page_vaddr{causal_vaddr};
+  page_vaddr.parts.offset = 0;
+  if (auto err = SetupPageMaps(page_vaddr, 1)) {
+    return err;
+  }
+
+  const long file_offset = page_vaddr.value - m.vaddr_begin;
+  void* page_cache = reinterpret_cast<void*>(page_vaddr.value);
+  fd.Load(page_cache, 4096, file_offset);
+  return MAKE_ERROR(Error::kSuccess);
+}
+
 } // namespace
 
 WithError<PageMapEntry*> NewPageMap() {
@@ -150,8 +174,12 @@ Error HandlePageFault(uint64_t error_code, uint64_t causal_addr) {
   if (error_code & 1) { // P=1 かつページレベルの権限違反により例外が起きた
     return MAKE_ERROR(Error::kAlreadyAllocated);
   }
-  if (causal_addr < task.DPagingBegin() || task.DPagingEnd() <= causal_addr) {
-    return MAKE_ERROR(Error::kIndexOutOfRange);
+  if (task.DPagingBegin() <= causal_addr && causal_addr < task.DPagingEnd()) {
+    return SetupPageMaps(LinearAddress4Level{causal_addr}, 1);
   }
-  return SetupPageMaps(LinearAddress4Level{causal_addr}, 1);
+  if (auto m = FindFileMapping(task.FileMaps(), causal_addr)) {
+    return PreparePageCache(*task.Files()[m->fd], *m, causal_addr);
+  }
+  return MAKE_ERROR(Error::kIndexOutOfRange);
+
 }
