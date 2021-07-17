@@ -130,7 +130,7 @@ bool NameIsEqual(const DirectoryEntry& entry, const char* name);
  * @param entry  ファイルを表すディレクトリエントリ
  * @return  読み込んだバイト数
  */
-size_t LoadFile(void* buf, size_t len, const DirectoryEntry& entry);
+size_t LoadFile(void* buf, size_t len, DirectoryEntry& entry);
 
 bool IsEndOfClusterchain(unsigned long cluster);
 

@@ -13,6 +13,13 @@
 #include "layer.hpp"
 #include "fat.hpp"
 
+struct AppLoadInfo {
+    uint64_t vaddr_end, entry;
+    PageMapEntry* pml4;
+};
+
+extern std::map<fat::DirectoryEntry*, AppLoadInfo>* app_loads;
+
 class Terminal {
     public:
         /*メインターミナルのコンストラクタ*/
@@ -46,7 +53,7 @@ class Terminal {
         void Scroll1();
 
         void ExecuteLine();
-        Error ExecuteFile(const fat::DirectoryEntry& file_entry, char* command, char* first_arg);
+        Error ExecuteFile(fat::DirectoryEntry& file_entry, char* command, char* first_arg);
         void Print(char c);
 
         std::deque<std::array<char, kLineMax>> cmd_history_{};

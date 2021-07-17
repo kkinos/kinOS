@@ -1,6 +1,7 @@
 #include "memory_manager.hpp"
 
 #include "logger.hpp"
+#include <bitset>
 
 BitmapMemoryManager::BitmapMemoryManager()
   : alloc_map_{}, range_begin_{FrameID{0}}, range_end_{FrameID{kFrameCount}} {
@@ -49,6 +50,15 @@ void BitmapMemoryManager::MarkAllocated(FrameID start_frame, size_t num_frames) 
 void BitmapMemoryManager::SetMemoryRange(FrameID range_begin, FrameID range_end) {
   range_begin_ = range_begin;
   range_end_ = range_end;
+}
+
+MemoryStat BitmapMemoryManager::Stat() const {
+  size_t sum = 0;
+  for (int i = range_begin_.ID() / kBitsPerMapLine;
+       i < range_end_.ID() / kBitsPerMapLine; ++i) {
+    sum += std::bitset<kBitsPerMapLine>(alloc_map_[i]).count();
+    }
+  return { sum, range_end_.ID() - range_begin_.ID() };
 }
 
 
