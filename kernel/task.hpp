@@ -39,7 +39,7 @@ struct FileMapping {
 class Task {
     public:
       static const int kDefaultLevel = 1;
-      static const size_t kDefaultStackBytes = 4096;
+      static const size_t kDefaultStackBytes = 8 * 4096;
 
       Task(uint64_t id);
       Task& InitContext(TaskFunc* f, int64_t data);
@@ -50,7 +50,7 @@ class Task {
       Task& Wakeup();
       void SendMessage(const Message& msg);
       std::optional<Message> ReceiveMessage();
-      std::vector<std::unique_ptr<::FileDescriptor>>& Files();
+      std::vector<std::shared_ptr<::FileDescriptor>>& Files();
       uint64_t DPagingBegin() const;
       void SetDPagingBegin(uint64_t v);
       uint64_t DPagingEnd() const;
@@ -70,7 +70,7 @@ class Task {
       std::deque<Message> msgs_;
       unsigned int level_{kDefaultLevel};
       bool running_{false};
-      std::vector<std::unique_ptr<::FileDescriptor>> files_{};
+      std::vector<std::shared_ptr<::FileDescriptor>> files_{};
       uint64_t dpaging_begin_{0}, dpaging_end_{0};
       uint64_t file_map_end_{0};
       std::vector<FileMapping> file_maps_{};
