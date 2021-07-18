@@ -55,7 +55,7 @@ class Terminal {
         void Scroll1();
 
         void ExecuteLine();
-        Error ExecuteFile(fat::DirectoryEntry& file_entry, char* command, char* first_arg);
+        WithError<int> ExecuteFile(fat::DirectoryEntry& file_entry, char* command, char* first_arg);
         void Print(char c);
 
         std::deque<std::array<char, kLineMax>> cmd_history_{};
@@ -64,6 +64,7 @@ class Terminal {
 
         bool show_window_;
         std::array<std::shared_ptr<FileDescriptor>, 3> files_;
+        int last_exit_code_{0};
 
 };
 
