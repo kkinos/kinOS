@@ -95,9 +95,6 @@ class LayerManager {
   Layer* FindLayer(unsigned int id);
   /** @brief 指定されたレイヤーの現在の高さを返す。 */
   int GetHeight(unsigned int id);
-
-  void SetMainTerminal(unsigned int id) { mainterm_id_ = id; }
-  unsigned int GetMainTerminalID() { return mainterm_id_; }
   
  private:
   FrameBuffer* screen_{nullptr};

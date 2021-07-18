@@ -12,6 +12,7 @@
 #include "paging.hpp"
 #include "timer.hpp"
 #include "keyboard.hpp"
+#include "logger.hpp"
 
 namespace {
 
@@ -145,7 +146,7 @@ namespace {
         return memory_manager->Free(frame, 1);
     }
 
-    void ListAllEntries(Terminal* term, uint32_t dir_cluster) {
+    void ListAllEntries(FileDescriptor& fd, uint32_t dir_cluster) {
         const auto kEntriesPerCluster =
             fat::bytes_per_cluster / sizeof(fat::DirectoryEntry);
 
@@ -163,8 +164,7 @@ namespace {
 
             char name[13];
             fat::FormatName(dir[i], name);
-            term->Print(name);
-            term->Print("\n");
+            PrintToFD(fd, "%s\n", name);
             }
 
             dir_cluster = fat::NextCluster(dir_cluster);
@@ -213,52 +213,24 @@ namespace {
 
 std::map<fat::DirectoryEntry*, AppLoadInfo>* app_loads;
 
-/*メインターミナルのコンストラクタ*/
-Terminal::Terminal(Task& task) 
-    : task_{task} {
-    kRows = 30;
-    kColumns = 80;
-    show_window_ = true;
-    for (int i = 0; i < files_.size(); ++i) {
-    files_[i] = std::make_shared<TerminalFileDescriptor>(*this);
-    }
-    window_ = std::make_shared<ToplevelWindow>(
-        ScreenSize().x - 8 + ToplevelWindow::kMarginX,
-        ScreenSize().y - 8 - 50 - 18 + ToplevelWindow::kMarginY,
-        screen_config.pixel_format,
-        "MainTerm");
-    DrawTerminal(*window_->InnerWriter(), {0, 0}, window_->InnerSize());
-
-    layer_id_ = layer_manager->NewLayer()
-        .SetWindow(window_)
-        .SetDraggable(true)
-        .ID();
-    
-    window_layer_id.push_back(layer_id_);
-
-    Print("###    ###                            #######       #######  \n");
-    Print("###   ###                           ###     ###   ###     ###\n");
-    Print("###  ###       ###                  ###     ###    ###       \n");
-    Print("### ###        ###     ##########   ###     ###      ###     \n");
-    Print("#######        ###     ###    ###   ###     ###         ###  \n");
-    Print("###   ###      ###     ###    ###   ###     ###  ###     ### \n");
-    Print("###    ###     ###     ###    ###     #######      #######   \n");
-    Print("\n");
-    Print("by kinpoko based on Mikanos\n");
-    Print("\n");
-    Print("$");
-    cmd_history_.resize(8);
-}
-
 /*サブターミナルのコンストラクタ*/
-Terminal::Terminal(Task& task, bool show_window) 
-    : task_{task}, show_window_{show_window} {
+Terminal::Terminal(Task& task, const TerminalDescriptor* term_desc) 
+    : task_{task} {
     kRows = 15;
     kColumns = 60;
-    for (int i = 0; i < files_.size(); ++i) {
-    files_[i] = std::make_shared<TerminalFileDescriptor>(*this);
+    if (term_desc) {
+        show_window_ = term_desc->show_window;
+        for (int i = 0; i < files_.size(); ++i) {
+            files_[i] = term_desc->files[i];
+        }
+    } else {
+        show_window_ = true;
+        for (int i = 0; i < files_.size(); ++i) {
+            files_[i] = std::make_shared<TerminalFileDescriptor>(*this);
+        }
     }
-    if (show_window) {
+
+    if (show_window_) {
         window_ = std::make_shared<ToplevelWindow>(
             kColumns * 8 + 8 + ToplevelWindow::kMarginX,
             kRows * 16 + 8 + ToplevelWindow::kMarginY,
@@ -365,6 +337,7 @@ void Terminal::ExecuteLine() {
     char* command = &linebuf_[0];
     char* first_arg = strchr(&linebuf_[0], ' ');
     char* redir_char = strchr(&linebuf_[0], '>');
+    char* pipe_char = strchr(&linebuf_[0], '|');
     if (first_arg) {
         *first_arg = 0;
         ++first_arg;
@@ -395,6 +368,31 @@ void Terminal::ExecuteLine() {
     }
     files_[1] = std::make_shared<fat::FileDescriptor>(*file);
     }
+
+    std::shared_ptr<PipeDescriptor> pipe_fd;
+    uint64_t subtask_id = 0;
+
+    if (pipe_char) {
+        *pipe_char = 0;
+        char* subcommand = &pipe_char[1];
+        while (isspace(*subcommand)) {
+            ++subcommand;
+        }
+
+        auto& subtask = task_manager->NewTask();
+        pipe_fd = std::make_shared<PipeDescriptor>(subtask);
+        auto term_desc = new TerminalDescriptor{
+            subcommand, true, false,
+            { pipe_fd, files_[1], files_[2] }
+        };
+        files_[1] = pipe_fd;
+
+        subtask_id = subtask
+            .InitContext(TaskTerminal, reinterpret_cast<int64_t>(term_desc))
+            .Wakeup()
+            .ID();
+    }
+ 
     if (strcmp(command, "echo") == 0) {
         if (first_arg && first_arg[0] == '$') {
             if (strcmp(&first_arg[1], "?") == 0) {
@@ -421,14 +419,15 @@ void Terminal::ExecuteLine() {
           dev.class_code.base, dev.class_code.sub, dev.class_code.interface);
         } 
     } else if (strcmp(command, "ls") == 0) {
-        if (first_arg[0] == '\0') {
-            ListAllEntries(this, fat::boot_volume_image->root_cluster);
+        if (!first_arg || first_arg[0] == '\0')  {
+            ListAllEntries(*files_[1], fat::boot_volume_image->root_cluster);
         } else {
             auto [dir, post_slash] = fat::FindFile(first_arg);
             if (dir == nullptr) {
                 PrintToFD(*files_[2], "No such file or directory: %s\n", first_arg);
+                exit_code = 1;
             } else if (dir->attr == fat::Attribute::kDirectory) {
-                ListAllEntries(this, dir->FirstCluster());
+                ListAllEntries(*files_[1], dir->FirstCluster());
             } else {
                 char name[13];
                 fat::FormatName(*dir, name);
@@ -468,9 +467,12 @@ void Terminal::ExecuteLine() {
             DrawCursor(true);
         }
     } else if (strcmp(command, "noterm") == 0) {
+        auto term_desc = new TerminalDescriptor{
+            first_arg, true, false, files_
+        };
         task_manager->NewTask()
-            .InitContext(TaskTerminal, reinterpret_cast<int64_t>(first_arg))
-            .Wakeup();
+        .InitContext(TaskTerminal, reinterpret_cast<int64_t>(term_desc))
+        .Wakeup();
     } else if (strcmp(command, "memstat") == 0) {
         const auto p_stat = memory_manager->Stat();
         PrintToFD(*files_[1], "Phys used : %lu frames (%llu MiB)\n",
@@ -498,6 +500,18 @@ void Terminal::ExecuteLine() {
             exit_code = ec;
             }
         }
+    }
+
+    if (pipe_fd) {
+        pipe_fd->FinishWrite();
+        __asm__("cli");
+        auto [ ec , err ] = task_manager->WaitFinish(subtask_id);
+        __asm__("sti");
+        if (err) {
+            Log(kWarn, "failed to wait finish: %s\n", err.Name());
+        }
+        exit_code = ec;
+
     }
 
     last_exit_code_ = exit_code;
@@ -646,12 +660,15 @@ Rectangle<int> Terminal::HistoryUpDown(int direction) {
 
 
 void TaskTerminal(uint64_t task_id, int64_t data) {
-    const char* command_line = reinterpret_cast<char*>(data);
-    const bool show_window = command_line == nullptr;
+    const auto term_desc = reinterpret_cast<TerminalDescriptor*>(data);
+    bool show_window = true;
+    if (term_desc) {
+        show_window = term_desc->show_window;
+    }
 
     __asm__("cli");
     Task& task = task_manager->CurrentTask();
-    Terminal* terminal = new Terminal{task, show_window};
+    Terminal* terminal = new Terminal{task, term_desc};
     if (show_window) {
         layer_manager->Move(terminal->LayerID(), {100, 200});
         layer_task_map->insert(std::make_pair(terminal->LayerID(), task_id));
@@ -660,12 +677,19 @@ void TaskTerminal(uint64_t task_id, int64_t data) {
     
     __asm__("sti");
 
-    if (command_line) {
-        for (int i = 0; command_line[i] != '\0'; ++i) {
-            terminal->InputKey(0, 0, command_line[i]);
+    if (term_desc && !term_desc->command_line.empty()) {
+        for (int i = 0; i < term_desc->command_line.length(); ++i) {
+            terminal->InputKey(0, 0, term_desc->command_line[i]);
         }
 
         terminal->InputKey(0, 0, '\n');
+    }
+
+    if (term_desc && term_desc->exit_after_command) {
+        delete term_desc;
+        __asm__("cli");
+        task_manager->Finish(terminal->LastExitCode());
+        __asm__("sti");
     }
 
     auto add_blink_timer = [task_id](unsigned long t) {
@@ -722,82 +746,6 @@ void TaskTerminal(uint64_t task_id, int64_t data) {
     }
 }
 
-void TaskMainTerminal(uint64_t task_id, int64_t data) {
-    const char* command_line = reinterpret_cast<char*>(data);
-
-    __asm__("cli");
-    Task& task = task_manager->CurrentTask();
-    Terminal* mainterminal = new Terminal{task};
-   
-    layer_manager->Move(mainterminal->LayerID(), {0, 0});
-    layer_task_map->insert(std::make_pair(mainterminal->LayerID(), task_id));
-    active_layer->Activate(mainterminal->LayerID());
-    
-    layer_manager->SetMainTerminal(mainterminal->LayerID());
-    
-    __asm__("sti");
-
-    if (command_line) {
-        for (int i = 0; command_line[i] != '\0'; ++i) {
-            mainterminal->InputKey(0, 0, command_line[i]);
-        }
-
-        mainterminal->InputKey(0, 0, '\n');
-    }
-
-    auto add_blink_timer = [task_id](unsigned long t) {
-        timer_manager->AddTimer(Timer{t + static_cast<int>(kTimerFreq * 0.5),
-                                      1, task_id});
-    };
-
-    add_blink_timer(timer_manager->CurrentTick());
-
-    bool window_isactive = false;
-
-    while (true) {
-        __asm__("cli");
-        auto msg = task.ReceiveMessage();
-        if (!msg) {
-            task.Sleep();
-            __asm__("sti");
-            continue;
-        }
-        __asm__("sti");
-
-        switch (msg->type) {
-            case Message::kTimerTimeout:
-                add_blink_timer(msg->arg.timer.timeout);
-                if (window_isactive) {
-                    const auto area = mainterminal->BlinkCursor();
-                    Message msg = MakeLayerMessage(
-                    task_id, mainterminal->LayerID(), LayerOperation::DrawArea, area);
-                    __asm__("cli");
-                    task_manager->SendMessage(1, msg);
-                    __asm__("sti");
-                }
-                break;
-            case Message::kKeyPush:
-                if (msg->arg.keyboard.press) {
-                    const auto area = mainterminal->InputKey(msg->arg.keyboard.modifier,
-                                                         msg->arg.keyboard.keycode,
-                                                         msg->arg.keyboard.ascii);
-                    
-                    Message msg = MakeLayerMessage(
-                        task_id, mainterminal->LayerID(), LayerOperation::DrawArea, area);
-                    __asm__("cli");
-                    task_manager->SendMessage(1, msg);
-                    __asm__("sti");
-                
-                }
-                break;
-            case Message::kWindowActive:
-                window_isactive = msg->arg.window_active.activate;
-                break;
-            default:
-                break;
-        }
-    }
-}
 
 TerminalFileDescriptor::TerminalFileDescriptor( Terminal& term)
     : term_{term} {
@@ -844,4 +792,69 @@ size_t TerminalFileDescriptor::Write(const void* buf, size_t len) {
 
 size_t TerminalFileDescriptor::Load(void* buf, size_t len, size_t offset) {
   return 0;
+}
+
+PipeDescriptor::PipeDescriptor(Task& task) : task_{task} {
+}
+
+size_t PipeDescriptor::Read(void* buf, size_t len) {
+    if (len_ > 0) {
+        const size_t copy_bytes = std::min(len_, len);
+        memcpy(buf, data_, copy_bytes);
+        len_ -= copy_bytes;
+        memmove(data_, &data_[copy_bytes], len_);
+        return copy_bytes;
+    }
+
+    if (closed_) {
+        return 0;
+    }
+
+    while (true) {
+        __asm__("cli");
+        auto msg = task_.ReceiveMessage();
+        if (!msg) {
+            task_.Sleep();
+            continue;
+        }
+        __asm__("sti");
+
+        if (msg->type != Message::kPipe) {
+            continue;
+        }
+
+        if (msg->arg.pipe.len == 0) {
+            closed_ = true;
+            return 0;
+        }
+
+        const size_t copy_bytes = std::min<size_t>(msg->arg.pipe.len, len);
+        len_ = msg->arg.pipe.len - copy_bytes;
+        memcpy(data_, &msg->arg.pipe.data[copy_bytes], len_);
+        return copy_bytes;
+
+    }
+}
+
+size_t PipeDescriptor::Write(const void* buf, size_t len) {
+    auto bufc = reinterpret_cast<const char*>(buf);
+    Message msg{Message::kPipe};
+    size_t sent_bytes = 0;
+    while (sent_bytes < len) {
+        msg.arg.pipe.len = std::min(len - sent_bytes, sizeof(msg.arg.pipe.data));
+        memcpy(msg.arg.pipe.data, &bufc[sent_bytes], msg.arg.pipe.len);
+        sent_bytes += msg.arg.pipe.len;
+        __asm__("cli");
+        task_.SendMessage(msg);
+        __asm__("sti");
+    }
+    return len;
+}
+
+void PipeDescriptor::FinishWrite() {
+  Message msg{Message::kPipe};
+  msg.arg.pipe.len = 0;
+  __asm__("cli");
+  task_.SendMessage(msg);
+  __asm__("sti");
 }

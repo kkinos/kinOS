@@ -174,10 +174,6 @@ extern "C" void KernelMainNewStack(
   task_manager->NewTask()
       .InitContext(TaskTerminal, 0)
       .Wakeup();
-
-  task_manager->NewTask()
-      .InitContext(TaskMainTerminal, 0)
-      .Wakeup();
   
   char str[128];
 
