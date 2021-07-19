@@ -458,7 +458,7 @@ void Terminal::ExecuteLine() {
 
                 int i = 0;
                 for (; i < fat::bytes_per_cluster && i < remain_bytes; ++i) {
-                    Print(*p);
+                    PrintToFD(*files_[1], "%c", *p);
                     ++p;
                 }
                 remain_bytes -= i;
@@ -829,6 +829,7 @@ size_t PipeDescriptor::Read(void* buf, size_t len) {
         }
 
         const size_t copy_bytes = std::min<size_t>(msg->arg.pipe.len, len);
+        memcpy(buf, msg->arg.pipe.data, copy_bytes);
         len_ = msg->arg.pipe.len - copy_bytes;
         memcpy(data_, &msg->arg.pipe.data[copy_bytes], len_);
         return copy_bytes;
