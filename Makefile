@@ -9,7 +9,7 @@ LOA_EFI=$(EDK2_DIR)/Build/kinLoaderX64/DEBUG_CLANG38/X64/kinLoader.efi
 all: build run
 
 .PHONY: build
-build: Loader kernel.elf app
+build: Loader kernel.elf app server
 
 .PHONY: Loader
 Loader:	
@@ -24,8 +24,12 @@ kernel.elf:
 app:
 		./appbuild.sh
 
+.PHONY: server
+server:
+		./serverbuild.sh
+
 .PHONY: run
 run: 
-		APPS_DIR=apps KINOS_DIR=$(WORKDIR) $(WORKDIR)/tools/run_kinos.sh
+		APPS_DIR=apps  SERVS_DIR=servers KINOS_DIR=$(WORKDIR) $(WORKDIR)/tools/run_kinos.sh
 
 

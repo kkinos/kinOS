@@ -1,0 +1,30 @@
+
+WORK_DIR=../..
+LIBC_DIR=$(WORK_DIR)/tools/x86_64-elf
+EDK2_DIR=$(WORK_DIR)/tools/edk2
+MKFONT_CMD=$(WORK_DIR)/tools/mkfont/makefont.py
+
+CPPFLAGS += -I$(LIBC_DIR)/include/c++/v1 -I$(LIBC_DIR)/include -I$(LIBC_DIR)/include/freetype2 \
+            -I$(EDK2_DIR)/MdePkg/Include -I$(EDK2_DIR)/MdePkg/Include/X64 \
+			-I$(WORK_DIR)/kinLoaderPkg \
+			-I$(WORK_DIR)/kernel \
+			-nostdlibinc -D__ELF__ -D_LDBL_EQ_DBL -D_GNU_SOURCE -D_POSIX_TIMERS\
+			-DEFIAPI='__attribute__((ms_abi))'
+CFLAGS   += -O2 -Wall -g --target=x86_64-elf -ffreestanding -mcmodel=large
+CXXFLAGS += -O2 -Wall -g --target=x86_64-elf -ffreestanding -mcmodel=large \
+	        -fno-exceptions -fno-rtti -std=c++17
+LDFLAGS += -L${LIBC_DIR}/lib --entry main -z norelro --image-base 0xffff800000000000 --static
+
+OBJS += ../syscall.o ../newlib_support.o
+
+$(TARGET): $(OBJS) Makefile
+	ld.lld $(LDFLAGS) -o $@ $(OBJS) -lc -lc++ -lc++abi -lm
+
+%.o: %.c Makefile
+	clang $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+%.o: %.cpp Makefile
+	clang++ $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+
+%.o: %.asm Makefile
+	nasm -f elf64 -o $@ $<

@@ -22,6 +22,19 @@ do
   fi
 done
 
+if [ "$SERVS_DIR" != "" ]
+then
+  sudo mkdir $MOUNT_POINT/$SERVS_DIR
+fi
+
+for SERV in $(ls "$KINOS_DIR/servers")
+do
+  if [ -f $KINOS_DIR/servers/$SERV/$SERV ]
+  then
+    sudo cp "$KINOS_DIR/servers/$SERV/$SERV" $MOUNT_POINT/$SERVS_DIR
+  fi
+done
+
 if [ "$RESOURCE_DIR" != "" ]
 then
   sudo cp $KINOS_DIR/$RESOURCE_DIR/* $MOUNT_POINT/
