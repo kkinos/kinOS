@@ -319,20 +319,20 @@ namespace pci {
   }
 }
 
-/*
+
 void InitializePCI() {
   if (auto err = pci::ScanAllBus()) {
-    Log(kError, "ScanAllBus: %s\n", err.Name());
+    printf("ScanBus :%s\n", err.Name());
     exit(1);
   }
 
-  for (int i = 0; i < pci::num_device; ++i) {
-    const auto& dev = pci::devices[i];
-    auto vendor_id = pci::ReadVendorId(dev);
-    auto class_code = pci::ReadClassCode(dev.bus, dev.device, dev.function);
-    Log(kDebug, "%d.%d.%d: vend %04x, class %08x, head %02x\n",
-        dev.bus, dev.device, dev.function,
-        vendor_id, class_code, dev.header_type);
+  printf("num of device : %d\n", pci::num_device);
+  for(int i = 0; i < pci::num_device; ++i) {
+      const auto& dev = pci::devices[i];
+      auto vendor_id = pci::ReadVendorId(dev.bus, dev.device, dev.function);
+      printf("%02x:%02x.%d vend=%04x head=%02x class=%02x.%02x.%02x\n",
+        dev.bus, dev.device, dev.function, vendor_id, dev.header_type,
+        dev.class_code.base, dev.class_code.sub, dev.class_code.interface);
+
   }
 }
-*/

@@ -1,7 +1,7 @@
 #include "keyboard.hpp"
 
 #include <memory>
-#include "server/OS/usb/classdriver/keyboard.hpp"
+#include "usb/classdriver/keyboard.hpp"
 #include "task.hpp"
 
 namespace {

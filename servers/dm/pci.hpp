@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <array>
 
-#include "../lib/common/error.hpp"
+#include "../../libs/common/error.hpp"
 
 namespace pci {
   /** @brief CONFIG_ADDRESS レジスタの IO ポートアドレス */

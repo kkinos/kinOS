@@ -21,7 +21,7 @@
 #include "console.hpp"
 #include "pci.hpp"
 #include "logger.hpp"
-#include "server/OS/usb/xhci/xhci.hpp"
+#include "usb/xhci/xhci.hpp"
 #include "interrupt.hpp"
 #include "asmfunc.h"
 #include "segment.hpp"
