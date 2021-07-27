@@ -1,49 +1,4 @@
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <array>
-
-#include "../syscall.h"
-
-const int kRows = 15;
-const int kColumns = 60;
-const int Marginx = 4;
-const int Marginy = 24;
-const int kCanvasWidth = kColumns * 8 + 8;
-const int kCanvasHeight = kRows * 16 + 8;
-int cursorx = 0;
-int cursory = 0;
-bool cursor_visible_ = true;
-const int kLineMax = 128;
-int linebuf_index_{0};
-std::array<char, kLineMax> linebuf_{};
-
-void ExecuteLine();
-
-template <typename T>
-struct Vector2D {
-  T x, y;
-  template <typename U>
-  Vector2D<T>& operator +=(const Vector2D<U>& rhs) {
-    x += rhs.x;
-    y += rhs.y;
-    return *this;
-  }
-
-  template <typename U>
-  Vector2D<T> operator +(const Vector2D<U>& rhs) const {
-    auto tmp = *this;
-    tmp += rhs;
-    return tmp;
-  }
-};
-
-template <typename T>
-struct Rectangle {
-  Vector2D<T> pos, size;
-};
-
-Vector2D<int> kTopLeftMargin = {4, 24};
+#include "shell.hpp"
 
 Vector2D<int> CalcCursorPos() {
     return kTopLeftMargin +
@@ -56,13 +11,62 @@ void DrawCursor(uint64_t layer_id, bool visible) {
 
 }
 
-
-
 Rectangle<int> BlinkCursor(uint64_t layer_id) {
     cursor_visible_ = !cursor_visible_;
     DrawCursor(layer_id, cursor_visible_);
 
     return {CalcCursorPos(), {7, 15}};
+}
+
+void Scroll1(uint64_t layer_id) {
+    SyscallWinFillRectangle(layer_id, Marginx, Marginy, kCanvasWidth , kCanvasHeight , 0);
+    for (int row = 0; row < kRows - 1; ++row) {
+        memcpy(buffer[row], buffer[row + 1], kColumns + 1);
+        SyscallWinWriteString(layer_id, 4 + 4, 4 + 24 + 16 * row, 0xffffff, buffer[row]);
+    }
+    memset(buffer[kRows - 1], 0, kColumns + 1);
+}
+
+void Print(uint64_t layer_id, char c) {
+  auto newline = [layer_id]() {
+    cursorx = 0;
+    if (cursory < kRows - 1) {
+      ++cursory;
+    } else {
+      Scroll1(layer_id);
+    }
+  };
+
+  if (c == '\n') {
+    newline();
+  } else {
+      char C[] = {c, '\0'}; 
+      SyscallWinWriteString(layer_id, CalcCursorPos().x, CalcCursorPos().y, 0xffffff, C);
+      buffer[cursory][cursorx] = c;
+      if (cursorx == kColumns - 1) {
+        newline();
+      } else {
+          ++cursorx;
+    }
+  }
+}
+
+void Print(uint64_t layer_id, const char* s, std::optional<size_t> len) {
+    DrawCursor(layer_id, false);
+
+    if (len) {
+        for (size_t i = 0; i < *len; ++i) {
+            Print(layer_id, *s);
+            ++s;
+        }
+    } else {
+        while (*s) {
+            Print(layer_id, *s);
+            ++s;
+        }
+    }
+
+    DrawCursor(layer_id, true);
 }
 
 Rectangle<int> InputKey(
@@ -79,11 +83,17 @@ Rectangle<int> InputKey(
             cursorx = 0;
             if(cursory < kRows - 1) {
                 ++cursory;
+            } else {
+                Scroll1(layer_id);
             }
+
             ExecuteLine();
+            Print(layer_id, "$");
+
         } else if (ascii == '\b') {
             if (cursorx > 0) {
                 --cursorx;
+                buffer[cursory][cursorx] = '\0';
                 SyscallWinFillRectangle(layer_id, CalcCursorPos().x,CalcCursorPos().y, 8, 16, 0);
                 draw_area.pos = CalcCursorPos();
                 if (linebuf_index_ > 0) {
@@ -95,8 +105,9 @@ Rectangle<int> InputKey(
             if (cursorx < kColumns - 1 && linebuf_index_ < kLineMax - 1) {
                 linebuf_[linebuf_index_] = ascii;
                 ++linebuf_index_;
-                char ascii_[] = {ascii,'\0'};
-                SyscallWinWriteString(layer_id, CalcCursorPos().x, CalcCursorPos().y, 0xffffff, ascii_);
+                char c[] = {ascii,'\0'};
+                buffer[cursory][cursorx] = ascii;
+                SyscallWinWriteString(layer_id, CalcCursorPos().x, CalcCursorPos().y, 0xffffff, c);
                 ++cursorx;
             }
         }
@@ -138,6 +149,7 @@ extern "C" void main() {
         }
 
     SyscallWinFillRectangle(layer_id, Marginx, Marginy, kCanvasWidth , kCanvasHeight , 0);
+    Print(layer_id, "$");
 
     AppEvent events[1];
 
