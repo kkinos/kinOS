@@ -84,6 +84,11 @@ namespace {
 
     static_assert(kBytesPerFrame >= 4096);
 
+    /**
+     * @brief LOADセグメントを最終目的地にコピー
+     * @param ehder ELFファイルのヘッダを指すポインタ
+     * 
+     */
     WithError<uint64_t> CopyLoadSegments(Elf64_Ehdr* ehdr) {
         auto phdr = GetProgramHeader(ehdr);
         uint64_t last_addr = 0;
@@ -95,10 +100,12 @@ namespace {
             last_addr = std::max(last_addr, phdr[i].p_vaddr + phdr[i].p_memsz);
             const auto num_4kpages = (phdr[i].p_memsz + 4095) / 4096;
 
+            /*後半のページマップを設定しておく*/
             if (auto err = SetupPageMaps(dest_addr, num_4kpages, false)) {
             return { last_addr, err };
             }
 
+            /*設定したページマップをもとにコピー*/
             const auto src = reinterpret_cast<uint8_t*>(ehdr) + phdr[i].p_offset;
             const auto dst = reinterpret_cast<uint8_t*>(phdr[i].p_vaddr);
             memcpy(dst, src, phdr[i].p_filesz);
@@ -170,15 +177,25 @@ namespace {
             dir_cluster = fat::NextCluster(dir_cluster);
         }
         }
-
+    
+    /**
+     * @brief タスクのページング構造を設定し、LOADセグメントをメモリにコピーする
+     * 
+     * @param file_entry 
+     * @param task アプリを実行しようとしているタスク 
+     * @return WithError<AppLoadInfo> 
+     */
     WithError<AppLoadInfo> LoadApp(fat::DirectoryEntry& file_entry, Task& task) {
         PageMapEntry* temp_pml4;
+        
+        /*今のタスクのPML4を新たに設定する 前半はOS用 後半をアプリ用*/
         if (auto [ pml4, err ] = SetupPML4(task); err) {
             return { {}, err};
         } else {
             temp_pml4 = pml4;
         }
 
+        /*もし予めLOADセグメントがあるのであればテーブル構造をコピーするだけ*/
         if (auto it = app_loads->find(&file_entry); it != app_loads->end()) {
             AppLoadInfo app_load = it->second;
             auto err = CopyPageMaps(temp_pml4, app_load.pml4, 4, 256);
@@ -193,13 +210,16 @@ namespace {
             return { {}, MAKE_ERROR(Error::kInvalidFile) };
         }
 
+        /*なければページ構造の後半を設定しLOADセグメントをそこへ配置する*/
         auto [ last_addr, err_load ] = LoadELF(elf_header);
         if (err_load) {
             return { {}, err_load };
         }
 
+    
         AppLoadInfo app_load{last_addr, elf_header->e_entry, temp_pml4};
         app_loads->insert(std::make_pair(&file_entry, app_load));
+
 
         if (auto [ pml4, err ] = SetupPML4(task); err) {
             return { app_load, err };
