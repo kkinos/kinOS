@@ -37,6 +37,10 @@ struct FileMapping {
   uint64_t vaddr_begin, vaddr_end;
 };
 
+/**
+ * @brief タスク(プロセス)のクラス
+ * 
+ */
 class Task {
     public:
       static const int kDefaultLevel = 1;
@@ -47,6 +51,7 @@ class Task {
       TaskContext& Context();
       uint64_t& OSStackPointer();
       uint64_t ID() const;
+      uint64_t PID() { return pid_; }
       Task& Sleep();
       Task& Wakeup();
       void SendMessage(const Message& msg);
@@ -63,8 +68,14 @@ class Task {
       int Level() const { return level_; }
       bool Running() const { return running_; }
 
+      Task& SetPID(uint64_t pid) { pid_ = pid; return *this; }
+      void SetAppPath(char* path) { app_path_ = path; }
+      char* GetAppPath() {return app_path_; }
+
     private:
-      uint64_t id_;
+      uint64_t id_; // タスクのID
+      uint64_t pid_{0}; // 親タスクのID 親は0
+      char* app_path_; // 実行しているアプリのパス
       std::vector<uint64_t> stack_;
       alignas(16) TaskContext context_;
       uint64_t os_stack_ptr_;
@@ -82,6 +93,10 @@ class Task {
       friend TaskManager;
 };
 
+/**
+ * @brief タスクを管理するクラス
+ * 
+ */
 class TaskManager {
   public:
     static const int kMaxLevel = 3;
@@ -96,11 +111,15 @@ class TaskManager {
     Error Wakeup(uint64_t id, int level = -1);
     Error SendMessage(uint64_t id, const Message& msg);
     Task& CurrentTask();
+    Task* FindTask(uint64_t id);
+
     void Finish(int exit_code);
-    WithError<int> WaitFinish(uint64_t task_id);  
+    WithError<int> WaitFinish(uint64_t task_id);
+
+    uint64_t NumOfTask() { return latest_id_; } // タスクの数  
 
   private:
-    std::vector<std::unique_ptr<Task>> tasks_{};
+    std::vector<std::unique_ptr<Task>> tasks_{}; // タスクすべての配列
     uint64_t latest_id_{0};
     std::array<std::deque<Task*>, kMaxLevel + 1> running_{};
     int current_level_{kMaxLevel};

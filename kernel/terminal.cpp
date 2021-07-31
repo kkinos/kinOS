@@ -502,6 +502,7 @@ void Terminal::ExecuteLine() {
             p_stat.total_frames,
             p_stat.total_frames * kBytesPerFrame / 1024 / 1024);
     } else if (command[0] != 0) {
+
         auto [ file_entry, post_slash ] = fat::FindFile(command);
         if (!file_entry) {
             PrintToFD(*files_[2], "no such command: %s\n", command);
@@ -512,6 +513,7 @@ void Terminal::ExecuteLine() {
             PrintToFD(*files_[2], "%s is not a directory\n", name);
             exit_code = 1;
         } else {
+
             auto [ ec, err ] = ExecuteFile(*file_entry, command, first_arg);
             if (err) {
                 PrintToFD(*files_[2], "failed to exec file: %s\n", err.Name());
@@ -548,7 +550,11 @@ WithError<int> Terminal::ExecuteFile(fat::DirectoryEntry& file_entry, char* comm
     if (err) {
         return { 0, err };
     }
+    
+    task.SetAppPath(command);
+    
 
+    /*アプリに渡す引数を予めメモリ上に確保しておきアプリからアクセスできるようにしておく*/
     LinearAddress4Level args_frame_addr{0xffff'ffff'ffff'f000};
     if (auto err = SetupPageMaps(args_frame_addr, 1)) {
         return { 0, err };

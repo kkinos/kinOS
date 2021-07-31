@@ -15,6 +15,7 @@ struct Message {
     kMouseButton,
     kWindowActive,
     kPipe,
+    kTaskFork,
   } type;
 
   uint64_t src_task;
@@ -59,6 +60,10 @@ struct Message {
       char data[16];
       uint8_t len;
     } pipe;
+
+    struct {
+      int pid, cid;
+    } fork;
     
   } arg;
 };

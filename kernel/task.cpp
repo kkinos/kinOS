@@ -210,6 +210,12 @@ Task& TaskManager::CurrentTask() {
     return *running_[current_level_].front();
 }
 
+Task* TaskManager::FindTask(uint64_t id) {
+  auto it = std::find_if(tasks_.begin(), tasks_.end(),
+                            [id](const auto& t){ return t->ID() == id; });
+    return it->get();
+}
+
 void TaskManager::Finish(int exit_code) {
   Task* current_task = RotateCurrentRunQueue(true);
 

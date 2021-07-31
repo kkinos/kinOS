@@ -23,13 +23,12 @@ extern "C" {
    * 
    * @param argc 
    * @param argv 
-   * @param ss 
-   * @param rip 
-   * @param rsp 
+   * @param ss 権限のレベル アプリであれば0b11011
+   * @param rip アプリのエントリアドレス
+   * @param rsp アプリ用のスタック
    * @param os_stack_ptr 
    * @return int 
    */
-  
   int CallApp(int argc, char** argv, uint16_t ss, uint64_t rip, uint64_t rsp, uint64_t* os_stack_ptr);
   void IntHandlerLAPICTimer();
   void LoadTR(uint16_t sel);
