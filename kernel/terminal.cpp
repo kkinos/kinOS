@@ -551,7 +551,7 @@ WithError<int> Terminal::ExecuteFile(fat::DirectoryEntry& file_entry, char* comm
         return { 0, err };
     }
     
-    task.SetAppPath(command);
+    task.SetCommandLine(command);
     
 
     /*アプリに渡す引数を予めメモリ上に確保しておきアプリからアクセスできるようにしておく*/

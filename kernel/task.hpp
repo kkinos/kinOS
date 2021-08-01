@@ -13,6 +13,7 @@
 #include <map>
 #include <optional>
 #include <vector>
+#include <string>
 
 #include "error.hpp"
 #include "message.hpp"
@@ -69,13 +70,13 @@ class Task {
       bool Running() const { return running_; }
 
       Task& SetPID(uint64_t pid) { pid_ = pid; return *this; }
-      void SetAppPath(char* path) { app_path_ = path; }
-      char* GetAppPath() {return app_path_; }
+      void SetCommandLine(char* command_line) { command_line_ = command_line; }
+      std::string GetCommandLine() { return command_line_; }
 
     private:
       uint64_t id_; // タスクのID
       uint64_t pid_{0}; // 親タスクのID 親は0
-      char* app_path_; // 実行しているアプリのパス
+      std::string command_line_; // 実行しているコマンド
       std::vector<uint64_t> stack_;
       alignas(16) TaskContext context_;
       uint64_t os_stack_ptr_;
@@ -115,8 +116,7 @@ class TaskManager {
     void Finish(int exit_code);
     WithError<int> WaitFinish(uint64_t task_id);
 
-    Task* FindTask(uint64_t task_id);
-    void CloneTask(uint64_t pid, uint64_t cid);
+    Error CloneTask(uint64_t pid, uint64_t cid);
     uint64_t NumOfTask() { return latest_id_; } // タスクの数  
 
   private:

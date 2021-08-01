@@ -413,7 +413,7 @@ SYSCALL(MapFile) {
 
 }
 
-SYSCALL(TaskClone) {
+SYSCALL(CloneTask) {
   __asm__("cli");
   auto& task = task_manager->CurrentTask();
   __asm__("sti");
@@ -438,13 +438,33 @@ SYSCALL(TaskClone) {
 
 }
 
+
+SYSCALL(RestartTask) {
+  char* command_line = reinterpret_cast<char*>(arg1);
+
+  __asm__("cli");
+  auto& task = task_manager->CurrentTask();
+  __asm__("sti");
+
+  task.SetCommandLine(command_line);
+
+  Message msg{Message::kRestarTask};
+  msg.arg.restart.task_id = task.ID();
+
+  __asm__("cli");
+  task_manager->SendMessage(1,msg);    
+  __asm__("sti");
+  
+  return {0, 0};
+}
+
 #undef SYSCALL
 
 } 
 
 using SyscallFuncType = syscall::Result (uint64_t, uint64_t, uint64_t,
                                          uint64_t, uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType*, 0x11> syscall_table{
+extern "C" std::array<SyscallFuncType*, 0x12> syscall_table{
   /* 0x00 */ syscall::LogString,
   /* 0x01 */ syscall::PutString,
   /* 0x02 */ syscall::Exit,
@@ -461,7 +481,8 @@ extern "C" std::array<SyscallFuncType*, 0x11> syscall_table{
   /* 0x0d */ syscall::ReadFile,
   /* 0x0e */ syscall::DemandPages,
   /* 0x0f */ syscall::MapFile,
-  /* 0x10 */ syscall::TaskClone,
+  /* 0x10 */ syscall::CloneTask,
+  /* 0x11 */ syscall::RestartTask,
 };
 
 void InitializeSyscall() {

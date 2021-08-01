@@ -121,19 +121,6 @@ void InputTextWindow(char c) {
   layer_manager->Draw(text_window_layer_id);
 }
 
-void TaskFork(uint64_t pid, uint64_t cid) {
-  Task* parent = task_manager->FindTask(pid);
-
-  Task* child = task_manager->FindTask(cid);
-  auto term_desc = new TerminalDescriptor{
-    parent->GetAppPath(), true, false,
-    {parent->Files()[0], parent->Files()[1], parent->Files()[2]}
-  };
-  child->InitContext(TaskTerminal, reinterpret_cast<int64_t>(term_desc))
-    .SetPID(pid)
-    .Wakeup();
-}
-
 
 alignas(16) uint8_t kernel_main_stack[1024 * 1024];
 

@@ -94,7 +94,7 @@ ssize_t write(int fd, const void* buf, size_t count) {
 }
 
 pid_t fork(void) {
-  struct SyscallResult res = SyscallTaskClone();
+  struct SyscallResult res = SyscallCloneTask();
     if (res.error) {
         return -1;
     }    

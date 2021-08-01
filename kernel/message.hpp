@@ -16,6 +16,7 @@ struct Message {
     kWindowActive,
     kPipe,
     kCloneTask,
+    kRestarTask
   } type;
 
   uint64_t src_task;
@@ -64,6 +65,11 @@ struct Message {
     struct {
       int pid, cid;
     } fork;
+
+    struct {
+      int task_id;
+    } restart;
+    
     
   } arg;
 };

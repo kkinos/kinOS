@@ -8,8 +8,8 @@ extern "C" {
 #include <stdint.h>
 #endif
 
-#include "../kernel/logger.hpp"
-#include "../kernel/app_event.hpp"
+#include "logger.hpp"
+#include "../../kernel/app_event.hpp"
 
 struct SyscallResult {
   uint64_t value;
@@ -45,7 +45,9 @@ struct SyscallResult SyscallReadFile(int fd, void* buf, size_t count);
 struct SyscallResult SyscallDemandPages(size_t num_pages, int flags);
 struct SyscallResult SyscallMapFile(int fd, size_t* file_size, int flags);
 
-struct SyscallResult SyscallTaskClone();
+struct SyscallResult SyscallCloneTask();
+
+struct SyscallResult SyscallRestartTask(char* command_line);
 
 #ifdef __cplusplus
 } // extern "C"
