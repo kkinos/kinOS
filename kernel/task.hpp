@@ -111,11 +111,12 @@ class TaskManager {
     Error Wakeup(uint64_t id, int level = -1);
     Error SendMessage(uint64_t id, const Message& msg);
     Task& CurrentTask();
-    Task* FindTask(uint64_t id);
 
     void Finish(int exit_code);
     WithError<int> WaitFinish(uint64_t task_id);
 
+    Task* FindTask(uint64_t task_id);
+    void CloneTask(uint64_t pid, uint64_t cid);
     uint64_t NumOfTask() { return latest_id_; } // タスクの数  
 
   private:

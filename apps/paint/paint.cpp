@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include "../syscall.h"
+#include "../../libs/kinos/syscall.h"
 
 static const int kWidth = 200, kHeight = 130;
 

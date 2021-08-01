@@ -1,6 +1,6 @@
 #include <cstdlib>
 #include <random>
-#include "../syscall.h"
+#include "../../libs/kinos/syscall.h"
 
 static constexpr int kWidth = 100, kHeight = 100;
 

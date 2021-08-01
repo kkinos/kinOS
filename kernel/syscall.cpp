@@ -419,10 +419,10 @@ SYSCALL(TaskClone) {
   __asm__("sti");
 
   uint64_t task_id = 0;
-  /*このタスクが親であればクローンする*/
+  /*このタスクが親であればメインタスクにこのタスクをクローンするようにメッセージを送信*/
   if (task.PID() == 0) {
     auto child_task_id = task_manager->NewTask().ID();
-    Message msg{Message::kTaskFork};
+    Message msg{Message::kCloneTask};
     msg.arg.fork.pid = task.ID();
     msg.arg.fork.cid = child_task_id;
     task_id = child_task_id;

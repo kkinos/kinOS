@@ -278,11 +278,11 @@ extern "C" void KernelMainNewStack(
       __asm__("sti");
       break;
     
-    case Message::kTaskFork:
+    case Message::kCloneTask:
       printk("fork\n");
       printk("parent id is %d\n",msg->arg.fork.pid);
       printk("child id is %d\n",msg->arg.fork.cid);
-      TaskFork(msg->arg.fork.pid, msg->arg.fork.cid);
+      task_manager->CloneTask(msg->arg.fork.pid, msg->arg.fork.cid);
       break;
     default:
       Log(kError, "Unknown message type: %d\n", msg->type);

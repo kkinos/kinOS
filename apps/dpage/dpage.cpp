@@ -1,6 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
-#include "../syscall.h"
+#include "../../libs/kinos/syscall.h"
 
 extern "C" void main(int argc, char** argv) {
   const char* filename = "/memmap";

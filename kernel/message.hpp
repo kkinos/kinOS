@@ -15,7 +15,7 @@ struct Message {
     kMouseButton,
     kWindowActive,
     kPipe,
-    kTaskFork,
+    kCloneTask,
   } type;
 
   uint64_t src_task;

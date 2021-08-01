@@ -2,7 +2,7 @@
 #include <bitset>
 #include <cmath>
 #include <cstdlib>
-#include "../syscall.h"
+#include "../../libs/kinos/syscall.h"
 
 using namespace std;
 

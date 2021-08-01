@@ -2,36 +2,22 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include "../syscall.h"
-
-int kfork() {    
-    auto [task_id, err]
-        = SyscallTaskClone();
-    if (err) {
-        return -1;
-    }    
-    return task_id;
-}
 
 extern "C" void main(int argc, char *argv[]) {
 
     int ret;
-
-    printf("start!\n");
-    ret = kfork();
+    ret = fork();
 
     if(ret  == -1){
-        printf("fork() failed.");
+        printf("\nfork() failed.\n");
         exit(0);
-    }
-    if(ret == 0) {
-        printf("child\n");
-        printf("end!\n");
+    } else if (ret == 0) {
+        printf("\nIm child\n");
         exit(1);
-
+    } else {
+        printf("\nIm parent\n");
+        printf("\nchild task id is %d\n", ret);
+        exit(1);
     }
-    printf("parent\n");
-    printf("end!\n");
 
-    exit(1);
 }

@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include "../syscall.h"
+#include "../../libs/kinos/syscall.h"
 
 extern "C" void main(int argc, char** argv) {
   if (argc <= 1) {

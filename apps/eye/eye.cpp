@@ -2,7 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <algorithm>
-#include "../syscall.h"
+#include "../../libs/kinos/syscall.h"
 
 static const int kCanvasSize = 100, kEyeSize = 10;
 

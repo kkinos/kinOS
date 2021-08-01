@@ -1,5 +1,5 @@
 #include <cstdlib>
-#include "../syscall.h"
+#include "../../libs/kinos/syscall.h"
 
 char table[3 * 1024 * 1024];
 

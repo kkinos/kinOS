@@ -1,7 +1,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <random>
-#include "../syscall.h"
+#include "../../libs/kinos/syscall.h"
 
 static constexpr int kRadius = 90;
 

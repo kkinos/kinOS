@@ -1,7 +1,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <fcntl.h>
-#include "../syscall.h"
+#include "../../libs/kinos/syscall.h"
 
 extern "C" void main(int argc, char** argv) {
   SyscallResult res = SyscallOpenFile("/memmap", O_RDONLY);

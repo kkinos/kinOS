@@ -3,6 +3,7 @@
 #include "asmfunc.h"
 #include "segment.hpp"
 #include "timer.hpp"
+#include "terminal.hpp"
 
 
 namespace {
@@ -215,6 +216,25 @@ Task* TaskManager::FindTask(uint64_t id) {
                             [id](const auto& t){ return t->ID() == id; });
     return it->get();
 }
+
+/**
+ * @brief 親タスクの実行中のアプリをクローンする
+ * 
+ * @param pid 親タスクのid
+ * @param cid 子タスクのid
+ */
+  void TaskManager::CloneTask(uint64_t pid, uint64_t cid) {
+    Task* parent = task_manager->FindTask(pid);
+    Task* child = task_manager->FindTask(cid);
+
+    auto term_desc = new TerminalDescriptor{
+      parent->GetAppPath(), true, false,
+      { parent->Files()[0], parent->Files()[1], parent->Files()[2] } };
+    
+    child->InitContext(TaskTerminal, reinterpret_cast<int64_t>(term_desc))
+      .SetPID(pid)
+      .Wakeup();
+  }
 
 void TaskManager::Finish(int exit_code) {
   Task* current_task = RotateCurrentRunQueue(true);
