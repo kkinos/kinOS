@@ -217,29 +217,44 @@ Task& TaskManager::CurrentTask() {
  * @param pid 親タスクのid
  * @param cid 子タスクのid
  */
-  Error TaskManager::CloneTask(uint64_t pid, uint64_t cid) {
-    auto parent = std::find_if(tasks_.begin(), tasks_.end(),
-                            [pid](const auto& t){ return t->ID() == pid; });
-    if (parent == tasks_.end()) {
-        return MAKE_ERROR(Error::kNoSuchTask);
-    }
-
-    auto child = std::find_if(tasks_.begin(), tasks_.end(),
-                            [cid](const auto& t){ return t->ID() == cid; });
-    if (child == tasks_.end()) {
-        return MAKE_ERROR(Error::kNoSuchTask);
-    }
-
-    auto term_desc = new TerminalDescriptor{
-      (*parent)->GetCommandLine(), true, false,
-      { (*parent)->Files()[0], (*parent)->Files()[1], (*parent)->Files()[2] } };
-    
-    (*child)->InitContext(TaskTerminal, reinterpret_cast<int64_t>(term_desc))
-      .SetPID(pid)
-      .Wakeup();
-
-    return MAKE_ERROR(Error::kSuccess);
+Error TaskManager::CloneTask(uint64_t pid, uint64_t cid) {
+  auto parent = std::find_if(tasks_.begin(), tasks_.end(),
+                          [pid](const auto& t){ return t->ID() == pid; });
+  if (parent == tasks_.end()) {
+      return MAKE_ERROR(Error::kNoSuchTask);
   }
+
+  auto child = std::find_if(tasks_.begin(), tasks_.end(),
+                          [cid](const auto& t){ return t->ID() == cid; });
+  if (child == tasks_.end()) {
+      return MAKE_ERROR(Error::kNoSuchTask);
+  }
+
+  auto term_desc = new TerminalDescriptor{
+    (*parent)->GetCommandLine(), true, false,
+    { (*parent)->Files()[0], (*parent)->Files()[1], (*parent)->Files()[2] } };
+  
+  (*child)->InitContext(TaskTerminal, reinterpret_cast<int64_t>(term_desc))
+    .SetPID(pid)
+    .Wakeup();
+
+  return MAKE_ERROR(Error::kSuccess);
+}
+
+Error TaskManager::ResetTask(uint64_t id) {
+  auto it = std::find_if(tasks_.begin(), tasks_.end(),
+                            [id](const auto& t){ return t->ID() == id; });
+    if (it == tasks_.end()) {
+        return MAKE_ERROR(Error::kNoSuchTask);
+    }   
+    auto term_desc = new TerminalDescriptor{
+    (*it)->GetCommandLine(), true, false,
+    { (*it)->Files()[0], (*it)->Files()[1], (*it)->Files()[2] } };
+
+    (*it)->InitContext(TaskTerminal, reinterpret_cast<uint64_t>(term_desc))
+      .Wakeup();
+    return MAKE_ERROR(Error::kSuccess);
+}
 
 void TaskManager::Finish(int exit_code) {
   Task* current_task = RotateCurrentRunQueue(true);

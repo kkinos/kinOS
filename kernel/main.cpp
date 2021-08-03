@@ -271,6 +271,12 @@ extern "C" void KernelMainNewStack(
       printk("child id is %d\n",msg->arg.fork.cid);
       task_manager->CloneTask(msg->arg.fork.pid, msg->arg.fork.cid);
       break;
+
+    case Message::kRestarTask:
+      printk("exec");
+      task_manager->ResetTask(msg->arg.restart.task_id);
+      break;
+      
     default:
       Log(kError, "Unknown message type: %d\n", msg->type);
     }

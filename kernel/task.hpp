@@ -117,6 +117,7 @@ class TaskManager {
     WithError<int> WaitFinish(uint64_t task_id);
 
     Error CloneTask(uint64_t pid, uint64_t cid);
+    Error ResetTask(uint64_t id);
     uint64_t NumOfTask() { return latest_id_; } // タスクの数  
 
   private:
