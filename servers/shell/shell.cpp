@@ -87,7 +87,7 @@ Rectangle<int> InputKey(
                 Scroll1(layer_id);
             }
 
-            ExecuteLine();
+            ExecuteLine(layer_id);
             Print(layer_id, "$");
 
         } else if (ascii == '\b') {
@@ -116,24 +116,15 @@ Rectangle<int> InputKey(
         return draw_area;
     };
 
-void ExecuteLine() {
+void ExecuteLine(uint64_t layer_id) {
     char* command = &linebuf_[0];
     char* first_arg = strchr(&linebuf_[0], ' ');
+    int ret;
 
      if (first_arg) {
         *first_arg = 0;
         ++first_arg;
     }
-
-
-    if (strcmp(command, "echo") == 0) {
-        printf("%s", first_arg);
-        printf("\n");
-    } else {
-        printf("no such command");
-        printf("\n");
-    }
-
 }
 
 

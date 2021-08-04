@@ -14,7 +14,9 @@ CXXFLAGS += -O2 -Wall -g --target=x86_64-elf -ffreestanding -mcmodel=large \
 	        -fno-exceptions -fno-rtti -std=c++17
 LDFLAGS += -L${LIBC_DIR}/lib --entry main -z norelro --image-base 0xffff800000000000 --static
 
-OBJS += ../syscall.o ../newlib_support.o ../../libs/kinos/logger.o
+OBJS += ../../libs/kinos/syscall.o ../../libs/kinos/newlib_support.o ../../libs/kinos/logger.o \
+		../../libs/kinos/kexec.o
+		
 DEPENDS = $(join $(dir $(OBJS)),$(addprefix .,$(notdir $(OBJS:.o=.d))))
 
 $(TARGET): $(OBJS) Makefile

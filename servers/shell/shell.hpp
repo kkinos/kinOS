@@ -4,8 +4,10 @@
 #include <array>
 #include <optional>
 
-#include "../syscall.h"
+#include "../../libs/kinos/syscall.h"
 #include "../../libs/common/template.hpp"
+#include "../../libs/kinos/kexec.hpp"
+
 
 const int kRows = 15;
 const int kColumns = 60;
@@ -29,4 +31,4 @@ Rectangle<int> InputKey(uint64_t layer_id, uint8_t modifier, uint8_t keycode, ch
 void Scroll1(uint64_t layer_id);
 void Print(uint64_t layer_id, const char* s, std::optional<size_t> len = std::nullopt);
 void Print(uint64_t layer_id, char s);
-void ExecuteLine();
+void ExecuteLine(uint64_t layer_id);
