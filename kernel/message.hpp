@@ -16,7 +16,7 @@ struct Message {
     kWindowActive,
     kPipe,
     kCloneTask,
-    kRestarTask
+    kRestartTask
   } type;
 
   uint64_t src_task;

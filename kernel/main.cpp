@@ -272,9 +272,10 @@ extern "C" void KernelMainNewStack(
       task_manager->CloneTask(msg->arg.fork.pid, msg->arg.fork.cid);
       break;
 
-    case Message::kRestarTask:
-      printk("exec");
-      task_manager->ResetTask(msg->arg.restart.task_id);
+    case Message::kRestartTask:
+      printk("exec\n");
+      printk("restart task : %d\n", msg->arg.restart.task_id);
+      task_manager->RestartTask(msg->arg.restart.task_id);
       break;
       
     default:

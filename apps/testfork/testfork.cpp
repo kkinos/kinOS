@@ -13,6 +13,7 @@ extern "C" void main(int argc, char *argv[]) {
         exit(0);
     } else if (ret == 0) {
         printf("\nIm child\n");
+        
         exit(1);
     } else {
         printf("\nIm parent\n");

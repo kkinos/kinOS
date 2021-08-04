@@ -448,7 +448,7 @@ SYSCALL(RestartTask) {
 
   task.SetCommandLine(command_line);
 
-  Message msg{Message::kRestarTask};
+  Message msg{Message::kRestartTask};
   msg.arg.restart.task_id = task.ID();
 
   __asm__("cli");

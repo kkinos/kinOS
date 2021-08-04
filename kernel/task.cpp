@@ -212,7 +212,7 @@ Task& TaskManager::CurrentTask() {
 }
 
 /**
- * @brief 親タスクの実行中のアプリをクローンする
+ * @brief 親タスクの実行中のアプリをクローンする fork用
  * 
  * @param pid 親タスクのid
  * @param cid 子タスクのid
@@ -231,7 +231,7 @@ Error TaskManager::CloneTask(uint64_t pid, uint64_t cid) {
   }
 
   auto term_desc = new TerminalDescriptor{
-    (*parent)->GetCommandLine(), true, false,
+    (*parent)->GetCommandLine(), false, false,
     { (*parent)->Files()[0], (*parent)->Files()[1], (*parent)->Files()[2] } };
   
   (*child)->InitContext(TaskTerminal, reinterpret_cast<int64_t>(term_desc))
@@ -241,7 +241,13 @@ Error TaskManager::CloneTask(uint64_t pid, uint64_t cid) {
   return MAKE_ERROR(Error::kSuccess);
 }
 
-Error TaskManager::ResetTask(uint64_t id) {
+/**
+ * @brief タスクをリスタートさせる kexec用
+ * 
+ * @param id リスタートさせたいタスクのid
+ * @return Error 
+ */
+Error TaskManager::RestartTask(uint64_t id) {
   auto it = std::find_if(tasks_.begin(), tasks_.end(),
                             [id](const auto& t){ return t->ID() == id; });
     if (it == tasks_.end()) {
