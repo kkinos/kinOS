@@ -118,6 +118,7 @@ class TaskManager {
 
     Error CloneTask(uint64_t pid, uint64_t cid);
     Error RestartTask(uint64_t id);
+    Error CreateAppTask(uint64_t pid, uint64_t cid);
     uint64_t NumOfTask() { return latest_id_; } // タスクの数  
 
   private:

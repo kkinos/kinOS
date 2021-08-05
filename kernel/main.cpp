@@ -277,7 +277,11 @@ extern "C" void KernelMainNewStack(
       printk("restart task : %d\n", msg->arg.restart.task_id);
       task_manager->RestartTask(msg->arg.restart.task_id);
       break;
-      
+
+    case Message::kCreateAppTask:
+      printk("exec2\n");
+      printk("create task : %d\n", msg->arg.create.cid);
+      task_manager->CreateAppTask(msg->arg.create.pid, msg->arg.create.cid);
     default:
       Log(kError, "Unknown message type: %d\n", msg->type);
     }

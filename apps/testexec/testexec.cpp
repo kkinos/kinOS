@@ -1,19 +1,14 @@
-#include "../../libs/kinos/syscall.h"
 #include <sys/types.h> 
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 
-int kexec (char* command_line) {
-
-    SyscallRestartTask(command_line);
-    exit(1);
-    return -1;
-}
+#include "../../libs/kinos/fork.hpp"
+#include "../../libs/kinos/exec.hpp"
 
 extern "C" void main(int argc, char *argv[]) {
     int ret;
-    ret = fork();
+    ret = kfork();
     if (ret == 0) {
         kexec("apps/cube");
     } else {

@@ -49,6 +49,8 @@ struct SyscallResult SyscallCloneTask();
 
 struct SyscallResult SyscallRestartTask(char* command_line);
 
+struct SyscallResult SyscallCreateAppTask(char* command_line);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

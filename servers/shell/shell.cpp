@@ -118,13 +118,7 @@ Rectangle<int> InputKey(
 
 void ExecuteLine(uint64_t layer_id) {
     char* command = &linebuf_[0];
-    char* first_arg = strchr(&linebuf_[0], ' ');
-    int ret;
-
-     if (first_arg) {
-        *first_arg = 0;
-        ++first_arg;
-    }
+    kexec2(command);
 }
 
 

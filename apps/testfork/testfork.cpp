@@ -2,11 +2,12 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include "../../libs/kinos/fork.hpp"
 
 extern "C" void main(int argc, char *argv[]) {
 
     int ret;
-    ret = fork();
+    ret = kfork();
 
     if(ret  == -1){
         printf("\nfork() failed.\n");
