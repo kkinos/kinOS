@@ -282,6 +282,8 @@ extern "C" void KernelMainNewStack(
       printk("exec2\n");
       printk("create task : %d\n", msg->arg.create.cid);
       task_manager->CreateAppTask(msg->arg.create.pid, msg->arg.create.cid);
+      break;
+      
     default:
       Log(kError, "Unknown message type: %d\n", msg->type);
     }

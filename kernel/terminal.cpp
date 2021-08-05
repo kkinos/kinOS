@@ -233,7 +233,6 @@ namespace {
 
 std::map<fat::DirectoryEntry*, AppLoadInfo>* app_loads;
 
-/*サブターミナルのコンストラクタ*/
 Terminal::Terminal(Task& task, const TerminalDescriptor* term_desc) 
     : task_{task} {
     kRows = 15;
@@ -773,7 +772,7 @@ void TaskTerminal(uint64_t task_id, int64_t data) {
 }
 
 
-TerminalFileDescriptor::TerminalFileDescriptor( Terminal& term)
+TerminalFileDescriptor::TerminalFileDescriptor(Terminal& term)
     : term_{term} {
     }
 
