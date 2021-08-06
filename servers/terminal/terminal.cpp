@@ -1,4 +1,4 @@
-#include "shell.hpp"
+#include "terminal.hpp"
 
 Vector2D<int> CalcCursorPos() {
     return kTopLeftMargin +
@@ -88,6 +88,7 @@ Rectangle<int> InputKey(
             }
 
             ExecuteLine(layer_id);
+            Print(layer_id, "user@kinOS:\n");
             Print(layer_id, "$");
 
         } else if (ascii == '\b') {
@@ -122,18 +123,15 @@ void ExecuteLine(uint64_t layer_id) {
 }
 
 
-
-
-
-
 extern "C" void main() {
     auto [layer_id, err_openwin]
-        = SyscallOpenWindow(kColumns * 8 + 12 + Marginx, kRows * 16 + 12 + Marginy, 20, 20, "shell");
+        = SyscallOpenWindow(kColumns * 8 + 12 + Marginx, kRows * 16 + 12 + Marginy, 20, 20, "MIKANOS Terminal");
     if (err_openwin) {
         exit(err_openwin);
         }
 
     SyscallWinFillRectangle(layer_id, Marginx, Marginy, kCanvasWidth , kCanvasHeight , 0);
+    Print(layer_id, "user@kinOS:\n");
     Print(layer_id, "$");
 
     AppEvent events[1];

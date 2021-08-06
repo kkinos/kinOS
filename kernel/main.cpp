@@ -38,20 +38,6 @@
 #include "fat.hpp"
 #include "syscall.hpp"
 
-/*printkを実装する*/
-int printk(const char* format, ...) {
-  va_list ap;
-  int result;
-  char s[1024];
-
-  va_start(ap, format);
-  result = vsprintf(s, format, ap);
-  va_end(ap);
-
-  console->PutString(s);
-  return result;
-}
-
 std::shared_ptr<ToplevelWindow> main_window;
 unsigned int main_window_layer_id;
 void InitializeMainWindow() {
@@ -69,58 +55,6 @@ void InitializeMainWindow() {
   layer_manager->UpDown(main_window_layer_id, std::numeric_limits<int>::max());
 }
 
-std::shared_ptr<ToplevelWindow> text_window;
-unsigned int text_window_layer_id;
-void InitializeTextWindow() {
-  const int win_w = 160;
-  const int win_h = 52;
-
-  text_window = std::make_shared<ToplevelWindow>(
-      win_w, win_h, screen_config.pixel_format, "Text Box Test");
-  DrawTextbox(*text_window->InnerWriter(), {0, 0}, text_window->InnerSize());
-
-  text_window_layer_id = layer_manager->NewLayer()
-    .SetWindow(text_window)
-    .SetDraggable(true)
-    .Move({350, 200})
-    .ID();
-  
-  window_layer_id.push_back(text_window_layer_id);
-
-  layer_manager->UpDown(text_window_layer_id, std::numeric_limits<int>::max());
-}
-
-int text_window_index;
-
-void DrawTextCursor(bool visible) {
-  const auto color = visible ? ToColor(0) : ToColor(0xffffff);
-  const auto pos = Vector2D<int>{4 + 8*text_window_index,  5};
-  FillRectangle(*text_window->InnerWriter(), pos, {7, 15}, color);
-}
-
-void InputTextWindow(char c) {
-  if (c == 0) {
-    return;
-  }
-
-  auto pos = []() { return Vector2D<int>{4 + 8*text_window_index, 6}; };
-
-  const int max_chars = (text_window->InnerSize().x - 8) / 8 - 1;
-  if (c == '\b' && text_window_index > 0) {
-    DrawTextCursor(false);
-    --text_window_index;
-    FillRectangle(*text_window->InnerWriter(), pos(), {8, 16}, ToColor(0xffffff));
-    DrawTextCursor(true);
-  } else if (c >= ' ' && text_window_index < max_chars) {
-    DrawTextCursor(false);
-    WriteAscii(*text_window->InnerWriter(), pos(), c, ToColor(0));
-    ++text_window_index;
-    DrawTextCursor(true);
-  }
-
-  layer_manager->Draw(text_window_layer_id);
-}
-
 
 alignas(16) uint8_t kernel_main_stack[1024 * 1024];
 
@@ -134,7 +68,6 @@ extern "C" void KernelMainNewStack(
   InitializeGraphics(frame_buffer_config_ref);
   InitializeConsole();
 
-  printk("Welcome to kinOS!\n");
   SetLogLevel(kWarn);
 
   InitializeSegmentation();
@@ -148,7 +81,6 @@ extern "C" void KernelMainNewStack(
 
   InitializeLayer();
   InitializeMainWindow();
-  InitializeTextWindow();
   layer_manager->Draw({{0, 0}, ScreenSize()});
   
   acpi::Initialize(acpi_table);
@@ -163,7 +95,7 @@ extern "C" void KernelMainNewStack(
 
   InitializeTask();
   Task& main_task = task_manager->CurrentTask();
-
+  main_task.SetCommandLine("kinOS");
 
   usb::xhci::Initialize();
   InitializeKeyboard();
@@ -175,6 +107,20 @@ extern "C" void KernelMainNewStack(
       .InitContext(TaskTerminal, 0)
       .Wakeup();
   
+  printk("\n");
+  printk("###    ###                            #######       #######  \n");
+  printk("###   ###                           ###     ###   ###     ###\n");
+  printk("###  ###       ###                  ###     ###    ###       \n");
+  printk("### ###        ###     ##########   ###     ###      ###     \n");
+  printk("#######        ###     ###    ###   ###     ###         ###  \n");
+  printk("###   ###      ###     ###    ###   ###     ###  ###     ### \n");
+  printk("###    ###     ###     ###    ###     #######      #######   \n");
+  printk("\n");
+  printk("Ver.MIKANOS\n");
+  printk("@ 2021 kinpoko\n");
+  printk("\n");
+  printt("welcome to kinOS!!\n");
+
   char str[128];
 
    while (true) {
@@ -210,9 +156,6 @@ extern "C" void KernelMainNewStack(
         timer_manager->AddTimer(
             Timer{msg->arg.timer.timeout + kTimer05Sec, kTextboxCursorTimer, 1});
         __asm__("sti");
-        textbox_cursor_visible = !textbox_cursor_visible;
-        DrawTextCursor(textbox_cursor_visible);
-        layer_manager->Draw(text_window_layer_id);
       }
       break;
     
@@ -233,16 +176,13 @@ extern "C" void KernelMainNewStack(
             }
           active_layer->Activate(next_act_window_id);
         }
-      } else if (auto act = active_layer->GetActive(); act == text_window_layer_id) {
-            if (msg->arg.keyboard.press) {
-              InputTextWindow(msg->arg.keyboard.ascii);
-            }
-      } else if (msg->arg.keyboard.press &&
+      }  else if (msg->arg.keyboard.press &&
                  msg->arg.keyboard.keycode == 59 /*F2*/) {
         task_manager->NewTask()
             .InitContext(TaskTerminal, 0)
             .Wakeup();
       } else {
+          auto act = active_layer->GetActive();
           __asm__("cli");
           auto task_it = layer_task_map->find(act);
           __asm__("sti");
@@ -251,7 +191,7 @@ extern "C" void KernelMainNewStack(
             task_manager->SendMessage(task_it->second, *msg);
             __asm__("sti");
           } else {
-            printk("key push not handled: keycode %02x, ascii %02x\n",
+            printt("key push not handled: keycode %02x, ascii %02x\n",
               msg->arg.keyboard.keycode,
               msg->arg.keyboard.ascii);
           }
@@ -279,8 +219,6 @@ extern "C" void KernelMainNewStack(
       break;
 
     case Message::kCreateAppTask:
-      printk("exec2\n");
-      printk("create task : %d\n", msg->arg.create.cid);
       task_manager->CreateAppTask(msg->arg.create.pid, msg->arg.create.cid);
       break;
       
