@@ -15,8 +15,6 @@ struct Message {
     kMouseButton,
     kWindowActive,
     kPipe,
-    kCloneTask,
-    kRestartTask,
     kCreateAppTask,
   } type;
 
@@ -62,19 +60,10 @@ struct Message {
       char data[16];
       uint8_t len;
     } pipe;
-
-    struct {
-      int pid, cid;
-    } fork;
-
-    struct {
-      int task_id;
-    } restart;
     
     struct {
       int pid, cid;
     } create;
 
-    
   } arg;
 };

@@ -88,7 +88,7 @@ Rectangle<int> InputKey(
             }
 
             ExecuteLine(layer_id);
-            Print(layer_id, "user@kinOS:\n");
+            Print(layer_id, "user@MIKANOS:\n");
             Print(layer_id, "$");
 
         } else if (ascii == '\b') {
@@ -119,7 +119,7 @@ Rectangle<int> InputKey(
 
 void ExecuteLine(uint64_t layer_id) {
     char* command = &linebuf_[0];
-    kexec2(command);
+    kexec(command);
 }
 
 
@@ -131,7 +131,7 @@ extern "C" void main() {
         }
 
     SyscallWinFillRectangle(layer_id, Marginx, Marginy, kCanvasWidth , kCanvasHeight , 0);
-    Print(layer_id, "user@kinOS:\n");
+    Print(layer_id, "user@MIKANOS:\n");
     Print(layer_id, "$");
 
     AppEvent events[1];

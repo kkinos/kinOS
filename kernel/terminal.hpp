@@ -32,7 +32,6 @@ struct TerminalDescriptor {
 class Terminal {
     public:
 
-        /*サブターミナルのコンストラクタ*/
         Terminal(Task& task, const TerminalDescriptor* term_desc);
         unsigned int LayerID() const { return layer_id_; }
         Rectangle<int> BlinkCursor();

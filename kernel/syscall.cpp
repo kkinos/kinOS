@@ -413,52 +413,6 @@ SYSCALL(MapFile) {
 
 }
 
-SYSCALL(CloneTask) {
-  __asm__("cli");
-  auto& task = task_manager->CurrentTask();
-  __asm__("sti");
-
-  uint64_t task_id = 0;
-  /*このタスクが親であればメインタスクにこのタスクをクローンするようにメッセージを送信*/
-  if (task.PID() == 0) {
-    auto child_task_id = task_manager->NewTask().ID();
-    Message msg{Message::kCloneTask};
-    msg.arg.fork.pid = task.ID();
-    msg.arg.fork.cid = child_task_id;
-    task_id = child_task_id;
-
-    __asm__("cli");
-    task_manager->SendMessage(1,msg);    
-    __asm__("sti");
-
-    return { task_id, 0 };
-  }
-
-  return { task_id, 0 };
-
-}
-
-
-SYSCALL(RestartTask) {
-  char* command_line = reinterpret_cast<char*>(arg1);
-
-  __asm__("cli");
-  auto& task = task_manager->CurrentTask();
-  __asm__("sti");
-
-  task.SetCommandLine(command_line);
-
-  Message msg{Message::kRestartTask};
-  msg.arg.restart.task_id = task.ID();
-
-  __asm__("cli");
-  task_manager->SendMessage(1,msg);    
-  __asm__("sti");
-  
-  return {0, 0};
-}
-
-
 SYSCALL(CreateAppTask) {
   char* command_line = reinterpret_cast<char*>(arg1);
 
@@ -490,7 +444,7 @@ SYSCALL(CreateAppTask) {
 
 using SyscallFuncType = syscall::Result (uint64_t, uint64_t, uint64_t,
                                          uint64_t, uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType*, 0x13> syscall_table{
+extern "C" std::array<SyscallFuncType*, 0x11> syscall_table{
   /* 0x00 */ syscall::LogString,
   /* 0x01 */ syscall::PutString,
   /* 0x02 */ syscall::Exit,
@@ -507,9 +461,7 @@ extern "C" std::array<SyscallFuncType*, 0x13> syscall_table{
   /* 0x0d */ syscall::ReadFile,
   /* 0x0e */ syscall::DemandPages,
   /* 0x0f */ syscall::MapFile,
-  /* 0x10 */ syscall::CloneTask,
-  /* 0x11 */ syscall::RestartTask,
-  /* 0x12 */ syscall::CreateAppTask,
+  /* 0x10 */ syscall::CreateAppTask,
 };
 
 void InitializeSyscall() {

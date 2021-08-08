@@ -658,6 +658,7 @@ void Terminal::Print(const char* s, std::optional<size_t> len) {
     __asm__("sti");
 }
 
+
 Rectangle<int> Terminal::HistoryUpDown(int direction) {
     if (direction == -1 && cmd_history_index_ >= 0) {
         --cmd_history_index_;
@@ -771,6 +772,7 @@ void TaskTerminal(uint64_t task_id, int64_t data) {
         }
     }
 }
+
 
 
 TerminalFileDescriptor::TerminalFileDescriptor(Terminal& term)

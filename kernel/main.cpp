@@ -204,19 +204,6 @@ extern "C" void KernelMainNewStack(
       task_manager->SendMessage(msg->src_task, Message{Message::kLayerFinish});
       __asm__("sti");
       break;
-    
-    case Message::kCloneTask:
-      printk("fork\n");
-      printk("parent id is %d\n",msg->arg.fork.pid);
-      printk("child id is %d\n",msg->arg.fork.cid);
-      task_manager->CloneTask(msg->arg.fork.pid, msg->arg.fork.cid);
-      break;
-
-    case Message::kRestartTask:
-      printk("exec\n");
-      printk("restart task : %d\n", msg->arg.restart.task_id);
-      task_manager->RestartTask(msg->arg.restart.task_id);
-      break;
 
     case Message::kCreateAppTask:
       task_manager->CreateAppTask(msg->arg.create.pid, msg->arg.create.cid);

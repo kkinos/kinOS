@@ -45,10 +45,6 @@ struct SyscallResult SyscallReadFile(int fd, void* buf, size_t count);
 struct SyscallResult SyscallDemandPages(size_t num_pages, int flags);
 struct SyscallResult SyscallMapFile(int fd, size_t* file_size, int flags);
 
-struct SyscallResult SyscallCloneTask();
-
-struct SyscallResult SyscallRestartTask(char* command_line);
-
 struct SyscallResult SyscallCreateAppTask(char* command_line);
 
 #ifdef __cplusplus
