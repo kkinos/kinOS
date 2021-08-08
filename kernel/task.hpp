@@ -70,9 +70,9 @@ class Task {
       bool Running() const { return running_; }
 
       Task& SetPID(uint64_t pid) { pid_ = pid; return *this; }
+
       void SetCommandLine(char* command_line) { command_line_ = command_line; }
       std::string GetCommandLine() { return command_line_; }
-      Task& ReturnParentTask();
 
     private:
       uint64_t id_; // タスクのID
@@ -118,6 +118,7 @@ class TaskManager {
     WithError<int> WaitFinish(uint64_t task_id);
 
     Error CreateAppTask(uint64_t pid, uint64_t cid);
+    Task* FindTask (uint64_t id);
     uint64_t NumOfTask() { return latest_id_; } // タスクの数  
 
   private:

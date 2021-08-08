@@ -782,10 +782,10 @@ TerminalFileDescriptor::TerminalFileDescriptor(Terminal& term)
 size_t TerminalFileDescriptor::Read(void* buf, size_t len) {
     char* bufc = reinterpret_cast<char*>(buf);
 
-
     while (true) {
         __asm__("cli");
         auto msg = term_.UnderlyingTask().ReceiveMessage();
+        __asm__("sti");
         if (!msg) {
             term_.UnderlyingTask().Sleep();
             continue;
@@ -799,7 +799,7 @@ size_t TerminalFileDescriptor::Read(void* buf, size_t len) {
         if (msg->arg.keyboard.modifier & (kLControlBitMask | kRControlBitMask)) {
             char s[3] = "^ ";
             s[1] = toupper(msg->arg.keyboard.ascii);
-            term_.Print(s);
+            printt(s);
             if (msg->arg.keyboard.keycode == 7 /* D */) {
                 return 0; // EOT
             }
@@ -807,7 +807,7 @@ size_t TerminalFileDescriptor::Read(void* buf, size_t len) {
         }
 
             bufc[0] = msg->arg.keyboard.ascii;
-            term_.Print(bufc, 1);
+            printt(bufc);
             return 1;
     }
     

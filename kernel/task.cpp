@@ -242,6 +242,13 @@ Error TaskManager::CreateAppTask(uint64_t pid, uint64_t cid) {
     return MAKE_ERROR(Error::kSuccess);
 }
 
+Task* TaskManager::FindTask(uint64_t id) {
+  auto it = std::find_if(tasks_.begin(), tasks_.end(),
+                            [id](const auto& t){ return t->ID() == id; });
+                  
+  return it->get();
+}
+
 void TaskManager::Finish(int exit_code) {
   Task* current_task = RotateCurrentRunQueue(true);
 
