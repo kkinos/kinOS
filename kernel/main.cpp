@@ -125,9 +125,9 @@ extern "C" void KernelMainNewStack(
 
    while (true) {
 
-    __asm__("cli");//割り込みを受け取らない
+    __asm__("cli");
     const auto tick = timer_manager->CurrentTick();
-    __asm__("sti");//割り込みを受け取る
+    __asm__("sti");
 
     sprintf(str, "%010lu", tick);
     FillRectangle(*main_window->InnerWriter(), {20, 4}, {8 * 10, 16}, {0xc6, 0xc6, 0xc6});
