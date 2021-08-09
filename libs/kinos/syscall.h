@@ -46,6 +46,7 @@ struct SyscallResult SyscallDemandPages(size_t num_pages, int flags);
 struct SyscallResult SyscallMapFile(int fd, size_t* file_size, int flags);
 
 struct SyscallResult SyscallCreateAppTask(char* command_line);
+struct SyscallResult SyscallConClear();
 
 #ifdef __cplusplus
 } // extern "C"

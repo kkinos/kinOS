@@ -182,6 +182,9 @@ extern "C" void KernelMainNewStack(
             }
           active_layer->Activate(next_act_window_id);
         }
+      } else if (msg->arg.keyboard.press &&
+                 msg->arg.keyboard.keycode == 59 /* F2 */) {
+        console->Clear();
       } else {
           auto act = active_layer->GetActive();
           __asm__("cli");

@@ -15,6 +15,7 @@
 #include "timer.hpp"
 #include "keyboard.hpp"
 #include "app_event.hpp"
+#include "console.hpp"
 
 namespace syscall {
   struct Result {
@@ -438,13 +439,18 @@ SYSCALL(CreateAppTask) {
   return {child_task.ID(), 0};
 }
 
+SYSCALL(ConClear) {
+  console->Clear();
+  return {0, 0};
+}
+
 #undef SYSCALL
 
 } 
 
 using SyscallFuncType = syscall::Result (uint64_t, uint64_t, uint64_t,
                                          uint64_t, uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType*, 0x11> syscall_table{
+extern "C" std::array<SyscallFuncType*, 0x12> syscall_table{
   /* 0x00 */ syscall::LogString,
   /* 0x01 */ syscall::PutString,
   /* 0x02 */ syscall::Exit,
@@ -462,6 +468,7 @@ extern "C" std::array<SyscallFuncType*, 0x11> syscall_table{
   /* 0x0e */ syscall::DemandPages,
   /* 0x0f */ syscall::MapFile,
   /* 0x10 */ syscall::CreateAppTask,
+  /* 0x11 */ syscall::ConClear,
 };
 
 void InitializeSyscall() {
