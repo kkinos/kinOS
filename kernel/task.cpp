@@ -212,6 +212,27 @@ Task& TaskManager::CurrentTask() {
 }
 
 /**
+ * @brief タスクをリスタートさせる 
+ * 
+ * @param id リスタートさせたいタスクのid
+ * @return Error 
+ */
+Error TaskManager::RestartTask(uint64_t id) {
+  auto it = std::find_if(tasks_.begin(), tasks_.end(),
+                            [id](const auto& t){ return t->ID() == id; });
+    if (it == tasks_.end()) {
+        return MAKE_ERROR(Error::kNoSuchTask);
+    }   
+    auto term_desc = new TerminalDescriptor {
+    (*it)->GetCommandLine(), true, false,
+    { (*it)->Files()[0], (*it)->Files()[1], (*it)->Files()[2] } };
+
+    (*it)->InitContext(TaskTerminal, reinterpret_cast<uint64_t>(term_desc))
+      .Wakeup();
+    return MAKE_ERROR(Error::kSuccess);
+}
+
+/**
  * @brief 新しいタスクを作成しアプリを起動する forkとexecを同時に行う
  * 
  * @param pid 親のid

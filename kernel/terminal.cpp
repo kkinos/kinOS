@@ -236,121 +236,27 @@ std::map<fat::DirectoryEntry*, AppLoadInfo>* app_loads;
 
 Terminal::Terminal(Task& task, const TerminalDescriptor* term_desc) 
     : task_{task} {
-    kRows = 15;
-    kColumns = 60;
-    if (term_desc) {
-        show_window_ = term_desc->show_window;
+    if (!term_desc->first_task) {
         for (int i = 0; i < files_.size(); ++i) {
             files_[i] = term_desc->files[i];
         }
     } else {
-        show_window_ = true;
         for (int i = 0; i < files_.size(); ++i) {
             files_[i] = std::make_shared<TerminalFileDescriptor>(*this);
-        }
+    }
     }
 
-    if (show_window_) {
-        window_ = std::make_shared<ToplevelWindow>(
-            kColumns * 8 + 8 + ToplevelWindow::kMarginX,
-            kRows * 16 + 8 + ToplevelWindow::kMarginY,
-            screen_config.pixel_format,
-            "SubTerm");
-        DrawTerminal(*window_->InnerWriter(), {0, 0}, window_->InnerSize());
-
-        layer_id_ = layer_manager->NewLayer()
-            .SetWindow(window_)
-            .SetDraggable(true)
-            .ID();
-
-        window_layer_id.push_back(layer_id_);
-
-        Print("$");
-    }
-    cmd_history_.resize(8);
 }
 
-Rectangle<int> Terminal::BlinkCursor() {
-    cursor_visible_ = !cursor_visible_;
-    DrawCursor(cursor_visible_);
 
-    return {CalcCursorPos(), {7, 15}};
-}
-
-void Terminal::DrawCursor(bool visible) {
-    if (show_window_) {
-    const auto color = visible ? ToColor(0xffffff) : ToColor(0);
-    FillRectangle(*window_->Writer(), CalcCursorPos(), {7, 15}, color);
-}
-}
-
-Vector2D<int> Terminal::CalcCursorPos() const {
-    return ToplevelWindow::kTopLeftMargin +
-        Vector2D<int>{4 + 8 * cursor_.x, 4 + 16 * cursor_.y};
-}
-
-Rectangle<int> Terminal::InputKey(
+void Terminal::InputKey(
     uint8_t modifier, uint8_t keycode, char ascii) {
-        DrawCursor(false);
-
-        Rectangle<int> draw_area{CalcCursorPos(), {8*2, 16}};
-
         if (ascii == '\n') {
-            linebuf_[linebuf_index_] = 0;
-            if (linebuf_index_ > 0) {
-                cmd_history_.pop_back();
-                cmd_history_.push_front(linebuf_);
-            }
-            linebuf_index_ = 0;
-            cmd_history_index_ = -1;
-            cursor_.x = 0;
-            if(cursor_.y < kRows - 1) {
-                ++cursor_.y;
-            } else {
-                Scroll1();
-            }
             ExecuteLine();
-            Print("$");
-            draw_area.pos = ToplevelWindow::kTopLeftMargin;
-            draw_area.size = window_->InnerSize();
-        } else if (ascii == '\b') {
-            if (cursor_.x > 0) {
-                --cursor_.x;
-                FillRectangle(*window_->Writer(), CalcCursorPos(), {8, 16}, {0, 0, 0});
-                draw_area.pos = CalcCursorPos();
-
-                if (linebuf_index_ > 0) {
-                    --linebuf_index_;
-                }
-            }
-        } else if (ascii != 0) {
-            if (cursor_.x < kColumns - 1 && linebuf_index_ < kLineMax - 1) {
-                linebuf_[linebuf_index_] = ascii;
-                ++linebuf_index_;
-                if (show_window_) {
-                WriteAscii(*window_->Writer(), CalcCursorPos(), ascii, {255, 255, 255});
-                }
-                ++cursor_.x;
-            }
-        } else if (keycode == 0x51) {
-            draw_area = HistoryUpDown(-1);
-        } else if (keycode == 0x52) {
-            draw_area = HistoryUpDown(1);
-        }
-
-        DrawCursor(true);
-        
-        return draw_area;
+    } else {
+        linebuf_[linebuf_index_] = ascii;
+        ++linebuf_index_;
     }
-
-void Terminal::Scroll1() {
-    Rectangle<int> move_src{
-        ToplevelWindow::kTopLeftMargin + Vector2D<int>{4, 4 + 16},
-        {8*kColumns, 16*(kRows - 1)}
-    };
-    window_->Move(ToplevelWindow::kTopLeftMargin + Vector2D<int>{4, 4}, move_src);
-    FillRectangle(*window_->InnerWriter(), 
-                  {4, 4 + 16*cursor_.y}, {8*kColumns, 16}, {0, 0, 0});
 }
 
 void Terminal::ExecuteLine() {
@@ -421,13 +327,8 @@ void Terminal::ExecuteLine() {
         } else if (first_arg) {
             PrintToFD(*files_[1], "%s", first_arg);
         }
+
         PrintToFD(*files_[1], "\n");
-    } else if (strcmp(command, "clear") == 0) {
-        if (show_window_) {
-        FillRectangle(*window_->InnerWriter(),
-                      {4, 4}, {8*kColumns, 16*kRows}, {0, 0, 0});
-        }
-        cursor_.y = 0;
     } else if (strcmp(command, "lspci") == 0) {
         char s[64];
         for (int i = 0; i < pci::num_device; ++i) {
@@ -472,7 +373,6 @@ void Terminal::ExecuteLine() {
             auto cluster = file_entry->FirstCluster();
             auto remain_bytes = file_entry->file_size;
 
-            DrawCursor(false);
             while (cluster != 0 && cluster != fat::kEndOfClusterchain) {
                 char* p = fat::GetSectorByCluster<char>(cluster);
 
@@ -484,15 +384,7 @@ void Terminal::ExecuteLine() {
                 remain_bytes -= i;
                 cluster = fat::NextCluster(cluster);
             }
-            DrawCursor(true);
         }
-    } else if (strcmp(command, "noterm") == 0) {
-        auto term_desc = new TerminalDescriptor{
-            first_arg, true, false, files_
-        };
-        task_manager->NewTask()
-        .InitContext(TaskTerminal, reinterpret_cast<int64_t>(term_desc))
-        .Wakeup();
     } else if (strcmp(command, "memstat") == 0) {
         const auto p_stat = memory_manager->Stat();
         PrintToFD(*files_[1], "Phys used : %lu frames (%llu MiB)\n",
@@ -502,7 +394,6 @@ void Terminal::ExecuteLine() {
             p_stat.total_frames,
             p_stat.total_frames * kBytesPerFrame / 1024 / 1024);
     } else if (command[0] != 0) {
-
         auto [ file_entry, post_slash ] = fat::FindFile(command);
         if (!file_entry) {
             PrintToFD(*files_[2], "no such command: %s\n", command);
@@ -513,7 +404,6 @@ void Terminal::ExecuteLine() {
             PrintToFD(*files_[2], "%s is not a directory\n", name);
             exit_code = 1;
         } else {
-
             auto [ ec, err ] = ExecuteFile(*file_entry, command, first_arg);
             if (err) {
                 PrintToFD(*files_[2], "failed to exec file: %s\n", err.Name());
@@ -533,9 +423,7 @@ void Terminal::ExecuteLine() {
             Log(kWarn, "failed to wait finish: %s\n", err.Name());
         }
         exit_code = ec;
-
     }
-
     last_exit_code_ = exit_code;
     files_[1] = original_stdout;
 }
@@ -603,33 +491,11 @@ WithError<int> Terminal::ExecuteFile(fat::DirectoryEntry& file_entry, char* comm
 }
 
 void Terminal::Print(char c) {
-  auto newline = [this]() {
-    cursor_.x = 0;
-    if (cursor_.y < kRows - 1) {
-      ++cursor_.y;
-    } else {
-      Scroll1();
-    }
-  };
-
-  if (c == '\n') {
-    newline();
-  } else {
-      if (show_window_) {
-    WriteAscii(*window_->Writer(), CalcCursorPos(), c, {255, 255, 255});
-      }
-    if (cursor_.x == kColumns - 1) {
-      newline();
-    } else {
-      ++cursor_.x;
-    }
-  }
+  char ch[] = {c, '\0'};
+  printt(ch);
 }
 
 void Terminal::Print(const char* s, std::optional<size_t> len) {
-    const auto cursor_before = CalcCursorPos();
-    DrawCursor(false);
-
     if (len) {
         for (size_t i = 0; i < *len; ++i) {
             Print(*s);
@@ -641,67 +507,17 @@ void Terminal::Print(const char* s, std::optional<size_t> len) {
             ++s;
         }
     }
-
-    DrawCursor(true);
-    const auto cursor_after = CalcCursorPos();
-
-    Vector2D<int> draw_pos{ToplevelWindow::kTopLeftMargin.x, cursor_before.y};
-    Vector2D<int> draw_size{window_->InnerSize().x,
-                            cursor_after.y - cursor_before.y + 16};
-
-    Rectangle<int> draw_area{draw_pos, draw_size};
-
-    Message msg = MakeLayerMessage(
-        task_.ID(), LayerID(), LayerOperation::DrawArea, draw_area);
-    __asm__("cli");
-    task_manager->SendMessage(1, msg);
-    __asm__("sti");
 }
 
 
-Rectangle<int> Terminal::HistoryUpDown(int direction) {
-    if (direction == -1 && cmd_history_index_ >= 0) {
-        --cmd_history_index_;
-    } else if (direction == 1 && cmd_history_index_ + 1 < cmd_history_.size()) {
-        ++cmd_history_index_;
-    }
-
-    cursor_.x = 1;
-    const auto first_pos = CalcCursorPos();
-
-    Rectangle<int> draw_area{first_pos, {8*(kColumns - 1), 16}};
-    FillRectangle(*window_->Writer(), draw_area.pos, draw_area.size, {0, 0, 0});
-
-    const char* history = "";
-    if (cmd_history_index_ >= 0) {
-        history = &cmd_history_[cmd_history_index_][0];
-    }
-
-    strcpy(&linebuf_[0], history);
-    linebuf_index_ = strlen(history);
-
-    WriteString(*window_->Writer(), first_pos, history, {255, 255, 255});
-    cursor_.x = linebuf_index_ + 1;
-    return draw_area;
-}
 
 
 void TaskTerminal(uint64_t task_id, int64_t data) {
     const auto term_desc = reinterpret_cast<TerminalDescriptor*>(data);
-    bool show_window = true;
-    if (term_desc) {
-        show_window = term_desc->show_window;
-    }
 
     __asm__("cli");
     Task& task = task_manager->CurrentTask();
     Terminal* terminal = new Terminal{task, term_desc};
-    if (show_window) {
-        layer_manager->Move(terminal->LayerID(), {100, 200});
-        layer_task_map->insert(std::make_pair(terminal->LayerID(), task_id));
-        active_layer->Activate(terminal->LayerID());
-    }
-    
     __asm__("sti");
 
     if (term_desc && !term_desc->command_line.empty()) {
@@ -741,27 +557,12 @@ void TaskTerminal(uint64_t task_id, int64_t data) {
         switch (msg->type) {
             case Message::kTimerTimeout:
                 add_blink_timer(msg->arg.timer.timeout);
-                if (show_window && window_isactive) {
-                    const auto area = terminal->BlinkCursor();
-                    Message msg = MakeLayerMessage(
-                    task_id, terminal->LayerID(), LayerOperation::DrawArea, area);
-                    __asm__("cli");
-                    task_manager->SendMessage(1, msg);
-                    __asm__("sti");
-                }
                 break;
             case Message::kKeyPush:
                 if (msg->arg.keyboard.press) {
-                    const auto area = terminal->InputKey(msg->arg.keyboard.modifier,
+                    terminal->InputKey(msg->arg.keyboard.modifier,
                                                          msg->arg.keyboard.keycode,
                                                          msg->arg.keyboard.ascii);
-                    if (show_window) {
-                    Message msg = MakeLayerMessage(
-                        task_id, terminal->LayerID(), LayerOperation::DrawArea, area);
-                    __asm__("cli");
-                    task_manager->SendMessage(1, msg);
-                    __asm__("sti");
-                }
                 }
                 break;
             case Message::kWindowActive:
@@ -808,14 +609,14 @@ size_t TerminalFileDescriptor::Read(void* buf, size_t len) {
 
             bufc[0] = msg->arg.keyboard.ascii;
             printt(bufc);
+           
             return 1;
     }
     
 }
 
 size_t TerminalFileDescriptor::Write(const void* buf, size_t len) {
-    /*term_.Print(reinterpret_cast<const char*>(buf), len);*/
-    printt(reinterpret_cast<const char*>(buf));
+    term_.Print(reinterpret_cast<const char*>(buf), len);
     return len;
 }
 

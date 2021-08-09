@@ -102,10 +102,16 @@ extern "C" void KernelMainNewStack(
   InitializeMouse();
 
   app_loads = new std::map<fat::DirectoryEntry*, AppLoadInfo>;
-  
-  task_manager->NewTask()
-      .InitContext(TaskTerminal, 0)
-      .Wakeup();
+
+  auto term_desc = new TerminalDescriptor{
+    "servers/terminal", true, true,
+    { nullptr, nullptr, nullptr }
+  };
+
+  Task& task = task_manager->NewTask()
+                .InitContext(TaskTerminal, reinterpret_cast<uint64_t>(term_desc))
+                .Wakeup();
+
   
   printk("\n");
   printk("###    ###                            #######       #######  \n");

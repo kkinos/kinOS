@@ -117,6 +117,7 @@ class TaskManager {
     void Finish(int exit_code);
     WithError<int> WaitFinish(uint64_t task_id);
 
+    Error RestartTask(uint64_t id);
     Error CreateAppTask(uint64_t pid, uint64_t cid);
     Task* FindTask (uint64_t id);
     uint64_t NumOfTask() { return latest_id_; } // タスクの数  
