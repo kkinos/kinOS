@@ -10,7 +10,7 @@
 #include "msr.hpp"
 #include "logger.hpp"
 #include "task.hpp"
-#include "terminal.hpp"
+#include "shell.hpp"
 #include "font.hpp"
 #include "timer.hpp"
 #include "keyboard.hpp"

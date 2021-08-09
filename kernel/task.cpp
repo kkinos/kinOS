@@ -3,7 +3,7 @@
 #include "asmfunc.h"
 #include "segment.hpp"
 #include "timer.hpp"
-#include "terminal.hpp"
+#include "shell.hpp"
 
 
 namespace {
@@ -223,11 +223,11 @@ Error TaskManager::RestartTask(uint64_t id) {
     if (it == tasks_.end()) {
         return MAKE_ERROR(Error::kNoSuchTask);
     }   
-    auto term_desc = new TerminalDescriptor {
+    auto sh_desc = new ShellDescriptor {
     (*it)->GetCommandLine(), true, false,
     { (*it)->Files()[0], (*it)->Files()[1], (*it)->Files()[2] } };
 
-    (*it)->InitContext(TaskTerminal, reinterpret_cast<uint64_t>(term_desc))
+    (*it)->InitContext(TaskShell, reinterpret_cast<uint64_t>(sh_desc))
       .Wakeup();
     return MAKE_ERROR(Error::kSuccess);
 }
@@ -252,11 +252,11 @@ Error TaskManager::CreateAppTask(uint64_t pid, uint64_t cid) {
       return MAKE_ERROR(Error::kNoSuchTask);
   }
 
-  auto term_desc = new TerminalDescriptor {
+  auto sh_desc = new ShellDescriptor {
     (*child)->GetCommandLine(), true, false,
     { (*parent)->Files()[0], (*parent)->Files()[1], (*parent)->Files()[2] } };
   
-  (*child)->InitContext(TaskTerminal, reinterpret_cast<int64_t>(term_desc))
+  (*child)->InitContext(TaskShell, reinterpret_cast<int64_t>(sh_desc))
     .SetPID(pid)
     .Wakeup();
 

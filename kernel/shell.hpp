@@ -1,7 +1,7 @@
 /**
- * @file terminal.hpp
+ * @file shell.hpp
  *
- * ターミナルウィンドウを提供する。
+ * shellを提供する
  */
 
 #pragma once
@@ -22,17 +22,17 @@ struct AppLoadInfo {
 
 extern std::map<fat::DirectoryEntry*, AppLoadInfo>* app_loads;
 
-struct TerminalDescriptor {
+struct ShellDescriptor {
     std::string command_line;
     bool exit_after_command;
     bool first_task;
     std::array<std::shared_ptr<FileDescriptor>, 3> files;
 };
 
-class Terminal {
+class Shell {
     public:
 
-        Terminal(Task& task, const TerminalDescriptor* term_desc);
+        Shell(Task& task, const ShellDescriptor* sh_desc);
         unsigned int LayerID() const { return layer_id_; }
         void InputKey(uint8_t modifier, uint8_t keycode, char ascii);
         void Print(const char* s, std::optional<size_t> len = std::nullopt);
@@ -56,19 +56,22 @@ class Terminal {
 };
 
 
-void TaskTerminal(uint64_t task_id, int64_t data);
+void TaskShell(uint64_t task_id, int64_t data);
 
-
-class TerminalFileDescriptor : public FileDescriptor {
+/**
+ * @brief shell用のfiledescriptor
+ * 
+ */
+class ShellFileDescriptor : public FileDescriptor {
     public:
-        explicit TerminalFileDescriptor(Terminal& term);
+        explicit ShellFileDescriptor(Shell& shell);
         size_t Read(void* buf, size_t len) override;
         size_t Write(const void* buf, size_t len) override;
         size_t Size() const override { return 0; }
         size_t Load(void* buf, size_t len, size_t offset) override;
 
     private:
-        Terminal& term_;
+        Shell& shell_;
 };
 
 class PipeDescriptor: public FileDescriptor {

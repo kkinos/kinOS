@@ -1,4 +1,4 @@
-#include "terminal.hpp"
+#include "shell.hpp"
 
 #include <cstring>
 #include <limits>
@@ -234,22 +234,22 @@ namespace {
 
 std::map<fat::DirectoryEntry*, AppLoadInfo>* app_loads;
 
-Terminal::Terminal(Task& task, const TerminalDescriptor* term_desc) 
+Shell::Shell(Task& task, const ShellDescriptor* sh_desc) 
     : task_{task} {
-    if (!term_desc->first_task) {
+    if (!sh_desc->first_task) {
         for (int i = 0; i < files_.size(); ++i) {
-            files_[i] = term_desc->files[i];
+            files_[i] = sh_desc->files[i];
         }
     } else {
         for (int i = 0; i < files_.size(); ++i) {
-            files_[i] = std::make_shared<TerminalFileDescriptor>(*this);
+            files_[i] = std::make_shared<ShellFileDescriptor>(*this);
     }
     }
 
 }
 
 
-void Terminal::InputKey(
+void Shell::InputKey(
     uint8_t modifier, uint8_t keycode, char ascii) {
         if (ascii == '\n') {
             ExecuteLine();
@@ -259,7 +259,7 @@ void Terminal::InputKey(
     }
 }
 
-void Terminal::ExecuteLine() {
+void Shell::ExecuteLine() {
     char* command = &linebuf_[0];
     char* first_arg = strchr(&linebuf_[0], ' ');
     char* redir_char = strchr(&linebuf_[0], '>');
@@ -307,14 +307,14 @@ void Terminal::ExecuteLine() {
 
         auto& subtask = task_manager->NewTask();
         pipe_fd = std::make_shared<PipeDescriptor>(subtask);
-        auto term_desc = new TerminalDescriptor{
+        auto sh_desc = new ShellDescriptor{
             subcommand, true, false,
             { pipe_fd, files_[1], files_[2] }
         };
         files_[1] = pipe_fd;
 
         subtask_id = subtask
-            .InitContext(TaskTerminal, reinterpret_cast<int64_t>(term_desc))
+            .InitContext(TaskShell, reinterpret_cast<int64_t>(sh_desc))
             .Wakeup()
             .ID();
     }
@@ -428,7 +428,7 @@ void Terminal::ExecuteLine() {
     files_[1] = original_stdout;
 }
 
-WithError<int> Terminal::ExecuteFile(fat::DirectoryEntry& file_entry, char* command, char* first_arg) {
+WithError<int> Shell::ExecuteFile(fat::DirectoryEntry& file_entry, char* command, char* first_arg) {
 
     __asm__("cli");
     auto& task = task_manager->CurrentTask();
@@ -490,12 +490,12 @@ WithError<int> Terminal::ExecuteFile(fat::DirectoryEntry& file_entry, char* comm
     return { ret, FreePML4(task) };
 }
 
-void Terminal::Print(char c) {
+void Shell::Print(char c) {
   char ch[] = {c, '\0'};
   printt(ch);
 }
 
-void Terminal::Print(const char* s, std::optional<size_t> len) {
+void Shell::Print(const char* s, std::optional<size_t> len) {
     if (len) {
         for (size_t i = 0; i < *len; ++i) {
             Print(*s);
@@ -512,26 +512,26 @@ void Terminal::Print(const char* s, std::optional<size_t> len) {
 
 
 
-void TaskTerminal(uint64_t task_id, int64_t data) {
-    const auto term_desc = reinterpret_cast<TerminalDescriptor*>(data);
+void TaskShell(uint64_t task_id, int64_t data) {
+    const auto sh_desc = reinterpret_cast<ShellDescriptor*>(data);
 
     __asm__("cli");
     Task& task = task_manager->CurrentTask();
-    Terminal* terminal = new Terminal{task, term_desc};
+    Shell* shell = new Shell{task, sh_desc};
     __asm__("sti");
 
-    if (term_desc && !term_desc->command_line.empty()) {
-        for (int i = 0; i < term_desc->command_line.length(); ++i) {
-            terminal->InputKey(0, 0, term_desc->command_line[i]);
+    if (sh_desc && !sh_desc->command_line.empty()) {
+        for (int i = 0; i < sh_desc->command_line.length(); ++i) {
+            shell->InputKey(0, 0, sh_desc->command_line[i]);
         }
 
-        terminal->InputKey(0, 0, '\n');
+        shell->InputKey(0, 0, '\n');
     }
 
-    if (term_desc && term_desc->exit_after_command) {
-        delete term_desc;
+    if (sh_desc && sh_desc->exit_after_command) {
+        delete sh_desc;
         __asm__("cli");
-        task_manager->Finish(terminal->LastExitCode());
+        task_manager->Finish(shell->LastExitCode());
         __asm__("sti");
     }
 
@@ -560,7 +560,7 @@ void TaskTerminal(uint64_t task_id, int64_t data) {
                 break;
             case Message::kKeyPush:
                 if (msg->arg.keyboard.press) {
-                    terminal->InputKey(msg->arg.keyboard.modifier,
+                    shell->InputKey(msg->arg.keyboard.modifier,
                                                          msg->arg.keyboard.keycode,
                                                          msg->arg.keyboard.ascii);
                 }
@@ -576,19 +576,19 @@ void TaskTerminal(uint64_t task_id, int64_t data) {
 
 
 
-TerminalFileDescriptor::TerminalFileDescriptor(Terminal& term)
-    : term_{term} {
+ShellFileDescriptor::ShellFileDescriptor(Shell& shell)
+    : shell_{shell} {
     }
 
-size_t TerminalFileDescriptor::Read(void* buf, size_t len) {
+size_t ShellFileDescriptor::Read(void* buf, size_t len) {
     char* bufc = reinterpret_cast<char*>(buf);
 
     while (true) {
         __asm__("cli");
-        auto msg = term_.UnderlyingTask().ReceiveMessage();
+        auto msg = shell_.UnderlyingTask().ReceiveMessage();
         __asm__("sti");
         if (!msg) {
-            term_.UnderlyingTask().Sleep();
+            shell_.UnderlyingTask().Sleep();
             continue;
         }
         __asm__("sti");
@@ -615,12 +615,12 @@ size_t TerminalFileDescriptor::Read(void* buf, size_t len) {
     
 }
 
-size_t TerminalFileDescriptor::Write(const void* buf, size_t len) {
-    term_.Print(reinterpret_cast<const char*>(buf), len);
+size_t ShellFileDescriptor::Write(const void* buf, size_t len) {
+    shell_.Print(reinterpret_cast<const char*>(buf), len);
     return len;
 }
 
-size_t TerminalFileDescriptor::Load(void* buf, size_t len, size_t offset) {
+size_t ShellFileDescriptor::Load(void* buf, size_t len, size_t offset) {
   return 0;
 }
 

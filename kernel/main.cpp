@@ -34,7 +34,7 @@
 #include "acpi.hpp"
 #include "keyboard.hpp"
 #include "task.hpp"
-#include "terminal.hpp"
+#include "shell.hpp"
 #include "fat.hpp"
 #include "syscall.hpp"
 
@@ -103,13 +103,13 @@ extern "C" void KernelMainNewStack(
 
   app_loads = new std::map<fat::DirectoryEntry*, AppLoadInfo>;
 
-  auto term_desc = new TerminalDescriptor{
+  auto sh_desc = new ShellDescriptor{
     "servers/terminal", true, true,
     { nullptr, nullptr, nullptr }
   };
 
   Task& task = task_manager->NewTask()
-                .InitContext(TaskTerminal, reinterpret_cast<uint64_t>(term_desc))
+                .InitContext(TaskShell, reinterpret_cast<uint64_t>(sh_desc))
                 .Wakeup();
 
   
@@ -182,11 +182,6 @@ extern "C" void KernelMainNewStack(
             }
           active_layer->Activate(next_act_window_id);
         }
-      }  else if (msg->arg.keyboard.press &&
-                 msg->arg.keyboard.keycode == 59 /*F2*/) {
-        task_manager->NewTask()
-            .InitContext(TaskTerminal, 0)
-            .Wakeup();
       } else {
           auto act = active_layer->GetActive();
           __asm__("cli");
