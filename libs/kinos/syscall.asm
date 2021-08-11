@@ -28,4 +28,5 @@ define_syscall DemandPages,      0x8000000e
 define_syscall MapFile,          0x8000000f
 define_syscall CreateAppTask,    0x80000010
 define_syscall ConClear,         0x80000011
+define_syscall WritePixel,       0x80000012
 

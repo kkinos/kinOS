@@ -47,6 +47,7 @@ struct SyscallResult SyscallMapFile(int fd, size_t* file_size, int flags);
 
 struct SyscallResult SyscallCreateAppTask(char* command_line);
 struct SyscallResult SyscallConClear();
+struct SyscallResult SyscallWritePixel(int x, int y, int r, int g, int b);
 
 #ifdef __cplusplus
 } // extern "C"

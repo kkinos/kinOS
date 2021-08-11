@@ -444,13 +444,23 @@ SYSCALL(ConClear) {
   return {0, 0};
 }
 
+SYSCALL(WritePixel) {
+  const int x = arg1;
+  const int y = arg2;
+  const uint8_t r = arg3;
+  const uint8_t g = arg4; 
+  const uint8_t b = arg5;
+  screen_writer->Write({ x , y }, PixelColor{r, g, b});
+  return {0, 0};
+}
+
 #undef SYSCALL
 
 } 
 
 using SyscallFuncType = syscall::Result (uint64_t, uint64_t, uint64_t,
                                          uint64_t, uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType*, 0x12> syscall_table{
+extern "C" std::array<SyscallFuncType*, 0x13> syscall_table{
   /* 0x00 */ syscall::LogString,
   /* 0x01 */ syscall::PutString,
   /* 0x02 */ syscall::Exit,
@@ -469,6 +479,9 @@ extern "C" std::array<SyscallFuncType*, 0x12> syscall_table{
   /* 0x0f */ syscall::MapFile,
   /* 0x10 */ syscall::CreateAppTask,
   /* 0x11 */ syscall::ConClear,
+  /* 0x12 */ syscall::WritePixel,
+
+
 };
 
 void InitializeSyscall() {
