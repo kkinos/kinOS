@@ -450,8 +450,18 @@ SYSCALL(WritePixel) {
   const uint8_t r = arg3;
   const uint8_t g = arg4; 
   const uint8_t b = arg5;
-  screen_writer->Write({ x , y }, PixelColor{r, g, b});
+  screen_writer->Write({ x , y }, PixelColor{ r, g, b });
   return {0, 0};
+}
+
+SYSCALL(FrameBufferWitdth) {
+  uint64_t w = screen_writer->Width();
+  return { w, 0 };
+}
+
+SYSCALL(FrameBufferHeight) {
+  uint64_t h = screen_writer->Height();
+  return { h, 0};
 }
 
 #undef SYSCALL
@@ -460,7 +470,7 @@ SYSCALL(WritePixel) {
 
 using SyscallFuncType = syscall::Result (uint64_t, uint64_t, uint64_t,
                                          uint64_t, uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType*, 0x13> syscall_table{
+extern "C" std::array<SyscallFuncType*, 0x15> syscall_table{
   /* 0x00 */ syscall::LogString,
   /* 0x01 */ syscall::PutString,
   /* 0x02 */ syscall::Exit,
@@ -480,6 +490,9 @@ extern "C" std::array<SyscallFuncType*, 0x13> syscall_table{
   /* 0x10 */ syscall::CreateAppTask,
   /* 0x11 */ syscall::ConClear,
   /* 0x12 */ syscall::WritePixel,
+  /* 0x13 */ syscall::FrameBufferWitdth,
+  /* 0x14 */ syscall::FrameBufferHeight,
+
 
 
 };
