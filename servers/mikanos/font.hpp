@@ -1,3 +1,9 @@
+/**
+ * @file graphics.hpp
+ *
+ * フォントを表示するための関数を集めたファイル
+ */
+
 #pragma once
 
 #include "graphics.hpp"

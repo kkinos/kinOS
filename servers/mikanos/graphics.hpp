@@ -1,3 +1,9 @@
+/**
+ * @file graphics.hpp
+ *
+ * グラフィック周りのファイル
+ */
+
 #pragma once
 
 #include <cstdlib>
@@ -9,6 +15,13 @@ struct PixelColor {
   uint8_t r, g, b;
 };
 
+/**
+ * @brief 四角形を描写する
+ * 
+ * @param pos 
+ * @param size 
+ * @param c 
+ */
 void DrawRectangle(const Vector2D<int>& pos,
                    const Vector2D<int>& size, const PixelColor& c) {
   for (int dx = 0; dx < size.x; ++dx) {
@@ -25,6 +38,13 @@ void DrawRectangle(const Vector2D<int>& pos,
   }
 }
 
+/**
+ * @brief 四角形を中を埋めた状態で表示する
+ * 
+ * @param pos 
+ * @param size 
+ * @param c 
+ */
 void FillRectangle(const Vector2D<int>& pos,
                    const Vector2D<int>& size, const PixelColor& c) {
   for (int dy = 0; dy < size.y; ++dy) {
@@ -36,6 +56,9 @@ void FillRectangle(const Vector2D<int>& pos,
 }
 
 const PixelColor kDesktopBGColor{0, 172, 150};
+const PixelColor kDesktopFGColor{255, 255, 255};
+const PixelColor kDesktopTNColor{0, 255, 0};
+
 
 void DrawDesktop() {
     auto [ w, errw ] = SyscallFrameBufferWidth();
