@@ -38,8 +38,17 @@ $(TARGET): $(OBJS) Makefile
 	$(eval OBJ = $(<:.cpp=.o))
 	sed --in-place 's|$(notdir $(OBJ))|$(OBJ)|' $@
 
-
 %.o: %.asm Makefile
 	nasm -f elf64 -o $@ $<
+
+hankaku.bin: hankaku.txt
+	$(MKFONT_CMD) -o $@ $<
+
+hankaku.o: hankaku.bin
+	objcopy -I binary -O elf64-x86-64 -B i386:x86-64 $< $@
+
+.%.d: %.bin
+	touch $@
+
 
 -include $(DEPENDS)

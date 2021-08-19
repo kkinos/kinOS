@@ -1,4 +1,4 @@
 TARGET = mikanos
-OBJS = mikanos.o 
+OBJS += mikanos.o hankaku.o
 
 include ../Makefile.elfserver
