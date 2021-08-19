@@ -35,7 +35,7 @@ void FillRectangle(const Vector2D<int>& pos,
   }
 }
 
-const PixelColor kDesktopBGColor{0, 218, 145};
+const PixelColor kDesktopBGColor{0, 172, 150};
 
 void DrawDesktop() {
     auto [ w, errw ] = SyscallFrameBufferWidth();
