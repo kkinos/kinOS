@@ -106,7 +106,15 @@ void Mouse::OnInterrupt(uint8_t buttons, int8_t displacement_x, int8_t displacem
 
   const auto posdiff = position_ - oldpos;
 
-  layer_manager->Move(layer_id_, position_);
+  /*layer_manager->Move(layer_id_, position_);*/
+
+  Message msg{Message::aMouseMove};
+  msg.arg.mouse_move.x = position_.x;
+  msg.arg.mouse_move.y = position_.y;
+  msg.arg.mouse_move.dx = displacement_x;
+  msg.arg.mouse_move.dy = displacement_y;
+  msg.arg.mouse_move.buttons = 0;
+  task_manager->SendMessageToOs(msg);
 
   const bool previous_left_pressed = (previous_buttons_ & 0x01);
   const bool left_pressed = (buttons & 0x01);

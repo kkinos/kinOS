@@ -56,7 +56,7 @@ int printt(const char* format, ...);
 
 Console::Console(const PixelColor& fg_color, const PixelColor& bg_color, const PixelColor& tn_color)
     : fg_color_{fg_color}, bg_color_{bg_color}, tn_color_{tn_color},
-      cursor_row_{2}, cursor_column_{0}, layer_id_{0} {}
+      cursor_row_{2}, cursor_column_{2}, layer_id_{0} {}
 
 /**
  * @brief コンソールに文字を表示する

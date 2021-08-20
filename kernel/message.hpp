@@ -16,6 +16,7 @@ struct Message {
     kWindowActive,
     kPipe,
     kCreateAppTask,
+    aMouseMove,
   } type;
 
   uint64_t src_task;

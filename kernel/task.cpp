@@ -207,6 +207,19 @@ Error TaskManager::SendMessage(uint64_t id, const Message& msg) {
     return MAKE_ERROR(Error::kSuccess);
 }
 
+/**
+ * @brief OSサーバーにメッセージを送信
+ * 
+ * @param msg 
+ * @return Error 
+ */
+Error TaskManager::SendMessageToOs(const Message& msg) {
+  if (os_task_id_ == 0) {
+    return MAKE_ERROR(Error::kNotOSServerRunning);
+  }
+  return SendMessage(os_task_id_, msg);
+}
+
 Task& TaskManager::CurrentTask() {
     return *running_[current_level_].front();
 }

@@ -16,6 +16,7 @@
 #include "keyboard.hpp"
 #include "app_event.hpp"
 #include "console.hpp"
+#include "../libs/kinos/app_message.hpp"
 
 namespace syscall {
   struct Result {
@@ -464,13 +465,54 @@ SYSCALL(FrameBufferHeight) {
   return { h, 0};
 }
 
+SYSCALL(ReceiveMessage) {
+  const auto app_message = reinterpret_cast<AppMessage*>(arg1);
+  const size_t len = arg2;
+
+  __asm__("cli");
+  auto& task = task_manager->CurrentTask();
+  __asm__("sti");
+  size_t i = 0;
+
+  while (i < len) {
+    __asm__("cli");
+    auto msg = task.ReceiveMessage();
+    if (!msg && i == 0) {
+      task.Sleep();
+      continue;
+    }
+    __asm__("sti");
+
+    if (!msg) {
+      break;
+    }
+
+    switch (msg->type) {
+     case Message::aMouseMove:
+      app_message[i].type = AppMessage::aMouseMove;
+      app_message[i].arg.mouse_move.x = msg->arg.mouse_move.x;
+      app_message[i].arg.mouse_move.y = msg->arg.mouse_move.y;
+      app_message[i].arg.mouse_move.dx = msg->arg.mouse_move.dx;
+      app_message[i].arg.mouse_move.dy = msg->arg.mouse_move.dy;
+      app_message[i].arg.mouse_move.buttons = msg->arg.mouse_move.buttons;
+      ++i;
+      break;
+      
+    default:
+      Log(kInfo, "uncaught event type: %u\n", msg->type);
+    }
+  }
+
+  return { i, 0 };
+}
+
 #undef SYSCALL
 
 } 
 
 using SyscallFuncType = syscall::Result (uint64_t, uint64_t, uint64_t,
                                          uint64_t, uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType*, 0x15> syscall_table{
+extern "C" std::array<SyscallFuncType*, 0x16> syscall_table{
   /* 0x00 */ syscall::LogString,
   /* 0x01 */ syscall::PutString,
   /* 0x02 */ syscall::Exit,
@@ -492,6 +534,9 @@ extern "C" std::array<SyscallFuncType*, 0x15> syscall_table{
   /* 0x12 */ syscall::WritePixel,
   /* 0x13 */ syscall::FrameBufferWitdth,
   /* 0x14 */ syscall::FrameBufferHeight,
+  /* 0x15 */ syscall::ReceiveMessage,
+
+
 
 
 

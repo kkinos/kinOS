@@ -113,6 +113,10 @@ class TaskManager {
     Error Wakeup(uint64_t id, int level = -1);
     Error SendMessage(uint64_t id, const Message& msg);
     Task& CurrentTask();
+    
+    void SetOsTaskId(uint64_t os_task_id) { os_task_id_ = os_task_id; }
+    Error SendMessageToOs(const Message& msg);
+
 
     void Finish(int exit_code);
     WithError<int> WaitFinish(uint64_t task_id);
@@ -130,6 +134,8 @@ class TaskManager {
     bool level_changed_{false};
     std::map<uint64_t, int> finish_tasks_{}; // key: ID of a finished task
     std::map<uint64_t, Task*> finish_waiter_{}; // key: ID of a finished task
+    
+    uint64_t os_task_id_{0};
 
     void ChangeLevelRunning(Task* task, int level);
     Task* RotateCurrentRunQueue(bool current_sleep);

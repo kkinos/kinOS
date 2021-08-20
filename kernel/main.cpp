@@ -97,6 +97,9 @@ extern "C" void KernelMainNewStack(
   Task& main_task = task_manager->CurrentTask();
   main_task.SetCommandLine("kinOS");
 
+  Task& os_task = task_manager->NewTask();
+  task_manager->SetOsTaskId(os_task.ID());
+
   usb::xhci::Initialize();
   InitializeKeyboard();
   InitializeMouse();
@@ -111,6 +114,13 @@ extern "C" void KernelMainNewStack(
   Task& task = task_manager->NewTask()
                 .InitContext(TaskShell, reinterpret_cast<uint64_t>(sh_desc))
                 .Wakeup();
+
+  auto os_sh_desc = new ShellDescriptor{
+    "servers/mikanos", true, true,
+    { nullptr, nullptr, nullptr }
+  };
+
+  os_task.InitContext(TaskShell, reinterpret_cast<uint64_t>(os_sh_desc)).Wakeup();
 
   
   printk("\n");
