@@ -12,15 +12,15 @@
 #include "font.hpp"
 #include "console.hpp"
 #include "mouse.hpp"
+#include "window.hpp"
+#include "layer.hpp"
 
 extern "C" int main() {
-    DrawDesktop();
+    InitializeGraphics();
     InitializeConsole();
+    InitializeLayer();
     InitializeMouse();
-    
-    console->PutString("unko\n");
-    console->PutString("chinchin\n");
-    console->PutString("chinchin\n");
+
 
     AppMessage msg[1]; 
 
@@ -32,7 +32,8 @@ extern "C" int main() {
     }
     if (msg[0].type == AppMessage::aMouseMove) {
         auto& arg = msg[0].arg.mouse_move;
-        mouse_cursor->MoveRelative({ arg.dx, arg.dy });
+        MouseObserver(arg.dx, arg.dy);
+        
     }
   }
 

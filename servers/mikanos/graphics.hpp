@@ -1,9 +1,3 @@
-/**
- * @file graphics.hpp
- *
- * グラフィック周りのファイル
- */
-
 #pragma once
 
 #include <cstdlib>
@@ -15,73 +9,48 @@ struct PixelColor {
   uint8_t r, g, b;
 };
 
-/**
- * @brief 四角形を描写する
- * 
- * @param pos 
- * @param size 
- * @param c 
- */
-void DrawRectangle(const Vector2D<int>& pos,
-                   const Vector2D<int>& size, const PixelColor& c) {
-  for (int dx = 0; dx < size.x; ++dx) {
-      Vector2D<int> p1 = pos + Vector2D<int>{dx, 0};
-      SyscallWritePixel(p1.x, p1.y, c.r, c.g, c.b);
-      Vector2D<int> p2 = pos + Vector2D<int>{dx, size.y - 1};
-      SyscallWritePixel(p2.x, p2.y, c.r, c.g, c.b);
-  }
-  for (int dy = 1; dy < size.y - 1; ++dy) {
-      Vector2D<int> p3 = pos + Vector2D<int>{0, dy};
-      SyscallWritePixel(p3.x, p3.y, c.r, c.g, c.b);
-      Vector2D<int> p4 = pos + Vector2D<int>{size.x - 1, dy}; 
-      SyscallWritePixel(p4.x, p4.y, c.r, c.g, c.b);
-  }
+inline bool operator==(const PixelColor& lhs, const PixelColor& rhs) {
+  return lhs.r == rhs.r && lhs.g == rhs.g && lhs.b == rhs.b;
 }
 
-/**
- * @brief 四角形を中を埋めた状態で表示する
- * 
- * @param pos 
- * @param size 
- * @param c 
- */
-void FillRectangle(const Vector2D<int>& pos,
-                   const Vector2D<int>& size, const PixelColor& c) {
-  for (int dy = 0; dy < size.y; ++dy) {
-    for (int dx = 0; dx < size.x; ++dx) {
-        Vector2D<int> p = pos + Vector2D<int>{dx, dy};
-        SyscallWritePixel(p.x, p.y, c.r, c.g, c.b);
-    }
-  }
+inline bool operator!=(const PixelColor& lhs, const PixelColor& rhs) {
+  return !(lhs == rhs);
 }
+
+class PixelWriter {
+ public:
+  virtual ~PixelWriter() = default;
+  virtual void Write(Vector2D<int> pos, const PixelColor& c) = 0;
+  virtual int Width() const = 0;
+  virtual int Height() const = 0;
+};
+
+class FrameBufferWriter : public PixelWriter {
+ public:
+  FrameBufferWriter(){};
+  virtual ~FrameBufferWriter() = default;
+  virtual void Write(Vector2D<int> pos, const PixelColor& c) override;
+  virtual int Width() const override;
+  virtual int Height() const override;
+
+};
+
+
 
 const PixelColor kDesktopBGColor{0, 172, 150};
 const PixelColor kDesktopFGColor{255, 255, 255};
 const PixelColor kDesktopTNColor{0, 255, 0};
 
 
-void DrawDesktop() {
-    auto [ w, errw ] = SyscallFrameBufferWidth();
-    auto [ h, errh ] = SyscallFrameBufferHeight();
+void DrawRectangle(PixelWriter& writer, const Vector2D<int>& pos,
+                   const Vector2D<int>& size, const PixelColor& c);
 
-    int width = static_cast<int>(w);
-    int height = static_cast<int>(h);
+void FillRectangle(PixelWriter& writer, const Vector2D<int>& pos,
+                   const Vector2D<int>& size, const PixelColor& c);
 
+void DrawDesktop(PixelWriter& writer);
 
-    FillRectangle(  {0, 0},
-                    {width, height - 50},
-                    kDesktopBGColor);
+Vector2D<int> ScreenSize();
+extern PixelWriter* screen_writer;
 
-    FillRectangle(  {0, height - 50},
-                    {width, 50},
-                    {1, 8, 17});
-
-    FillRectangle(  {0, height - 50},
-                    {width / 5, 50},
-                    {80, 80, 80});
-
-    DrawRectangle(  {10, height - 40},
-                    {30, 30},
-                    {160, 160, 160});
-}
-
+void InitializeGraphics();

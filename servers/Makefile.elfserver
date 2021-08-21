@@ -50,5 +50,9 @@ hankaku.o: hankaku.bin
 .%.d: %.bin
 	touch $@
 
+.PHONY: depends
+depends:
+	$(MAKE) $(DEPENDS)
+
 
 -include $(DEPENDS)
