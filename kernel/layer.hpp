@@ -125,6 +125,7 @@ extern ActiveLayer* active_layer;
 extern std::map<unsigned int, uint64_t>* layer_task_map;
 
 extern std::vector<unsigned int> window_layer_id;
+extern FrameBuffer* screen;
 
 void InitializeLayer();
 void ProcessLayerMessage(const Message& msg);

@@ -10,6 +10,7 @@
 #include "graphics.hpp"
 #include "mouse.hpp"
 #include "console.hpp"
+#include "font.hpp"
 
 namespace {
   const char mouse_cursor_shape[kMouseCursorHeight][kMouseCursorWidth + 1] = {
@@ -57,18 +58,15 @@ void DrawMouseCursor(PixelWriter* pixel_writer, Vector2D<int> position) {
 unsigned int mouse_layer_id;
 
 void InitializeMouse() {
- auto mouse_window = std::make_shared<Window>(
-   kMouseCursorWidth, kMouseCursorHeight);
+ auto mouse_window = std::make_shared<Window>(kMouseCursorWidth, kMouseCursorHeight);
   mouse_window->SetTransparentColor(kMouseTransparentColor);
   DrawMouseCursor(mouse_window->Writer(), {0, 0});
-
  mouse_layer_id = layer_manager->NewLayer()
   .SetWindow(mouse_window)
   .ID();
-
+  
   layer_manager->UpDown(mouse_layer_id, 1);
   layer_manager->Draw();
-
 }
 
 void MouseObserver(int displacement_x, int displacement_y) {

@@ -32,6 +32,7 @@ define_syscall WritePixel,       0x80000012
 define_syscall FrameBufferWidth,       0x80000013
 define_syscall FrameBufferHeight,       0x80000014
 define_syscall ReceiveMessage,       0x80000015
+define_syscall CopyToFrameBuffer,       0x80000016
 
 
 

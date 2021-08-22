@@ -5,7 +5,7 @@
  */
 
 #include "graphics.hpp"
-
+#include "font.hpp"
 void FrameBufferWriter::Write(Vector2D<int> pos, const PixelColor& c) {
   SyscallWritePixel(pos.x, pos.y, c.r, c.g, c.b);
 }
@@ -26,6 +26,13 @@ int FrameBufferWriter::Height() const {
   }
   int height = static_cast<int>(h);
   return height;
+}
+
+void ShadowBufferWriter::Write(Vector2D<int> pos, const PixelColor& c) {
+  auto p = PixelAt(pos);
+  p[0] = c.b;
+  p[1] = c.g;
+  p[2] = c.r;
 }
 
 /**

@@ -1,3 +1,9 @@
+/**
+ * @file layer.hpp
+ *
+ * 重ね合わせ処理を提供する。
+ */
+
 #pragma once
 
 #include <memory>

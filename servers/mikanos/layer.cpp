@@ -1,13 +1,8 @@
-/**
- * @file layer.cpp
- *
- * 重ね合わせ処理を提供する。
- */
-
-
 #include "layer.hpp"
 #include "console.hpp"
 #include "mouse.hpp"
+#include "font.hpp"
+
 
 Layer::Layer(unsigned int id) : id_{id} {}
 
@@ -37,6 +32,8 @@ Layer& Layer::MoveRelative(Vector2D<int> pos_diff) {
 void Layer::DrawTo(PixelWriter& writer) const {
   if (window_) {
     window_->DrawTo(writer, pos_);
+    
+   
   }
 }
 
@@ -50,10 +47,13 @@ Layer& LayerManager::NewLayer() {
 }
 
 void LayerManager::Draw() const {
+  
   for (auto layer : layer_stack_) {
     layer->DrawTo(*writer_);
   }
 }
+
+
 
 void LayerManager::Move(unsigned int id, Vector2D<int> new_position) {
   FindLayer(id)->Move(new_position);

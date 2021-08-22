@@ -54,6 +54,8 @@ struct SyscallResult SyscallFrameBufferHeight();
 
 struct SyscallResult SyscallReceiveMessage(struct AppMessage* msg, size_t len);
 
+struct SyscallResult SyscallCopyToFrameBuffer(const uint8_t* src_buf, int start_x , int start_y, int bytes_per_copy_line);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

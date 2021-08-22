@@ -5,6 +5,8 @@
 #include "../../libs/kinos/syscall.h"
 #include "../../libs/common/template.hpp"
 
+#include "shadow_buffer_config.hpp"
+
 struct PixelColor {
   uint8_t r, g, b;
 };
@@ -33,6 +35,24 @@ class FrameBufferWriter : public PixelWriter {
   virtual int Width() const override;
   virtual int Height() const override;
 
+};
+
+class ShadowBufferWriter : public FrameBufferWriter {
+  public:
+    ShadowBufferWriter(const ShadowBufferConfig& config) : config_{config} {}
+    virtual ~ShadowBufferWriter() = default;
+    virtual void Write(Vector2D<int> pos, const PixelColor& c) override;
+    virtual int Width() const override { return config_.horizontal_resolution; }
+    virtual int Height() const override { return config_.vertical_resolution; }
+
+    protected:
+    uint8_t* PixelAt(Vector2D<int> pos) {
+      return config_.shadow_buffer + 4 * (config_.pixels_per_scan_line * pos.y + pos.x);
+  }
+
+  private:
+  const ShadowBufferConfig& config_;
+    
 };
 
 

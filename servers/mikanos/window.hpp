@@ -1,9 +1,18 @@
+/**
+ * @file window.hpp
+ *
+ * 表示領域を表すWindowクラスを提供する。
+ */
+
 #pragma once
 
 #include <vector>
 #include <optional>
 #include <string>
+
 #include "graphics.hpp"
+#include "shadow_buffer_config.hpp"
+#include "shadow_buffer.hpp"
 
 /** @brief Window クラスはグラフィックの表示領域を表す。
  *
@@ -17,7 +26,7 @@ class Window {
          WindowWriter(Window& window) : window_{window} {}
          /** @brief 指定された位置に指定された色を描く */
          virtual void Write(Vector2D<int> pos, const PixelColor& c) override {
-            window_.At(pos) = c;
+            window_.Write(pos, c);
         }
         /** @brief Width は関連付けられた Window の横幅をピクセル単位で返す。 */
         virtual int Width() const override { return window_.Width(); }
@@ -35,13 +44,13 @@ class Window {
     Window(const Window& rhs) = delete;
     Window& operator=(const Window& rhs) = delete;
 
-  /** @brief 与えられた FrameBuffer にこのウィンドウの表示領域を描画する。
+  /** @brief FrameBuffer にこのウィンドウの表示領域を描画する。
    *
-   * @param dst  描画先
+   * @param writer 透過色がある場合に使われる描画方法
    * @param pos  dst の左上を基準としたウィンドウの位置
    * @param area  dst の左上を基準とした描画対象範囲
    */
-    void DrawTo(PixelWriter& writer, Vector2D<int> position);
+    void DrawTo(PixelWriter& writer,Vector2D<int> position);
     /** @brief 透過色を設定する。 */
     void SetTransparentColor(std::optional<PixelColor> c);
     /** @brief このインスタンスに紐付いた WindowWriter を取得する。 */
@@ -49,9 +58,8 @@ class Window {
 
     /** @brief 指定した位置のピクセルを返す。 */
     const PixelColor& At(Vector2D<int> pos) const;
-    PixelColor& At(Vector2D<int> pos);
     /** @brief 指定した位置にピクセルを書き込む。 */
-    /*void Write(Vector2D<int> pos, PixelColor c);*/
+    void Write(Vector2D<int> pos, PixelColor c);
 
     /** @brief 平面描画領域の横幅をピクセル単位で返す。 */
     int Width() const;
@@ -77,7 +85,9 @@ class Window {
     WindowWriter writer_{*this};
     std::optional<PixelColor> transparent_color_{std::nullopt};
 
-    /*FrameBuffer shadow_buffer_{};*/
+    ShadowBuffer shadow_buffer_{};
+
+    
 };
 
 

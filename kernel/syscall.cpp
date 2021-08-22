@@ -6,6 +6,7 @@
 #include <cmath>
 #include <fcntl.h>
 
+
 #include "asmfunc.h"
 #include "msr.hpp"
 #include "logger.hpp"
@@ -16,6 +17,7 @@
 #include "keyboard.hpp"
 #include "app_event.hpp"
 #include "console.hpp"
+#include "layer.hpp"
 #include "../libs/kinos/app_message.hpp"
 
 namespace syscall {
@@ -506,13 +508,26 @@ SYSCALL(ReceiveMessage) {
   return { i, 0 };
 }
 
+SYSCALL(CopyToFrameBuffer) {
+  
+  const auto src_buf = reinterpret_cast<uint8_t*>(arg1);
+  int copy_start_x = arg2;
+  int copy_start_y = arg3;
+  int bytes_per_copy_line = arg4;
+  uint8_t* dst_buf = screen->Config().frame_buffer + 4 *
+    (screen->Config().pixels_per_scan_line * copy_start_y + copy_start_x);
+  memcpy(dst_buf, src_buf, bytes_per_copy_line);
+  
+  return{ 0, 0 };
+
+}
 #undef SYSCALL
 
 } 
 
 using SyscallFuncType = syscall::Result (uint64_t, uint64_t, uint64_t,
                                          uint64_t, uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType*, 0x16> syscall_table{
+extern "C" std::array<SyscallFuncType*, 0x17> syscall_table{
   /* 0x00 */ syscall::LogString,
   /* 0x01 */ syscall::PutString,
   /* 0x02 */ syscall::Exit,
@@ -535,6 +550,9 @@ extern "C" std::array<SyscallFuncType*, 0x16> syscall_table{
   /* 0x13 */ syscall::FrameBufferWitdth,
   /* 0x14 */ syscall::FrameBufferHeight,
   /* 0x15 */ syscall::ReceiveMessage,
+  /* 0x16 */ syscall::CopyToFrameBuffer,
+
+
 
 
 
