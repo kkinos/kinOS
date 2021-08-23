@@ -1,3 +1,9 @@
+/**
+ * @file console.hpp
+ *
+ * コンソール描画のプログラムを集めたファイル
+ */
+
 #pragma once 
 
 #include <memory>
@@ -51,3 +57,5 @@ int printt(const char* format, ...);
 
 
 void InitializeConsole();
+
+int printk(const char* format, ...);

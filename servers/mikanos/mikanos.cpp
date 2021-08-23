@@ -21,6 +21,7 @@ extern "C" int main() {
     InitializeConsole();
     InitializeLayer();
     InitializeMouse();
+    printk("welcome to kinOS ver.M! \n");
    
     
 
@@ -36,10 +37,10 @@ extern "C" int main() {
     if (msg[0].type == AppMessage::aMouseMove) {
         auto& arg = msg[0].arg.mouse_move;
         MouseObserver(arg.dx, arg.dy);
-        console->PutString("test1\n");
+      
         
     }
-    console->PutString("test2\n");
+    
   }
 
     exit(0);

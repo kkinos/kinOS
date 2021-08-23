@@ -1,8 +1,5 @@
-/**
- * @file console.cpp
- *
- * コンソール描画のプログラムを集めたファイル
- */
+#include <cstdio>
+
 
 #include "console.hpp"
 #include "font.hpp"
@@ -70,4 +67,17 @@ void InitializeConsole() {
     kDesktopFGColor, kDesktopBGColor, kDesktopTNColor,
   };
   console->SetWriter(screen_writer);
+}
+
+int printk(const char* format, ...) {
+  va_list ap;
+  int result;
+  char s[1024];
+
+  va_start(ap, format);
+  result = vsprintf(s, format, ap);
+  va_end(ap);
+
+  console->PutString(s);
+  return result;
 }
