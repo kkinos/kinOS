@@ -113,7 +113,7 @@ void Mouse::OnInterrupt(uint8_t buttons, int8_t displacement_x, int8_t displacem
   msg.arg.mouse_move.y = position_.y;
   msg.arg.mouse_move.dx = displacement_x;
   msg.arg.mouse_move.dy = displacement_y;
-  msg.arg.mouse_move.buttons = 0;
+  msg.arg.mouse_move.buttons = buttons;
   task_manager->SendMessageToOs(msg);
 
   const bool previous_left_pressed = (previous_buttons_ & 0x01);

@@ -26,7 +26,7 @@ void Console::PutString(const char* s) {
     ++s;
   }
   if (layer_manager) {
-    layer_manager->Draw();
+    layer_manager->Draw(layer_id_);
   }
 }
 
@@ -58,6 +58,14 @@ void Console::SetWindow(const std::shared_ptr<Window>& window) {
   window_ = window;
   writer_ = window->Writer();
   Refresh();
+}
+
+void Console::SetLayerID(unsigned int layer_id) {
+  layer_id_ = layer_id;
+}
+
+unsigned int Console::LayerID() const {
+  return layer_id_;
 }
 
 void Console::Refresh() {

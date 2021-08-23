@@ -51,28 +51,28 @@ Error ShadowBuffer::Initialize(const ShadowBufferConfig& config) {
 }
 
 /**
- * @brief FrameBuffer(表示領域)にShadowBufferをコピー
+ * @brief ShadowBufferをFrameBuffer(表示領域)にコピー
  * 
- * @param pos 
+ * @param pos FrameBufferのコピーし始めたい位置
+ * @param area ShadowBufferのコピーしたい範囲
  * @return Error 
  */
 
-Error ShadowBuffer::CopyToFrameBuffer(Vector2D<int> pos) {
-    const auto bytes_per_pixel = 4; /*1ピクセル4bytes*/
-    const auto shadow_buffer_width = config_.horizontal_resolution;
-    const auto shadow_buffer_height = config_.vertical_resolution;
-    const auto frame_buffer_width = static_cast<uint32_t>(ScreenSize().x);
-    const auto frame_buffer_height = static_cast<uint32_t>(ScreenSize().y);
-    const int copy_start_x = std::max(pos.x, 0);
-    const int copy_start_y = std::max(pos.y, 0);
-    const int copy_end_x = std::min(pos.x + shadow_buffer_width, frame_buffer_width);
-    const int copy_end_y = std::min(pos.y + shadow_buffer_height, frame_buffer_height);
-    
-    const auto bytes_per_copy_line = bytes_per_pixel * (copy_end_x - copy_start_x);
+Error ShadowBuffer::CopyToFrameBuffer(Vector2D<int> pos, const Rectangle<int>& area) {
+    const auto bytes_per_pixel = BytesPerPixel(); 
+    const auto frame_buffer_width = static_cast<int>(ScreenSize().x);
+    const auto frame_buffer_height = static_cast<int>(ScreenSize().y);
 
-    const uint8_t* shadow_buf = config_.shadow_buffer;
-    for (int dy = 0; dy < copy_end_y - copy_start_y; ++dy) {
-        SyscallCopyToFrameBuffer(shadow_buf, copy_start_x, dy + copy_start_y, bytes_per_copy_line);
+    const Rectangle<int> copy_area_shifted{pos, area.size};     /*FrameBufferにおける再描写したい部分*/
+    const Rectangle<int> shadow_buffer_outline{pos - area.pos, ShadowBufferSize(config_)};      /*FrameBufferに対するShadow_Buffer全体*/
+    const Rectangle<int> frame_buffer_outline{{0, 0}, {frame_buffer_width, frame_buffer_height}};       /*FrameBuffer全体*/
+    
+    const auto copy_area = frame_buffer_outline & shadow_buffer_outline & copy_area_shifted;    /*コピーするべき範囲*/
+    const auto shadow_buf_start_pos = copy_area.pos - (pos - area.pos);
+    uint8_t* shadow_buf = ShadowAddrAt(shadow_buf_start_pos, config_);
+
+    for (int dy = 0; dy < copy_area.size.y; ++dy) {
+        SyscallCopyToFrameBuffer(shadow_buf, copy_area.pos.x, dy + copy_area.pos.y, bytes_per_pixel * copy_area.size.x);
         shadow_buf += bytes_per_pixel * config_.pixels_per_scan_line;
     }
     return MAKE_ERROR(Error::kSuccess);

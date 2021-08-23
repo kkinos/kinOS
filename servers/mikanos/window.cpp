@@ -17,9 +17,11 @@ Window::Window(int width, int height) : width_{width}, height_{height} {
     }
 }
 
-void Window::DrawTo(PixelWriter& writer, Vector2D<int> pos) {
+void Window::DrawTo(PixelWriter& writer, Vector2D<int> pos, const Rectangle<int>& area) {
     if (!transparent_color_) {
-        shadow_buffer_.CopyToFrameBuffer(pos);
+        Rectangle<int> window_area{pos, Size()};    /*layerに対応したwindowの大きさ*/
+        Rectangle<int> intersection = area & window_area;   /*そのwindowと再描写したい部分の重なり*/
+        shadow_buffer_.CopyToFrameBuffer(intersection.pos, {intersection.pos - pos, intersection.size}); /*shadowbuffer用の座標にあわせる*/
         return;
     }
     const auto tc = transparent_color_.value();
@@ -65,6 +67,10 @@ int Window::Width() const {
 
 int Window::Height() const {
     return height_;
+}
+
+Vector2D<int> Window::Size() const {
+  return {width_, height_};
 }
 
 namespace {

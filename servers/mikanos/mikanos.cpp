@@ -26,17 +26,18 @@ void InitializeMainWindow() {
 
   main_window_layer_id = layer_manager->NewLayer()
     .SetWindow(main_window)
+    .SetDraggable(true)
     .Move({300, 300})
     .ID();
   
-  layer_manager->UpDown(main_window_layer_id, 1);
-  layer_manager->Draw();
+  layer_manager->UpDown(main_window_layer_id, 2);
 }
 
 extern "C" int main() {
     InitializeGraphics();
     InitializeConsole();
     InitializeLayer();
+    InitializeMainWindow();
     InitializeMouse();
 
     printk("\n");
@@ -53,7 +54,7 @@ extern "C" int main() {
     printk("\n");
     printk("welcome to MikanOS!\n");
 
-    InitializeMainWindow();
+    layer_manager->Draw({{0, 0}, ScreenSize()});
 
 
       

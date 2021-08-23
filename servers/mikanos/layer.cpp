@@ -19,6 +19,20 @@ std::shared_ptr<Window> Layer::GetWindow() const {
   return window_;
 }
 
+Vector2D<int> Layer::GetPosition() const {
+  return pos_;
+}
+
+Layer& Layer::SetDraggable(bool draggable) {
+  draggable_ = draggable;
+  return *this;
+}
+
+bool Layer::IsDraggable() const {
+  return draggable_;
+}
+
+
 Layer& Layer::Move(Vector2D<int> pos) {
   pos_ = pos;
   return *this;
@@ -29,11 +43,10 @@ Layer& Layer::MoveRelative(Vector2D<int> pos_diff) {
   return *this;
 }
 
-void Layer::DrawTo(PixelWriter& writer) const {
+void Layer::DrawTo(PixelWriter& writer, const Rectangle<int>& area) const {
   if (window_) {
-    window_->DrawTo(writer, pos_);
+    window_->DrawTo(writer, pos_, area);
     
-   
   }
 }
 
@@ -46,21 +59,45 @@ Layer& LayerManager::NewLayer() {
   return *layers_.emplace_back(new Layer{latest_id_});
 }
 
-void LayerManager::Draw() const {
-  
+void LayerManager::Draw(const Rectangle<int>& area) const {
   for (auto layer : layer_stack_) {
-    layer->DrawTo(*writer_);
+    layer->DrawTo(*writer_, area);
+  }
+}
+
+void LayerManager::Draw(unsigned int id) const {
+  bool draw = false;
+  Rectangle<int> window_area;
+  for (auto layer : layer_stack_) {
+    if (layer->ID() == id) {
+      window_area.size = layer->GetWindow()->Size();
+      window_area.pos = layer->GetPosition();
+      draw = true;
+    }
+    if (draw) {
+      layer->DrawTo(*writer_, window_area);
+    }
   }
 }
 
 
 
-void LayerManager::Move(unsigned int id, Vector2D<int> new_position) {
-  FindLayer(id)->Move(new_position);
+void LayerManager::Move(unsigned int id, Vector2D<int> new_pos) {
+  auto layer = FindLayer(id);
+  const auto window_size = layer->GetWindow()->Size();
+  const auto old_pos = layer->GetPosition();
+  layer->Move(new_pos);
+  Draw({old_pos, window_size});
+  Draw(id);
 }
 
 void LayerManager::MoveRelative(unsigned int id, Vector2D<int> pos_diff) {
-  FindLayer(id)->MoveRelative(pos_diff);
+  auto layer = FindLayer(id);
+  const auto window_size = layer->GetWindow()->Size();
+  const auto old_pos = layer->GetPosition();
+  layer->MoveRelative(pos_diff);
+  Draw({old_pos, window_size});
+  Draw(id);
 }
 
 void LayerManager::UpDown(unsigned int id, int new_height) {
@@ -96,6 +133,27 @@ void LayerManager::Hide(unsigned int id) {
   }
 }
 
+Layer* LayerManager::FindLayerByPosition(Vector2D<int> pos, unsigned int exclude_id) const {
+  auto pred = [pos, exclude_id](Layer* layer) {
+    if (layer->ID() == exclude_id) {
+      return false;
+    }
+    const auto& win = layer->GetWindow();
+    if (!win) {
+      return false;
+    }
+    const auto win_pos = layer->GetPosition();
+    const auto win_end_pos = win_pos + win->Size();
+    return win_pos.x <= pos.x && pos.x < win_end_pos.x &&
+           win_pos.y <= pos.y && pos.y < win_end_pos.y;
+  };
+  auto it = std::find_if(layer_stack_.rbegin(), layer_stack_.rend(), pred);
+  if (it == layer_stack_.rend()) {
+    return nullptr;
+  }
+  return *it;
+}
+
 Layer* LayerManager::FindLayer(unsigned int id) {
   auto pred = [id](const std::unique_ptr<Layer>& elem) {
     return elem->ID() == id;
@@ -113,7 +171,9 @@ void InitializeLayer() {
     auto bgwindow = std::make_shared<Window>(ScreenSize().x, ScreenSize().y);
     DrawDesktop(*bgwindow->Writer());
 
-    console->SetWindow(bgwindow);
+    auto console_window = std::make_shared<Window>(
+      Console::kColumns * 8, Console::kRows * 16);
+    console->SetWindow(console_window);
 
     layer_manager = new LayerManager;
     layer_manager->SetWriter(screen_writer);
@@ -122,7 +182,13 @@ void InitializeLayer() {
         .SetWindow(bgwindow)
         .Move({0, 0})
         .ID();
+        
+    console->SetLayerID(layer_manager->NewLayer()
+    .SetWindow(console_window)
+    .Move({0, 0})
+    .ID());
+
 
     layer_manager->UpDown(bglayer_id, 0);
-
+    layer_manager->UpDown(console->LayerID(), 1);
 }
