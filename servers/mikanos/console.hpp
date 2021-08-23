@@ -8,6 +8,8 @@
 
 #include <memory>
 #include "graphics.hpp"
+#include "window.hpp"
+
 
 
 
@@ -23,6 +25,7 @@ class Console {
   Console(const PixelColor& fg_color, const PixelColor& bg_color, const PixelColor& tn_color);
   void PutString(const char* s);
   void SetWriter(PixelWriter* writer);
+  void SetWindow(const std::shared_ptr<Window>& window);
   /**
   void PutTaskName(const char* task_name);
   void SetWindow(const std::shared_ptr<Window>& window);
@@ -37,6 +40,7 @@ class Console {
   void Refresh();
 
   PixelWriter* writer_;
+  std::shared_ptr<Window> window_;
   const PixelColor fg_color_, bg_color_, tn_color_;
   int cursor_row_, cursor_column_;
   unsigned int layer_id_;

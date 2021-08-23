@@ -3,6 +3,7 @@
 
 #include "console.hpp"
 #include "font.hpp"
+#include "layer.hpp"
 
 
 Console::Console(const PixelColor& fg_color, const PixelColor& bg_color, const PixelColor& tn_color)
@@ -24,11 +25,9 @@ void Console::PutString(const char* s) {
     }
     ++s;
   }
-  /**
   if (layer_manager) {
-    layer_manager->Draw(layer_id_);
+    layer_manager->Draw();
   }
-  */
 }
 
 void Console::Newline() {
@@ -38,7 +37,7 @@ void Console::Newline() {
         return;
     } 
     Rectangle<int> move_src{{0, 16 * (kTitleRows + 1)}, {8 * kColumns, 16 * (kRows - kTitleRows- 1)}};
-    /*window_->Move({0, 16 * kTitleRows}, move_src);*/
+    window_->Move({0, 16 * kTitleRows}, move_src);
     FillRectangle(*writer_, {0, 16 * (kRows - 1)}, {8 * kColumns, 16}, bg_color_);
     
 }
@@ -49,6 +48,15 @@ void Console::SetWriter(PixelWriter* writer) {
   }
   writer_ = writer;
   /*window_.reset();*/
+  Refresh();
+}
+
+void Console::SetWindow(const std::shared_ptr<Window>& window) {
+  if (window == window_) {
+    return;
+  }
+  window_ = window;
+  writer_ = window->Writer();
   Refresh();
 }
 
@@ -67,6 +75,7 @@ void InitializeConsole() {
     kDesktopFGColor, kDesktopBGColor, kDesktopTNColor,
   };
   console->SetWriter(screen_writer);
+
 }
 
 int printk(const char* format, ...) {

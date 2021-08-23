@@ -33,6 +33,10 @@ void Window::DrawTo(PixelWriter& writer, Vector2D<int> position) {
     }
 }
 
+void Window::Move(Vector2D<int> dst_pos, const Rectangle<int>& src) {
+    shadow_buffer_.Move(dst_pos, src);
+}
+
 void Window::SetTransparentColor(std::optional<PixelColor> c) {
     transparent_color_ = c;
 }

@@ -21,17 +21,30 @@ extern "C" int main() {
     InitializeConsole();
     InitializeLayer();
     InitializeMouse();
-    printk("welcome to kinOS ver.M! \n");
-   
-    
+    printk("\n");
+    printk("###    ###                            #######       #######  \n");
+    printk("###   ###                           ###     ###   ###     ###\n");
+    printk("###  ###       ###                  ###     ###    ###       \n");
+    printk("### ###        ###     ##########   ###     ###      ###     \n");
+    printk("#######        ###     ###    ###   ###     ###         ###  \n");
+    printk("###   ###      ###     ###    ###   ###     ###  ###     ### \n");
+    printk("###    ###     ###     ###    ###     #######      #######   \n");
+    printk("\n");
+    printk("Ver.M\n");
+    printk("@ 2021 kinpoko\n");
+    printk("\n");
+    printk("welcome to MikanOS!\n");
+
+      
 
 
     AppMessage msg[1]; 
-
+    int i = 1;
     while (true) {
+    
     auto [ n, err ] = SyscallReceiveMessage(msg, 1);
     if (err) {
-      printf("Receive message failed: %s\n", strerror(err));
+      printk("Receive message failed: %s\n", strerror(err));
       break;
     }
     if (msg[0].type == AppMessage::aMouseMove) {
@@ -40,6 +53,8 @@ extern "C" int main() {
       
         
     }
+    printk("roop is %d\n", i);
+    ++i;
     
   }
 

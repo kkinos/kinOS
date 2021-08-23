@@ -1,6 +1,42 @@
 #include "shadow_buffer.hpp"
 #include "font.hpp"
 
+namespace {
+    /**
+     * @brief 一つのpixelは4bytes
+     * 
+     * @return int bytes
+     */
+    int BytesPerPixel() { return 4; }
+
+    /**
+     * @brief posからshadow_bufferにおけるアドレスを計算
+     * 
+     * @param pos 
+     * @param config 
+     * @return uint8_t* 
+     */
+    uint8_t* ShadowAddrAt(Vector2D<int> pos, const ShadowBufferConfig& config) {
+        return config.shadow_buffer + BytesPerPixel() * (config.pixels_per_scan_line * pos.y + pos.x);
+    }
+
+    /**
+     * @brief shadowbufferの横一列が何bytesか計算
+     * 
+     * @param config 
+     * @return int 
+     */
+    int BytesPerScanLine(const ShadowBufferConfig& config) {
+    return BytesPerPixel() * config.pixels_per_scan_line;
+  }
+
+
+  Vector2D<int> ShadowBufferSize(const ShadowBufferConfig& config) {
+    return {static_cast<int>(config.horizontal_resolution),
+            static_cast<int>(config.vertical_resolution)};
+  }
+}
+
 Error ShadowBuffer::Initialize(const ShadowBufferConfig& config) {
     config_ = config;
     
@@ -40,4 +76,27 @@ Error ShadowBuffer::CopyToFrameBuffer(Vector2D<int> pos) {
         shadow_buf += bytes_per_pixel * config_.pixels_per_scan_line;
     }
     return MAKE_ERROR(Error::kSuccess);
+}
+
+void ShadowBuffer::Move(Vector2D<int> dst_pos, const Rectangle<int>& src) {
+    const auto bytes_per_pixel = BytesPerPixel();
+    const auto bytes_per_scan_line = BytesPerScanLine(config_);
+
+    if (dst_pos.y < src.pos.y) {
+        uint8_t* dst_buf = ShadowAddrAt(dst_pos, config_);
+        const uint8_t* src_buf = ShadowAddrAt(src.pos, config_);
+        for (int y = 0; y < src.size.y; ++y) {
+            memcpy(dst_buf, src_buf, bytes_per_pixel * src.size.x);
+            dst_buf += bytes_per_scan_line;
+            src_buf += bytes_per_scan_line;
+        }
+    } else {
+        uint8_t* dst_buf = ShadowAddrAt(dst_pos + Vector2D<int>{0, src.size.y - 1}, config_);
+        const uint8_t* src_buf = ShadowAddrAt(src.pos + Vector2D<int>{0, src.size.y - 1}, config_);
+        for (int y = 0; y < src.size.y; ++y) {
+        memcpy(dst_buf, src_buf, bytes_per_pixel * src.size.x);
+        dst_buf -= bytes_per_scan_line;
+        src_buf -= bytes_per_scan_line;
+    }
+    }
 }
