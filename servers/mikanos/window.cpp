@@ -17,19 +17,23 @@ Window::Window(int width, int height) : width_{width}, height_{height} {
     }
 }
 
-void Window::DrawTo(PixelWriter& writer, Vector2D<int> position) {
+void Window::DrawTo(PixelWriter& writer, Vector2D<int> pos) {
     if (!transparent_color_) {
-        shadow_buffer_.CopyToFrameBuffer(position);
+        shadow_buffer_.CopyToFrameBuffer(pos);
         return;
     }
     const auto tc = transparent_color_.value();
-    for (int y = 0; y < Height(); ++y) {
-        for (int x = 0; x < Width(); ++ x) {
-            const auto c = At(Vector2D<int>{x, y});
-            if (c != tc) {
-                writer.Write(position + Vector2D<int>{x, y}, c);
-            }
-        }
+    for (int y = std::max(0, 0 - pos.y); 
+         y < std::min(Height(), writer.Height() - pos.y);
+         ++y) {
+             for (int x = std::max(0, 0 - pos.x);
+                  x < std::min(Width(), writer.Width() - pos.x);
+                  ++x) {
+                      const auto c = At(Vector2D<int>{x, y});
+                      if (c != tc) {
+                          writer.Write(pos + Vector2D<int>{x, y}, c);
+                      }
+         }
     }
 }
 

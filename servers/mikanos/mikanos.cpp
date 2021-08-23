@@ -48,10 +48,10 @@ extern "C" int main() {
       break;
     }
     if (msg[0].type == AppMessage::aMouseMove) {
-        auto& arg = msg[0].arg.mouse_move;
-        MouseObserver(arg.dx, arg.dy);
+
+      auto& arg = msg[0].arg.mouse_move;
+      mouse->OnInterrupt(arg.buttons, arg.dx, arg.dy);
       
-        
     }
     printk("roop is %d\n", i);
     ++i;
