@@ -16,11 +16,29 @@
 #include "layer.hpp"
 #include "shadow_buffer.hpp"
 
+unsigned int main_window_layer_id;
+void InitializeMainWindow() {
+  auto main_window = std::make_shared<Window>(
+      160, 68);
+    DrawWindow(*main_window->Writer(), "Hello Window");
+    WriteString(*main_window->Writer(), {24, 28}, "Welcome to", {0, 0, 0});
+    WriteString(*main_window->Writer(), {24, 44}, "MikanOS world!", {0, 0, 0});
+
+  main_window_layer_id = layer_manager->NewLayer()
+    .SetWindow(main_window)
+    .Move({300, 300})
+    .ID();
+  
+  layer_manager->UpDown(main_window_layer_id, 1);
+  layer_manager->Draw();
+}
+
 extern "C" int main() {
     InitializeGraphics();
     InitializeConsole();
     InitializeLayer();
     InitializeMouse();
+
     printk("\n");
     printk("###    ###                            #######       #######  \n");
     printk("###   ###                           ###     ###   ###     ###\n");
@@ -34,6 +52,9 @@ extern "C" int main() {
     printk("@ 2021 kinpoko\n");
     printk("\n");
     printk("welcome to MikanOS!\n");
+
+    InitializeMainWindow();
+
 
       
 

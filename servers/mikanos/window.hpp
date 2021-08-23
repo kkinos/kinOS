@@ -90,4 +90,5 @@ class Window {
     
 };
 
-
+void DrawWindow(PixelWriter& writer, const char* title);
+void DrawWindowTitle(PixelWriter& writer, const char* title, bool active);
