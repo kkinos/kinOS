@@ -18,7 +18,6 @@
 #include "app_event.hpp"
 #include "console.hpp"
 #include "layer.hpp"
-#include "../libs/kinos/app_message.hpp"
 
 namespace syscall {
   struct Result {
@@ -468,7 +467,7 @@ SYSCALL(FrameBufferHeight) {
 }
 
 SYSCALL(ReceiveMessage) {
-  const auto app_message = reinterpret_cast<AppMessage*>(arg1);
+  const auto receive_message = reinterpret_cast<Message*>(arg1);
   const size_t len = arg2;
 
   __asm__("cli");
@@ -489,24 +488,14 @@ SYSCALL(ReceiveMessage) {
       break;
     }
 
-    switch (msg->type) {
-     case Message::aMouseMove:
-      app_message[i].type = AppMessage::aMouseMove;
-      app_message[i].arg.mouse_move.x = msg->arg.mouse_move.x;
-      app_message[i].arg.mouse_move.y = msg->arg.mouse_move.y;
-      app_message[i].arg.mouse_move.dx = msg->arg.mouse_move.dx;
-      app_message[i].arg.mouse_move.dy = msg->arg.mouse_move.dy;
-      app_message[i].arg.mouse_move.buttons = msg->arg.mouse_move.buttons;
-      ++i;
-      break;
+    receive_message[i].type = msg->type;
+    receive_message[i].arg = msg->arg;
+    ++i;
       
-    default:
-      Log(kInfo, "uncaught event type: %u\n", msg->type);
     }
+    return { i , 0};
   }
 
-  return { i, 0 };
-}
 
 SYSCALL(CopyToFrameBuffer) {
   
@@ -521,13 +510,27 @@ SYSCALL(CopyToFrameBuffer) {
   return{ 0, 0 };
 
 }
+
+SYSCALL(SendMessageToOs) {
+  const auto send_message = reinterpret_cast<Message*>(arg1);
+  Message msg;
+  msg = *send_message;
+
+  __asm__("cli");
+  task_manager->SendMessageToOs(msg);   
+  __asm__("sti");
+    
+
+return { 0, 0 };
+}
+
 #undef SYSCALL
 
 } 
 
 using SyscallFuncType = syscall::Result (uint64_t, uint64_t, uint64_t,
                                          uint64_t, uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType*, 0x17> syscall_table{
+extern "C" std::array<SyscallFuncType*, 0x18> syscall_table{
   /* 0x00 */ syscall::LogString,
   /* 0x01 */ syscall::PutString,
   /* 0x02 */ syscall::Exit,
@@ -551,12 +554,7 @@ extern "C" std::array<SyscallFuncType*, 0x17> syscall_table{
   /* 0x14 */ syscall::FrameBufferHeight,
   /* 0x15 */ syscall::ReceiveMessage,
   /* 0x16 */ syscall::CopyToFrameBuffer,
-
-
-
-
-
-
+  /* 0x17 */ syscall::SendMessageToOs,
 
 };
 

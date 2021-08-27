@@ -1,12 +1,15 @@
+#pragma once
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <array>
 #include <optional>
 
-#include "../../libs/kinos/syscall.h"
+
 #include "../../libs/common/template.hpp"
 #include "../../libs/kinos/exec.hpp"
+#include "../../libs/mikanos/syscall.hpp"
 
 
 const int kRows = 15;

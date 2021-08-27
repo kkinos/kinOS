@@ -79,6 +79,9 @@ void Mouse::OnInterrupt(uint8_t buttons, int8_t displacement_x, int8_t displacem
     
     if (layer && layer->IsDraggable()) {
       drag_layer_id_ = layer->ID();
+      active_layer->Activate(layer->ID());
+    } else {
+      active_layer->Activate(0);
     }
   } else if (previous_left_pressed && left_pressed) {
     
@@ -113,6 +116,8 @@ void InitializeMouse() {
   mouse = new(mouse_buf)Mouse{mouse_layer_id};
   mouse->SetPosition({200, 200});
   layer_manager->UpDown(mouse->LayerID(), 3);
+
+  active_layer->SetMouseLayer(mouse_layer_id);
   
 }
 

@@ -75,10 +75,10 @@ class Window {
    * @param dst_pos   移動先の原点
    */
     void Move(Vector2D<int> dst_pos, const Rectangle<int>& src);
-    /**
+    
     virtual void Activate() {}
     virtual void Deactivate() {}
-    */
+    
     private:
     int width_, height_;
     std::vector<std::vector<PixelColor>> data_{};
@@ -88,6 +88,42 @@ class Window {
     ShadowBuffer shadow_buffer_{};
 
     
+};
+
+class ToplevelWindow : public Window {
+    public:
+        static constexpr Vector2D<int> kTopLeftMargin{4, 24};
+        static constexpr Vector2D<int> kBottomRightMargin{4, 4};
+        static constexpr int kMarginX = kTopLeftMargin.x + kBottomRightMargin.x;
+        static constexpr int kMarginY = kTopLeftMargin.y + kBottomRightMargin.y;
+
+        class InnerAreaWriter : public PixelWriter {
+            public:
+                InnerAreaWriter(ToplevelWindow& window) : window_{window} {}
+                virtual void Write(Vector2D<int> pos, const PixelColor& c) override {
+                    window_.Write(pos + kTopLeftMargin, c);
+                }
+                virtual int Width() const override {
+                    return window_.Width() - kTopLeftMargin.x - kBottomRightMargin.x; }
+                virtual int Height() const override {
+                    return window_.Height() - kTopLeftMargin.y - kBottomRightMargin.y; }
+            
+            private:
+                ToplevelWindow& window_;
+        };
+
+        ToplevelWindow(int width, int height,
+                        const std::string& title);
+        
+        virtual void Activate() override;
+        virtual void Deactivate() override;
+
+        InnerAreaWriter* InnerWriter() { return &inner_writer_; }
+        Vector2D<int> InnerSize() const;
+
+    private:
+        std::string title_;
+        InnerAreaWriter inner_writer_{*this};
 };
 
 void DrawWindow(PixelWriter& writer, const char* title);

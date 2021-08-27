@@ -10,7 +10,6 @@ extern "C" {
 
 #include "logger.hpp"
 #include "../../kernel/app_event.hpp"
-#include "app_message.hpp"
 
 struct SyscallResult {
   uint64_t value;
@@ -52,9 +51,11 @@ struct SyscallResult SyscallWritePixel(int x, int y, int r, int g, int b);
 struct SyscallResult SyscallFrameBufferWidth();
 struct SyscallResult SyscallFrameBufferHeight();
 
-struct SyscallResult SyscallReceiveMessage(struct AppMessage* msg, size_t len);
+struct SyscallResult SyscallReceiveMessage(struct Message* msg, size_t len);
 
 struct SyscallResult SyscallCopyToFrameBuffer(const uint8_t* src_buf, int start_x , int start_y, int bytes_per_copy_line);
+
+struct SyscallResult SyscallSendMessageToOs(struct Message* msg);
 
 #ifdef __cplusplus
 } // extern "C"

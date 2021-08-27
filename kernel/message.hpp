@@ -17,6 +17,7 @@ struct Message {
     kPipe,
     kCreateAppTask,
     aMouseMove,
+    aOpenWindow,
   } type;
 
   uint64_t src_task;
@@ -65,6 +66,13 @@ struct Message {
     struct {
       int pid, cid;
     } create;
+
+    struct {
+      int w;
+      int h;
+      int x;
+      int y;
+    } openwindow;
 
   } arg;
 };

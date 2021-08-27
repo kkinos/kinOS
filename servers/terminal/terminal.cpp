@@ -1,5 +1,6 @@
 #include "terminal.hpp"
 
+
 Vector2D<int> CalcCursorPos() {
     return kTopLeftMargin +
         Vector2D<int>{4 + 8 * cursorx, 4 + 16 * cursory};
@@ -124,8 +125,8 @@ void ExecuteLine(uint64_t layer_id) {
 
 
 extern "C" void main() {
-    auto [layer_id, err_openwin]
-        = SyscallOpenWindow(kColumns * 8 + 12 + Marginx, kRows * 16 + 12 + Marginy, 20, 20, "MIKANOS Terminal");
+     OpenWindow(kColumns * 8 + 12 + Marginx, kRows * 16 + 12 + Marginy, 20, 20);
+    /**
     if (err_openwin) {
         exit(err_openwin);
         }
@@ -152,7 +153,7 @@ extern "C" void main() {
             }
         }
 
-  }
+  }**/
 
     
 

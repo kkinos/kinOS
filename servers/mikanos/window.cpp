@@ -73,6 +73,27 @@ Vector2D<int> Window::Size() const {
   return {width_, height_};
 }
 
+ToplevelWindow::ToplevelWindow(int width, int height,
+                               const std::string& title)
+    : Window{width, height}, title_{title} {
+    DrawWindow(*Writer(), title_.c_str());
+}
+
+void ToplevelWindow::Activate() {
+    Window::Activate();
+    DrawWindowTitle(*Writer(), title_.c_str(), true);
+}
+
+void ToplevelWindow::Deactivate() {
+    Window::Deactivate();
+    DrawWindowTitle(*Writer(), title_.c_str(), false);
+}
+
+Vector2D<int> ToplevelWindow::InnerSize() const {
+    return Size() - kTopLeftMargin - kBottomRightMargin;
+}
+
+
 namespace {
   const int kCloseButtonWidth = 16;
   const int kCloseButtonHeight = 14;
