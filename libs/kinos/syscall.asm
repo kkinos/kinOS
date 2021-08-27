@@ -34,6 +34,7 @@ define_syscall FrameBufferHeight,       0x80000014
 define_syscall ReceiveMessage,       0x80000015
 define_syscall CopyToFrameBuffer,       0x80000016
 define_syscall SendMessageToOs,       0x80000017
+define_syscall SendMessageToTask,       0x80000018
 
 
 

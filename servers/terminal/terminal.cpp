@@ -125,13 +125,14 @@ void ExecuteLine(uint64_t layer_id) {
 
 
 extern "C" void main() {
-     OpenWindow(kColumns * 8 + 12 + Marginx, kRows * 16 + 12 + Marginy, 20, 20);
-    /**
-    if (err_openwin) {
-        exit(err_openwin);
+    int layer_id = OpenWindow(kColumns * 8 + 12 + Marginx, kRows * 16 + 12 + Marginy, 20, 20);
+    
+    if (layer_id == -1) {
+        exit(-1);
         }
 
-    SyscallWinFillRectangle(layer_id, Marginx, Marginy, kCanvasWidth , kCanvasHeight , 0);
+    WinFillRectangle(layer_id, Marginx, Marginy, kCanvasWidth , kCanvasHeight , 0);
+    /**
     Print(layer_id, "user@MIKANOS:\n");
     Print(layer_id, "$");
 

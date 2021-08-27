@@ -15,7 +15,7 @@
 #include "window.hpp"
 #include "layer.hpp"
 #include "shadow_buffer.hpp"
-#include "../../kernel/message.hpp"
+#include "../../libs/common/message.hpp"
 
 unsigned int main_window_layer_id;
 std::shared_ptr<ToplevelWindow> main_window;
@@ -79,9 +79,9 @@ extern "C" int main() {
     } else if (msg[0].type == Message::aOpenWindow) {
 
       auto& arg = msg[0].arg.openwindow;
-
+      auto task_id = msg[0].src_task;
       const auto win = std::make_shared<ToplevelWindow>(
-      arg.w, arg.h, "chinchin");
+      arg.w, arg.h, "");
 
     const auto layer_id = layer_manager->NewLayer()
       .SetWindow(win)
@@ -90,10 +90,20 @@ extern "C" int main() {
       .ID();
     active_layer->Activate(layer_id);
 
+    Message rmsg{Message::aMouseMove};
+    rmsg.arg.layerid.layerid = layer_id;
+
+    SyscallSendMessageToTask(&rmsg, task_id);
+    
+
+    } else if (msg[0].type == Message::aWinFillRectangle) {
+      auto& arg = msg[0].arg.winfillrectangle;
+      auto layer = layer_manager->FindLayer(arg.layer_id);
+      FillRectangle(*layer->GetWindow()->Writer(), {arg.x, arg.y}, {arg.w, arg.h}, ToColor(arg.color));
+      layer_manager->Draw(arg.layer_id);
     }
 
-    printk("roop is %d\n", i);
-    ++i;
+    
     
   }
 

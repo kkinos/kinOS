@@ -57,6 +57,8 @@ struct SyscallResult SyscallCopyToFrameBuffer(const uint8_t* src_buf, int start_
 
 struct SyscallResult SyscallSendMessageToOs(struct Message* msg);
 
+struct SyscallResult SyscallSendMessageToTask(struct Message* msg, int task_id);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

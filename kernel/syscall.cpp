@@ -489,6 +489,7 @@ SYSCALL(ReceiveMessage) {
     }
 
     receive_message[i].type = msg->type;
+    receive_message[i].src_task = msg->src_task;
     receive_message[i].arg = msg->arg;
     ++i;
       
@@ -513,8 +514,15 @@ SYSCALL(CopyToFrameBuffer) {
 
 SYSCALL(SendMessageToOs) {
   const auto send_message = reinterpret_cast<Message*>(arg1);
+
+  __asm__("cli");
+  auto& task = task_manager->CurrentTask();
+  __asm__("sti");
+
   Message msg;
   msg = *send_message;
+
+  msg.src_task = task.ID();
 
   __asm__("cli");
   task_manager->SendMessageToOs(msg);   
@@ -524,13 +532,29 @@ SYSCALL(SendMessageToOs) {
 return { 0, 0 };
 }
 
+
+SYSCALL(SendMessageToTask) {
+  const auto send_message = reinterpret_cast<Message*>(arg1);
+  int task_id = arg2;
+
+  Message msg;
+  msg = *send_message;
+  __asm__("cli");
+  task_manager->SendMessage(task_id, msg);   
+  __asm__("sti");
+    
+
+return { 0, 0 };
+}
+
+
 #undef SYSCALL
 
 } 
 
 using SyscallFuncType = syscall::Result (uint64_t, uint64_t, uint64_t,
                                          uint64_t, uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType*, 0x18> syscall_table{
+extern "C" std::array<SyscallFuncType*, 0x19> syscall_table{
   /* 0x00 */ syscall::LogString,
   /* 0x01 */ syscall::PutString,
   /* 0x02 */ syscall::Exit,
@@ -555,6 +579,7 @@ extern "C" std::array<SyscallFuncType*, 0x18> syscall_table{
   /* 0x15 */ syscall::ReceiveMessage,
   /* 0x16 */ syscall::CopyToFrameBuffer,
   /* 0x17 */ syscall::SendMessageToOs,
+  /* 0x18 */ syscall::SendMessageToTask,
 
 };
 

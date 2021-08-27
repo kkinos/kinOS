@@ -23,7 +23,7 @@ struct Message {
   } type;
 
   uint64_t src_task;
-
+  
 
   union {
     struct {
@@ -70,7 +70,7 @@ struct Message {
       int pid, cid;
     } create;
 
-   struct {
+    struct {
       int w, h, x, y;
     } openwindow;
 

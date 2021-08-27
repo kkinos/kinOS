@@ -100,6 +100,7 @@ void LayerManager::Draw(unsigned int id) const {
 }
 
 void LayerManager::Draw(unsigned int id, Rectangle<int> area) const {
+  /**
   bool draw = false;
   Rectangle<int> window_area;
   for (auto layer : layer_stack_) {
@@ -117,6 +118,7 @@ void LayerManager::Draw(unsigned int id, Rectangle<int> area) const {
     }
   }
   screen_->Copy(window_area.pos, back_buffer_, window_area);
+  */
 }
 
 void LayerManager::Move(unsigned int id, Vector2D<int> new_pos) {
