@@ -16,7 +16,7 @@
 #include <string>
 
 #include "error.hpp"
-#include "message.hpp"
+#include "../libs/common/message.hpp"
 #include "paging.hpp"
 #include "fat.hpp"
 

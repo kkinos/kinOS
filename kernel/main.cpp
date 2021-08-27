@@ -29,7 +29,7 @@
 #include "memory_manager.hpp"
 #include "window.hpp"
 #include "layer.hpp"
-#include "message.hpp"
+#include "../libs/common/message.hpp"
 #include "timer.hpp"
 #include "acpi.hpp"
 #include "keyboard.hpp"

@@ -20,6 +20,7 @@ struct Message {
     aOpenWindow,
     aLayerId,
     aWinFillRectangle,
+    aWinWriteChar,
   } type;
 
   uint64_t src_task;
@@ -81,8 +82,13 @@ struct Message {
     struct {
       int layer_id, x, y, w, h;
       uint32_t color;
-      
     } winfillrectangle;
+
+    struct {
+      int layer_id, x, y;
+      uint32_t color;
+      char c;
+    } winwritechar;
 
   } arg;
 };

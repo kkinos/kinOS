@@ -5,7 +5,7 @@
 #include <deque>
 
 #include "x86_descriptor.hpp"
-#include "message.hpp"
+#include "../libs/common/message.hpp"
 
 
 union InterruptDescriptorAttribute {

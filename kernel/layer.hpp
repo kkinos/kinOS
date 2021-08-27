@@ -12,7 +12,7 @@
 
 #include "graphics.hpp"
 #include "window.hpp"
-#include "message.hpp"
+#include "../libs/common/message.hpp"
 
 /** @brief Layer は 1 つの層を表す。
  *

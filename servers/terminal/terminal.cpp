@@ -8,7 +8,7 @@ Vector2D<int> CalcCursorPos() {
 
 void DrawCursor(uint64_t layer_id, bool visible) {
     const auto color = visible ? 0xffffff : 0;
-    SyscallWinFillRectangle(layer_id, CalcCursorPos().x, CalcCursorPos().y, 7, 15, color);
+    WinFillRectangle(layer_id, CalcCursorPos().x, CalcCursorPos().y, 7, 15, color);
 
 }
 
@@ -41,8 +41,7 @@ void Print(uint64_t layer_id, char c) {
   if (c == '\n') {
     newline();
   } else {
-      char C[] = {c, '\0'}; 
-      SyscallWinWriteString(layer_id, CalcCursorPos().x, CalcCursorPos().y, 0xffffff, C);
+      WinWriteChar(layer_id, CalcCursorPos().x, CalcCursorPos().y, 0xffffff, c);
       buffer[cursory][cursorx] = c;
       if (cursorx == kColumns - 1) {
         newline();
@@ -126,16 +125,14 @@ void ExecuteLine(uint64_t layer_id) {
 
 extern "C" void main() {
     int layer_id = OpenWindow(kColumns * 8 + 12 + Marginx, kRows * 16 + 12 + Marginy, 20, 20);
-    
     if (layer_id == -1) {
-        exit(-1);
+        exit(1);
         }
 
     WinFillRectangle(layer_id, Marginx, Marginy, kCanvasWidth , kCanvasHeight , 0);
-    /**
     Print(layer_id, "user@MIKANOS:\n");
     Print(layer_id, "$");
-
+    /**
     AppEvent events[1];
 
     while (true) {

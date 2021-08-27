@@ -65,43 +65,44 @@ extern "C" int main() {
     Message msg[1]; 
     int i = 1;
     while (true) {
-    
     auto [ n, err ] = SyscallReceiveMessage(msg, 1);
     if (err) {
       printk("Receive message failed: %s\n", strerror(err));
       break;
     }
-    if (msg[0].type == Message::aMouseMove) {
 
+    if (msg[0].type == Message::aMouseMove) {
       auto& arg = msg[0].arg.mouse_move;
       mouse->OnInterrupt(arg.buttons, arg.dx, arg.dy);
-      
-    } else if (msg[0].type == Message::aOpenWindow) {
 
+    } else if (msg[0].type == Message::aOpenWindow) {
       auto& arg = msg[0].arg.openwindow;
       auto task_id = msg[0].src_task;
-      const auto win = std::make_shared<ToplevelWindow>(
-      arg.w, arg.h, "");
-
-    const auto layer_id = layer_manager->NewLayer()
-      .SetWindow(win)
-      .SetDraggable(true)
-      .Move({arg.x, arg.y})
-      .ID();
-    active_layer->Activate(layer_id);
-
-    Message rmsg{Message::aMouseMove};
-    rmsg.arg.layerid.layerid = layer_id;
-
-    SyscallSendMessageToTask(&rmsg, task_id);
-    
+      const auto win = std::make_shared<ToplevelWindow>(arg.w, arg.h, "");
+      const auto layer_id = layer_manager->NewLayer()
+        .SetWindow(win)
+        .SetDraggable(true)
+        .Move({arg.x, arg.y})
+        .ID();
+      active_layer->Activate(layer_id);
+      Message rmsg{Message::aLayerId};
+      rmsg.arg.layerid.layerid = layer_id;
+      SyscallSendMessageToTask(&rmsg, task_id);
 
     } else if (msg[0].type == Message::aWinFillRectangle) {
       auto& arg = msg[0].arg.winfillrectangle;
       auto layer = layer_manager->FindLayer(arg.layer_id);
       FillRectangle(*layer->GetWindow()->Writer(), {arg.x, arg.y}, {arg.w, arg.h}, ToColor(arg.color));
       layer_manager->Draw(arg.layer_id);
+  
+    } else if (msg[0].type == Message::aWinWriteChar) {
+      auto& arg = msg[0].arg.winwritechar;
+      auto layer = layer_manager->FindLayer(arg.layer_id);
+      WriteString(*layer->GetWindow()->Writer(), {arg.x, arg.y}, &arg.c ,ToColor(arg.color));
+      layer_manager->Draw(arg.layer_id);
+
     }
+    
 
     
     

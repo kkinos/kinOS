@@ -7,7 +7,7 @@
 #pragma once
 
 #include <deque>
-#include "message.hpp"
+#include "../libs/common/message.hpp"
 
 static const int kLControlBitMask = 0b00000001u;
 static const int kLShiftBitMask   = 0b00000010u;
