@@ -115,7 +115,7 @@ void InitializeMouse() {
 
   mouse = new(mouse_buf)Mouse{mouse_layer_id};
   mouse->SetPosition({200, 200});
-  layer_manager->UpDown(mouse->LayerID(), 3);
+  layer_manager->UpDown(mouse->LayerID(), std::numeric_limits<int>::max());
 
   active_layer->SetMouseLayer(mouse_layer_id);
   

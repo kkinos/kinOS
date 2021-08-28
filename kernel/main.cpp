@@ -106,6 +106,13 @@ extern "C" void KernelMainNewStack(
 
   app_loads = new std::map<fat::DirectoryEntry*, AppLoadInfo>;
 
+  auto os_sh_desc = new ShellDescriptor{
+    "servers/mikanos", true, true,
+    { nullptr, nullptr, nullptr }
+  };
+
+  os_task.InitContext(TaskShell, reinterpret_cast<uint64_t>(os_sh_desc)).Wakeup();
+
   auto sh_desc = new ShellDescriptor{
     "servers/terminal", true, true,
     { nullptr, nullptr, nullptr }
@@ -115,12 +122,6 @@ extern "C" void KernelMainNewStack(
                 .InitContext(TaskShell, reinterpret_cast<uint64_t>(sh_desc))
                 .Wakeup();
 
-  auto os_sh_desc = new ShellDescriptor{
-    "servers/mikanos", true, true,
-    { nullptr, nullptr, nullptr }
-  };
-
-  os_task.InitContext(TaskShell, reinterpret_cast<uint64_t>(os_sh_desc)).Wakeup();
 
   
   printk("\n");

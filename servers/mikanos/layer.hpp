@@ -9,7 +9,6 @@
 #include <memory>
 #include <map>
 #include <vector>
-#include <algorithm>
 
 #include "graphics.hpp"
 #include "window.hpp"
@@ -104,6 +103,7 @@ class LayerManager {
 
 extern LayerManager* layer_manager;
 
+
 class ActiveLayer {
   public:
     ActiveLayer(LayerManager& manager);
@@ -118,5 +118,7 @@ class ActiveLayer {
 };
 
 extern ActiveLayer* active_layer;
+extern std::vector<unsigned int> window_layer_id;
+extern std::map<unsigned int, uint64_t>* layer_task_map;
 
 void InitializeLayer();

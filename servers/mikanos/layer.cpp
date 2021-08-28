@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "layer.hpp"
 #include "console.hpp"
 #include "mouse.hpp"
@@ -207,6 +209,8 @@ void ActiveLayer::Activate(unsigned int layer_id) {
 }
 
 ActiveLayer* active_layer;
+std::vector<unsigned int> window_layer_id;
+std::map<unsigned int, uint64_t>* layer_task_map;
 
 void InitializeLayer() {
     auto bgwindow = std::make_shared<Window>(ScreenSize().x, ScreenSize().y);
