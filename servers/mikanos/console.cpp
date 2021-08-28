@@ -68,6 +68,15 @@ unsigned int Console::LayerID() const {
   return layer_id_;
 }
 
+void Console::Clear() {
+  cursor_column_ = 2;
+  cursor_row_ = kTitleRows;
+  FillRectangle(*writer_, {0, 16 * kTitleRows}, {8 * kColumns, 16 * (kRows - kTitleRows- 1)}, bg_color_);
+  if (layer_manager) {
+    layer_manager->Draw(layer_id_);
+  }
+}
+
 void Console::Refresh() {
     FillRectangle(*writer_, {0, 0}, {8 * kColumns, 16 * kRows}, bg_color_);
 }

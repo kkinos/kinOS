@@ -50,15 +50,17 @@ int OpenWindow(int w, int h, int x, int y) {
  * @param y 
  * @param w 
  * @param h 
+ * @param draw trueなら描画する falseならしない
  * @param color 
  */
-void WinFillRectangle(int layer_id, int x, int y, int w, int h, uint32_t color) {
+void WinFillRectangle(int layer_id, int x, int y, int w, int h, bool draw, uint32_t color) {
     Message msg{Message::aWinFillRectangle};
     msg.arg.winfillrectangle.layer_id = layer_id;
     msg.arg.winfillrectangle.x = x;
     msg.arg.winfillrectangle.y = y;
     msg.arg.winfillrectangle.w = w;
     msg.arg.winfillrectangle.h = h;
+    msg.arg.winfillrectangle.draw = draw;
     msg.arg.winfillrectangle.color = color;
     SyscallSendMessageToOs(&msg);
 }
@@ -70,5 +72,11 @@ void WinWriteChar(int layer_id, int x, int y, uint32_t color, char c) {
     msg.arg.winwritechar.y = y;
     msg.arg.winwritechar.color = color;
     msg.arg.winwritechar.c = c;
+    SyscallSendMessageToOs(&msg);
+}
+
+void WinRedraw(int layer_id) {
+    Message msg{Message::aWinRedraw};
+    msg.arg.layerid.layerid = layer_id;
     SyscallSendMessageToOs(&msg);
 }

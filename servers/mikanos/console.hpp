@@ -28,9 +28,9 @@ class Console {
   void SetWindow(const std::shared_ptr<Window>& window);
   /**
   void PutTaskName(const char* task_name);
-  
-  void Clear();
   */
+  void Clear();
+ 
   void SetLayerID(unsigned int layer_id);
  
   unsigned int LayerID() const;

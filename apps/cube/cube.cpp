@@ -1,7 +1,7 @@
 #include <array>
 #include <cmath>
 #include <cstdlib>
-#include "../../libs/kinos/syscall.h"
+#include "../../libs/mikanos/mikanos.hpp"
 
 using namespace std;
 
@@ -15,8 +15,8 @@ struct Vector2D {
   T x, y;
 };
 
-void DrawObj(uint64_t layer_id);
-void DrawSurface(uint64_t layer_id, int sur);
+void DrawObj(uint64_t layer_id, bool draw);
+void DrawSurface(uint64_t layer_id, bool draw, int sur);
 bool Sleep(unsigned long ms);
 
 const int kScale = 50, kMargin = 10;
@@ -37,10 +37,9 @@ array<double, kSurface.size()> centerz4;
 array<Vector2D<int>, kCube.size()> scr;
 
 extern "C" void main(int argc, char** argv) {
-  auto [layer_id, err_openwin]
-    = SyscallOpenWindow(kCanvasSize + 8, kCanvasSize + 28, 10, 10, "cube");
-  if (err_openwin) {
-    exit(err_openwin);
+  int layer_id = OpenWindow(kCanvasSize + 8, kCanvasSize + 28, 10, 10);
+  if (layer_id == -1) {
+    exit(1);
   }
 
   int thx = 0, thy = 0, thz = 0;
@@ -72,10 +71,11 @@ extern "C" void main(int argc, char** argv) {
     }
 
     // 画面を一旦クリアし，立方体を描画
-    SyscallWinFillRectangle(layer_id | LAYER_NO_REDRAW,
-                            4, 24, kCanvasSize, kCanvasSize, 0);
-    DrawObj(layer_id | LAYER_NO_REDRAW);
-    SyscallWinRedraw(layer_id);
+    // SyscallWinFillRectangle(layer_id | LAYER_NO_REDRAW,
+    //                         4, 24, kCanvasSize, kCanvasSize, 0);
+    WinFillRectangle(layer_id, 4, 24, kCanvasSize, kCanvasSize, false, 0);
+    DrawObj(layer_id, false);
+    WinRedraw(layer_id);
     if (Sleep(50)) {
       break;
     }
@@ -85,7 +85,7 @@ extern "C" void main(int argc, char** argv) {
   exit(0);
 }
 
-void DrawObj(uint64_t layer_id) {
+void DrawObj(uint64_t layer_id, bool draw) {
   // オブジェクト座標 vert を スクリーン座標 scr に変換（画面奥が Z+）
   for (int i = 0; i < kCube.size(); i++) {
     const double t = 6*kScale / (vert[i].z + 8*kScale);
@@ -109,12 +109,12 @@ void DrawObj(uint64_t layer_id) {
     const auto e0x = v1.x - v0.x, e0y = v1.y - v0.y, // v0 --> v1
                e1x = v2.x - v1.x, e1y = v2.y - v1.y; // v1 --> v2
     if (e0x * e1y <= e0y * e1x) {
-      DrawSurface(layer_id, sur);
+      DrawSurface(layer_id, draw, sur);
     }
   }
 }
 
-void DrawSurface(uint64_t layer_id, int sur) {
+void DrawSurface(uint64_t layer_id, bool draw, int sur) {
   const auto& surface = kSurface[sur]; // 描画する面
   int ymin = kCanvasSize, ymax = 0; // 画面の描画範囲 [ymin, ymax]
   int y2x_up[kCanvasSize], y2x_down[kCanvasSize]; // Y, X 座標の組
@@ -147,7 +147,7 @@ void DrawSurface(uint64_t layer_id, int sur) {
   for (int y = ymin; y <= ymax; y++) {
     int p0x = min(y2x_up[y], y2x_down[y]);
     int p1x = max(y2x_up[y], y2x_down[y]);
-    SyscallWinFillRectangle(layer_id, 4 + p0x, 24 + y, p1x - p0x + 1, 1, kColor[sur]);
+    WinFillRectangle(layer_id, 4 + p0x, 24 + y, p1x - p0x + 1, 1, draw, kColor[sur]);
   }
 }
 

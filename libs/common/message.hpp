@@ -17,10 +17,12 @@ struct Message {
     kPipe,
     kCreateAppTask,
     aMouseMove,
+    aKeyPush,
     aOpenWindow,
     aLayerId,
     aWinFillRectangle,
     aWinWriteChar,
+    aWinRedraw,
   } type;
 
   uint64_t src_task;
@@ -80,7 +82,8 @@ struct Message {
     } layerid;
 
     struct {
-      int layer_id, x, y, w, h;
+      int layer_id, x, y, w, h; 
+      bool draw;
       uint32_t color;
     } winfillrectangle;
 
