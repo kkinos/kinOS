@@ -1,18 +1,17 @@
 #include <cstdlib>
 #include <random>
-#include "../../libs/kinos/syscall.h"
+#include "../../libs/mikanos/mikanos.hpp"
 
 static constexpr int kWidth = 100, kHeight = 100;
 
 extern "C" void main(int argc, char** argv) {
-  auto [layer_id, err_openwin]
-    = SyscallOpenWindow(kWidth + 8, kHeight + 28, 10, 10, "stars");
-  if (err_openwin) {
-    exit(err_openwin);
+  int layer_id = OpenWindow(kWidth + 8, kHeight + 28, 10, 10);
+  if (layer_id == -1) {
+    exit(1);
   }
 
-  SyscallWinFillRectangle(layer_id | LAYER_NO_REDRAW,
-                          4, 24, kWidth, kHeight, 0x000000);
+ WinFillRectangle(layer_id, false,
+                  4, 24, kWidth, kHeight, 0x000000);
 
   int num_stars = 100;
   if (argc >= 2) {
@@ -26,10 +25,10 @@ extern "C" void main(int argc, char** argv) {
   for (int i = 0; i < num_stars; ++i) {
     int x = x_dist(rand_engine);
     int y = y_dist(rand_engine);
-    SyscallWinFillRectangle(layer_id | LAYER_NO_REDRAW,
-                            4 + x, 24 + y, 2, 2, 0xfff100);
+    WinFillRectangle(layer_id, false,
+                      4 + x, 24 + y, 2, 2, 0xfff100);
   }
-  SyscallWinRedraw(layer_id);
+  WinRedraw(layer_id);
 
   auto tick_end = SyscallGetCurrentTick();
   printf("%d stars in %lu ms.\n",

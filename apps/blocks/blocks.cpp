@@ -31,25 +31,25 @@ void DrawBlocks(uint64_t layer_id, bool draw) {
       if (blocks[by][bx]) {
         const int x = 4 + kGapWidth + bx * kBlockWidth;
         const uint32_t c = color | (0xff << ((bx + by) % 3) * 8);
-        WinFillRectangle(layer_id, x, y, kBlockWidth, kBlockHeight, draw, c);
+        WinFillRectangle(layer_id, draw, x, y, kBlockWidth, kBlockHeight, c);
       }
     }
   }
 }
 
 void DrawBar(uint64_t layer_id, int bar_x, bool draw) {
-  WinFillRectangle(layer_id,
+  WinFillRectangle(layer_id, draw,
                    4 + bar_x, 24 + kBarY,
-                   kBarWidth, kBarHeight, draw, 0xffffff);
+                   kBarWidth, kBarHeight, 0xffffff);
 }
 
 void DrawBall(uint64_t layer_id, int x, int y, bool draw) {
-  WinFillRectangle(layer_id,
+  WinFillRectangle(layer_id, draw,
                    4 + x - kBallRadius, 24 + y - kBallRadius,
-                          2 * kBallRadius, 2 * kBallRadius, draw, 0x007f00);
-  WinFillRectangle(layer_id,
+                          2 * kBallRadius, 2 * kBallRadius, 0x007f00);
+  WinFillRectangle(layer_id, draw,
                    4 + x - kBallRadius/2, 24 + y - kBallRadius/2,
-                   kBallRadius, kBallRadius, draw, 0x00ff00);
+                   kBallRadius, kBallRadius, 0x00ff00);
 }
 
 template <class T>
@@ -83,8 +83,8 @@ extern "C" void main(int argc, char** argv) {
 
   for (;;) {
     // 画面を一旦クリアし，各種オブジェクトを描画
-    WinFillRectangle(layer_id,
-                    4, 24, kCanvasWidth, kCanvasHeight, false, 0);
+    WinFillRectangle(layer_id, false,
+                    4, 24, kCanvasWidth, kCanvasHeight,  0);
 
     DrawBlocks(layer_id, false);
     DrawBar(layer_id, bar_x, false);

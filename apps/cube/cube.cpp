@@ -73,7 +73,7 @@ extern "C" void main(int argc, char** argv) {
     // 画面を一旦クリアし，立方体を描画
     // SyscallWinFillRectangle(layer_id | LAYER_NO_REDRAW,
     //                         4, 24, kCanvasSize, kCanvasSize, 0);
-    WinFillRectangle(layer_id, 4, 24, kCanvasSize, kCanvasSize, false, 0);
+    WinFillRectangle(layer_id, false, 4, 24, kCanvasSize, kCanvasSize, 0);
     DrawObj(layer_id, false);
     WinRedraw(layer_id);
     if (Sleep(50)) {
@@ -147,7 +147,7 @@ void DrawSurface(uint64_t layer_id, bool draw, int sur) {
   for (int y = ymin; y <= ymax; y++) {
     int p0x = min(y2x_up[y], y2x_down[y]);
     int p1x = max(y2x_up[y], y2x_down[y]);
-    WinFillRectangle(layer_id, 4 + p0x, 24 + y, p1x - p0x + 1, 1, draw, kColor[sur]);
+    WinFillRectangle(layer_id, draw, 4 + p0x, 24 + y, p1x - p0x + 1, 1, kColor[sur]);
   }
 }
 

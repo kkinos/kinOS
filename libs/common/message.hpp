@@ -25,6 +25,8 @@ struct Message {
     aWinRedraw,
     aQuit,
     aCloseWindow,
+    aMouseButton,
+    aWinDrawLine,
   } type;
 
   uint64_t src_task;
@@ -91,9 +93,16 @@ struct Message {
 
     struct {
       int layer_id, x, y;
+      bool draw;
       uint32_t color;
       char c;
     } winwritechar;
+
+    struct {
+      int layer_id, x0, y0, x1, y1;
+      bool draw;
+      uint32_t color;
+    } windrawline;
 
   } arg;
 };

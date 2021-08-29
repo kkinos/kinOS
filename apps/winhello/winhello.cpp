@@ -1,33 +1,29 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include "../../libs/kinos/syscall.h"
+#include "../../libs/mikanos/mikanos.hpp"
 
 extern "C" void main(int argc, char** argv) {
-    auto [layer_id, err_openwin]
-        = SyscallOpenWindow(200, 100, 10, 10, "winhello");
-        if (err_openwin) {
-            SyscallExit(err_openwin);
-        }
 
-    SyscallWinWriteString(layer_id, 7, 24, 0xc00000, "hello world!");
-    SyscallWinWriteString(layer_id, 24, 40, 0x00c000, "hello world!");
-    SyscallWinWriteString(layer_id, 40, 56, 0x0000c0, "hello world!");
+  int layer_id = OpenWindow(200, 100, 10, 10);
+      if (layer_id == -1) {
+          exit(1);
+      }
 
-    AppEvent events[1];
+  WinWriteString(layer_id, true, 7, 24, 0xc00000, "hello world!");
+  WinWriteString(layer_id, true, 24, 40, 0x00c000, "hello world!");
+  WinWriteString(layer_id, true, 40, 56, 0x0000c0, "hello world!");
+
+  Message msg[1];
   while (true) {
-    auto [ n, err ] = SyscallReadEvent(events, 1);
-    if (err) {
-      printf("ReadEvent failed: %s\n", strerror(err));
-      break;
-    }
-    if (events[0].type == AppEvent::kQuit) {
+    SyscallReceiveMessage(msg, 1);
+    if (msg[0].type == Message::aQuit) {
       break;
     } else {
-      printf("unknown event: type = %d\n", events[0].type);
+      printf("unknown event: type = %d\n", msg[0].type);
     }
   }
-  SyscallCloseWindow(layer_id);
+  CloseWindow(layer_id);
   exit(0);
 
 }

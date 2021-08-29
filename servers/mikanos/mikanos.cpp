@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
 
 #include "graphics.hpp"
 #include "font.hpp"
@@ -138,7 +139,7 @@ extern "C" int main() {
           continue;
         }
         FillRectangle(*layer->GetWindow()->Writer(), {arg.x, arg.y}, {arg.w, arg.h}, ToColor(arg.color));
-        if (msg[0].arg.winfillrectangle.draw == true) {
+        if (msg[0].arg.winfillrectangle.draw) {
           layer_manager->Draw(arg.layer_id);
         }  
       } else if (msg[0].type == Message::aWinWriteChar) {
@@ -148,7 +149,58 @@ extern "C" int main() {
           continue;
         }
         WriteString(*layer->GetWindow()->Writer(), {arg.x, arg.y}, &arg.c ,ToColor(arg.color));
+        if (arg.draw) {
         layer_manager->Draw(arg.layer_id);
+        }
+      } else if (msg[0].type == Message::aWinDrawLine) {
+         auto sign = [](int x) {
+          return (x > 0) ? 1 : (x < 0) ? -1 : 0;
+        };
+        auto& arg = msg[0].arg.windrawline;
+        auto layer = layer_manager->FindLayer(arg.layer_id);
+        if (layer == nullptr) {
+          continue;
+        }
+        auto win = layer->GetWindow();
+        const int dx = arg.x1 - arg.x0 + sign(arg.x1 - arg.x0);
+        const int dy = arg.y1 - arg.y0 + sign(arg.y1 - arg.y0);
+
+        if (dx == 0 && dy == 0) {
+          win->Writer()->Write({arg.x0, arg.y0}, ToColor(arg.color));
+          continue;
+        }
+
+        const auto floord = static_cast<double(*)(double)>(floor);
+        const auto ceild = static_cast<double(*)(double)>(ceil);
+
+        if (abs(dx) >= abs(dy)) {
+          if (dx < 0) {
+            std::swap(arg.x0, arg.x1);
+            std::swap(arg.y0, arg.y1);
+          }
+          const auto roundish = arg.y1 >= arg.y0 ? floord : ceild;
+          const double m = static_cast<double>(dy) / dx;
+          for (int x = arg.x0; x <= arg.x1; ++x) {
+            const int y = roundish(m * (x - arg.x0) + arg.y0);
+            win->Writer()->Write({x, y}, ToColor(arg.color));
+          }
+        } else {
+          if (dy < 0) {
+            std::swap(arg.x0, arg.x1);
+            std::swap(arg.y0, arg.y1);
+          }
+          const auto roundish = arg.x1 >= arg.x0 ? floord : ceild;
+          const double m = static_cast<double>(dx) / dy;
+          for (int y = arg.y0; y <= arg.y1; ++y) {
+            const int x = roundish(m * (y - arg.y0) + arg.x0);
+            win->Writer()->Write({x, y}, ToColor(arg.color));
+          }
+        }
+
+        if (arg.draw) {
+          layer_manager->Draw(arg.layer_id);
+        }
+
       } else if (msg[0].type == Message::aWinRedraw) {
         auto& arg = msg[0].arg.layerid;
         layer_manager->Draw(arg.layerid);

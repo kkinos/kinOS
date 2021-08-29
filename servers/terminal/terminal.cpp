@@ -7,7 +7,7 @@ Vector2D<int> CalcCursorPos() {
 
 void DrawCursor(uint64_t layer_id, bool visible) {
     const auto color = visible ? 0xffffff : 0;
-    WinFillRectangle(layer_id, CalcCursorPos().x, CalcCursorPos().y, 7, 15, true, color);
+    WinFillRectangle(layer_id, true, CalcCursorPos().x, CalcCursorPos().y, 7, 15, color);
 }
 
 Rectangle<int> BlinkCursor(uint64_t layer_id) {
@@ -17,11 +17,10 @@ Rectangle<int> BlinkCursor(uint64_t layer_id) {
 }
 
 void Scroll1(uint64_t layer_id) {
-    WinFillRectangle(layer_id, Marginx, Marginy, kCanvasWidth , kCanvasHeight , true, 0);
+    WinFillRectangle(layer_id, true, Marginx, Marginy, kCanvasWidth , kCanvasHeight, 0);
     for (int row = 0; row < kRows - 1; ++row) {
         memcpy(buffer[row], buffer[row + 1], kColumns + 1);
-        char c = 'a';
-        WinWriteChar(layer_id, 4 + 4, 4 + 24 + 16 * row, 0xffffff, c);
+        WinWriteString(layer_id, true, 4 + 4, 4 + 24 + 16 * row, 0xffffff, buffer[row]);
     }
     memset(buffer[kRows - 1], 0, kColumns + 1);
 }
@@ -39,7 +38,7 @@ void Print(uint64_t layer_id, char c) {
   if (c == '\n') {
     newline();
   } else {
-      WinWriteChar(layer_id, CalcCursorPos().x, CalcCursorPos().y, 0xffffff, c);
+      WinWriteChar(layer_id, true, CalcCursorPos().x, CalcCursorPos().y, 0xffffff, c);
       buffer[cursory][cursorx] = c;
       if (cursorx == kColumns - 1) {
           newline();
@@ -89,7 +88,7 @@ Rectangle<int> InputKey(
             if (cursorx > 0) {
                 --cursorx;
                 buffer[cursory][cursorx] = '\0';
-                WinFillRectangle(layer_id, CalcCursorPos().x,CalcCursorPos().y, 8, 16, true, 0);
+                WinFillRectangle(layer_id, true, CalcCursorPos().x,CalcCursorPos().y, 8, 16, 0);
                 draw_area.pos = CalcCursorPos();
                 if (linebuf_index_ > 0) {
                     --linebuf_index_;
@@ -100,7 +99,7 @@ Rectangle<int> InputKey(
                 linebuf_[linebuf_index_] = ascii;
                 ++linebuf_index_;
                 buffer[cursory][cursorx] = ascii;
-                WinWriteChar(layer_id, CalcCursorPos().x, CalcCursorPos().y, 0xffffff, ascii);
+                WinWriteChar(layer_id, true, CalcCursorPos().x, CalcCursorPos().y, 0xffffff, ascii);
                 ++cursorx;
             }
         }
@@ -120,7 +119,7 @@ extern "C" void main() {
         exit(1);
         }
 
-    WinFillRectangle(layer_id, Marginx, Marginy, kCanvasWidth, kCanvasHeight, true, 0);
+    WinFillRectangle(layer_id, true, Marginx, Marginy, kCanvasWidth, kCanvasHeight, 0);
     Print(layer_id, "user@MIKANOS:\n");
     Print(layer_id, "$");
     

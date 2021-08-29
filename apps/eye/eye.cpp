@@ -2,7 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <algorithm>
-#include "../../libs/kinos/syscall.h"
+#include "../../libs/mikanos/mikanos.hpp"
 
 static const int kCanvasSize = 100, kEyeSize = 10;
 
@@ -20,36 +20,31 @@ void DrawEye(uint64_t layer_id_flags,
   const int eye_x = static_cast<int>(eye_center_x) + kCanvasSize/2 + 4;
   const int eye_y = static_cast<int>(eye_center_y) + kCanvasSize/2 + 24;
 
-  SyscallWinFillRectangle(layer_id_flags, eye_x - kEyeSize/2, eye_y - kEyeSize/2, kEyeSize, kEyeSize, color);
+  WinFillRectangle(layer_id_flags, true, eye_x - kEyeSize/2, eye_y - kEyeSize/2, kEyeSize, kEyeSize, color);
 }
 
 extern "C" void main(int argc, char** argv) {
-  auto [layer_id, err_openwin]
-    = SyscallOpenWindow(kCanvasSize + 8, kCanvasSize + 28, 10, 10, "eye");
-  if (err_openwin) {
-    exit(err_openwin);
+  int layer_id = OpenWindow(kCanvasSize + 8, kCanvasSize + 28, 10, 10);
+  if (layer_id == -1) {
+    exit(1);
   }
 
-  SyscallWinFillRectangle(layer_id, 4, 24, kCanvasSize, kCanvasSize, 0xffffff);
+  WinFillRectangle(layer_id, true, 4, 24, kCanvasSize, kCanvasSize, 0xffffff);
 
-  AppEvent events[1];
+  Message msg[1];
   while (true) {
-    auto [ n, err ] = SyscallReadEvent(events, 1);
-    if (err) {
-      printf("ReadEvent failed: %s\n", strerror(err));
+    SyscallReceiveMessage(msg, 1);
+    if (msg[0].type == Message::aQuit) {
       break;
-    }
-    if (events[0].type == AppEvent::kQuit) {
-      break;
-    } else if (events[0].type == AppEvent::kMouseMove) {
-      auto& arg = events[0].arg.mouse_move;
-      SyscallWinFillRectangle(layer_id | LAYER_NO_REDRAW,
-          4, 24, kCanvasSize, kCanvasSize, 0xffffff);
+    } else if (msg[0].type == Message::aMouseMove) {
+      auto& arg = msg[0].arg.mouse_move;
+      WinFillRectangle(layer_id, false,
+                       4, 24, kCanvasSize, kCanvasSize, 0xffffff);
       DrawEye(layer_id, arg.x, arg.y, 0x000000);
     } else {
-      printf("unknown event: type = %d\n", events[0].type);
+      printf("unknown event: type = %d\n", msg[0].type);
     }
   }
-  SyscallCloseWindow(layer_id);
+  CloseWindow(layer_id);
   exit(0);
 }
