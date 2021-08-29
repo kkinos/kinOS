@@ -58,12 +58,6 @@ void InitializeKeyboard() {
       if (shift) {
         ascii = keycode_map_shifted[keycode];
       }
-      // Message msg{Message::kKeyPush};
-      // msg.arg.keyboard.modifier = modifier;
-      // msg.arg.keyboard.keycode = keycode;
-      // msg.arg.keyboard.ascii = ascii;
-      // msg.arg.keyboard.press = press;
-      // task_manager->SendMessage(1, msg);
 
       Message msg{Message::aKeyPush};
       msg.arg.keyboard.modifier = modifier;

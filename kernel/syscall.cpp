@@ -15,8 +15,6 @@
 #include "font.hpp"
 #include "timer.hpp"
 #include "keyboard.hpp"
-#include "console.hpp"
-#include "layer.hpp"
 
 namespace syscall {
   struct Result {

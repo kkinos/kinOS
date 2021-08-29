@@ -10,9 +10,7 @@
 #include <map>
 #include <memory>
 #include <optional>
-#include "window.hpp"
 #include "task.hpp"
-#include "layer.hpp"
 #include "fat.hpp"
 
 struct AppLoadInfo {
@@ -33,23 +31,18 @@ class Shell {
     public:
 
         Shell(Task& task, const ShellDescriptor* sh_desc);
-        unsigned int LayerID() const { return layer_id_; }
         void InputKey(uint8_t modifier, uint8_t keycode, char ascii);
-        void Print(const char* s, std::optional<size_t> len = std::nullopt);
         Task& UnderlyingTask() const { return task_; }
         int LastExitCode() const { return last_exit_code_; }
 
     private:
         static const int kLineMax = 128;
-        unsigned int layer_id_;
         Task& task_;
         
         int linebuf_index_{0};
         std::array<char, kLineMax> linebuf_{};
         void ExecuteLine();
         WithError<int> ExecuteFile(fat::DirectoryEntry& file_entry, char* command, char* first_arg);
-        void Print(char c);
-
         std::array<std::shared_ptr<FileDescriptor>, 3> files_;
         int last_exit_code_{0};
 

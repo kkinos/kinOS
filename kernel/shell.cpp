@@ -4,7 +4,6 @@
 #include <limits>
 
 #include "font.hpp"
-#include "layer.hpp"
 #include "pci.hpp"
 #include "asmfunc.h"
 #include "elf.hpp"
@@ -13,7 +12,6 @@
 #include "timer.hpp"
 #include "keyboard.hpp"
 #include "logger.hpp"
-#include "console.hpp"
 
 namespace {
 
@@ -490,31 +488,10 @@ WithError<int> Shell::ExecuteFile(fat::DirectoryEntry& file_entry, char* command
     return { ret, FreePML4(task) };
 }
 
-void Shell::Print(char c) {
-  char ch[] = {c, '\0'};
-  printt(ch);
-}
-
-void Shell::Print(const char* s, std::optional<size_t> len) {
-    if (len) {
-        for (size_t i = 0; i < *len; ++i) {
-            Print(*s);
-            ++s;
-        }
-    } else {
-        while (*s) {
-            Print(*s);
-            ++s;
-        }
-    }
-}
-
-
-
 
 void TaskShell(uint64_t task_id, int64_t data) {
     const auto sh_desc = reinterpret_cast<ShellDescriptor*>(data);
-
+    
     __asm__("cli");
     Task& task = task_manager->CurrentTask();
     Shell* shell = new Shell{task, sh_desc};
@@ -535,43 +512,6 @@ void TaskShell(uint64_t task_id, int64_t data) {
         __asm__("sti");
     }
 
-    auto add_blink_timer = [task_id](unsigned long t) {
-        timer_manager->AddTimer(Timer{t + static_cast<int>(kTimerFreq * 0.5),
-                                      1, task_id});
-    };
-
-    add_blink_timer(timer_manager->CurrentTick());
-
-    bool window_isactive = false;
-
-    while (true) {
-        __asm__("cli");
-        auto msg = task.ReceiveMessage();
-        if (!msg) {
-            task.Sleep();
-            __asm__("sti");
-            continue;
-        }
-        __asm__("sti");
-
-        switch (msg->type) {
-            case Message::kTimerTimeout:
-                add_blink_timer(msg->arg.timer.timeout);
-                break;
-            case Message::kKeyPush:
-                if (msg->arg.keyboard.press) {
-                    shell->InputKey(msg->arg.keyboard.modifier,
-                                                         msg->arg.keyboard.keycode,
-                                                         msg->arg.keyboard.ascii);
-                }
-                break;
-            case Message::kWindowActive:
-                window_isactive = msg->arg.window_active.activate;
-                break;
-            default:
-                break;
-        }
-    }
 }
 
 
@@ -582,7 +522,6 @@ ShellFileDescriptor::ShellFileDescriptor(Shell& shell)
 
 size_t ShellFileDescriptor::Read(void* buf, size_t len) {
     char* bufc = reinterpret_cast<char*>(buf);
-
     while (true) {
         __asm__("cli");
         auto msg = shell_.UnderlyingTask().ReceiveMessage();
@@ -600,7 +539,6 @@ size_t ShellFileDescriptor::Read(void* buf, size_t len) {
         if (msg->arg.keyboard.modifier & (kLControlBitMask | kRControlBitMask)) {
             char s[3] = "^ ";
             s[1] = toupper(msg->arg.keyboard.ascii);
-            printt(s);
             if (msg->arg.keyboard.keycode == 7 /* D */) {
                 return 0; // EOT
             }
@@ -608,7 +546,7 @@ size_t ShellFileDescriptor::Read(void* buf, size_t len) {
         }
 
             bufc[0] = msg->arg.keyboard.ascii;
-            printt(bufc);
+    
            
             return 1;
     }
@@ -616,7 +554,6 @@ size_t ShellFileDescriptor::Read(void* buf, size_t len) {
 }
 
 size_t ShellFileDescriptor::Write(const void* buf, size_t len) {
-    shell_.Print(reinterpret_cast<const char*>(buf), len);
     return len;
 }
 
