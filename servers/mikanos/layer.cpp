@@ -6,6 +6,14 @@
 #include "font.hpp"
 
 
+namespace {
+  template <class T, class U>
+  void EraseIf(T& c, const U& pred) {
+    auto it = std::remove_if(c.begin(), c.end(), pred);
+    c.erase(it, c.end());
+  }
+}
+
 Layer::Layer(unsigned int id) : id_{id} {}
 
 unsigned int Layer::ID() const {
@@ -59,6 +67,19 @@ void LayerManager::SetWriter(PixelWriter* writer) {
 Layer& LayerManager::NewLayer() {
   ++latest_id_;
   return *layers_.emplace_back(new Layer{latest_id_});
+}
+
+void LayerManager::RemoveLayer(unsigned int id) {
+  Hide(id);
+
+  auto pred = [id](const std::unique_ptr<Layer>& elem) {
+    return elem->ID() == id;
+  };
+
+  EraseIf(layers_, pred);
+
+  std::vector<unsigned int>::iterator e = remove(window_layer_id.begin(), window_layer_id.end(), id);
+  window_layer_id.erase(e, window_layer_id.end());
 }
 
 void LayerManager::Draw(const Rectangle<int>& area) const {

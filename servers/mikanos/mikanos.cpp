@@ -74,9 +74,8 @@ extern "C" int main() {
         auto& arg = msg[0].arg.mouse_move;
         mouse->OnInterrupt(arg.buttons, arg.dx, arg.dy);
       } else if (msg[0].type == Message::aKeyPush) {
-        
-        if (msg[0].arg.keyboard.press) {
-          if (msg[0].arg.keyboard.ascii == '\t') {
+        if (msg[0].arg.keyboard.ascii == '\t') {
+          if (msg[0].arg.keyboard.press) {
             auto act_id = active_layer->GetActive();
             unsigned int next_act_window_id = window_layer_id[0];
             
@@ -90,20 +89,28 @@ extern "C" int main() {
               }
             }
             active_layer->Activate(next_act_window_id);
-          } else if (msg[0].arg.keyboard.keycode == 59 /* F2 */) {
-            console->Clear();
-          } else {
-            auto act = active_layer->GetActive();
-            auto task_it = layer_task_map->find(act);
-            if (task_it != layer_task_map->end()) {
-              SyscallSendMessageToTask(&msg[0], task_it->second);
-            } else {
-              printk("key push not handled: keycode %02x, ascii %02x\n",
-              msg[0].arg.keyboard.keycode,
-              msg[0].arg.keyboard.ascii);
           }
+        } else if (msg->arg.keyboard.press && 
+                   msg[0].arg.keyboard.keycode == 59 /* F2 */) {
+          console->Clear();
+        } else {
+          auto act = active_layer->GetActive();
+          auto task_it = layer_task_map->find(act);
+          if (task_it != layer_task_map->end()) {
+            if (msg[0].arg.keyboard.keycode == 20 /* Q key */ &&
+                msg[0].arg.keyboard.modifier & (1 | 16)) {
+                  Message rmsg{Message::aQuit};
+                  SyscallSendMessageToTask(&rmsg, task_it->second);
+                } else {
+                  SyscallSendMessageToTask(&msg[0], task_it->second);
+                }
+          } else {
+            printk("key push not handled: keycode %02x, ascii %02x\n",
+            msg[0].arg.keyboard.keycode,
+            msg[0].arg.keyboard.ascii);
         }
-        }
+      }
+        
     
       } else if (msg[0].type == Message::aOpenWindow) {
         auto& arg = msg[0].arg.openwindow;
@@ -127,6 +134,9 @@ extern "C" int main() {
       } else if (msg[0].type == Message::aWinFillRectangle) {
         auto& arg = msg[0].arg.winfillrectangle;
         auto layer = layer_manager->FindLayer(arg.layer_id);
+         if (layer == nullptr) {
+          continue;
+        }
         FillRectangle(*layer->GetWindow()->Writer(), {arg.x, arg.y}, {arg.w, arg.h}, ToColor(arg.color));
         if (msg[0].arg.winfillrectangle.draw == true) {
           layer_manager->Draw(arg.layer_id);
@@ -134,11 +144,27 @@ extern "C" int main() {
       } else if (msg[0].type == Message::aWinWriteChar) {
         auto& arg = msg[0].arg.winwritechar;
         auto layer = layer_manager->FindLayer(arg.layer_id);
+        if (layer == nullptr) {
+          continue;
+        }
         WriteString(*layer->GetWindow()->Writer(), {arg.x, arg.y}, &arg.c ,ToColor(arg.color));
         layer_manager->Draw(arg.layer_id);
       } else if (msg[0].type == Message::aWinRedraw) {
         auto& arg = msg[0].arg.layerid;
         layer_manager->Draw(arg.layerid);
+      } else if (msg[0].type == Message::aCloseWindow) {
+        auto& arg = msg[0].arg.layerid;
+        auto layer = layer_manager->FindLayer(arg.layerid);
+         if (layer == nullptr) {
+          continue;
+        }
+        const auto layer_pos = layer->GetPosition();
+        const auto win_size = layer->GetWindow()->Size();
+        active_layer->Activate(0);
+        layer_manager->RemoveLayer(arg.layerid);
+        layer_manager->Draw({layer_pos, win_size});
+        layer_task_map->erase(arg.layerid);
+
       }
 
      

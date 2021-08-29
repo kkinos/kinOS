@@ -23,6 +23,8 @@ struct Message {
     aWinFillRectangle,
     aWinWriteChar,
     aWinRedraw,
+    aQuit,
+    aCloseWindow,
   } type;
 
   uint64_t src_task;

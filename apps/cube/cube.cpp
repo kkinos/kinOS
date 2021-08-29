@@ -81,7 +81,7 @@ extern "C" void main(int argc, char** argv) {
     }
   }
 
-  SyscallCloseWindow(layer_id);
+  CloseWindow(layer_id);
   exit(0);
 }
 
@@ -161,12 +161,12 @@ bool Sleep(unsigned long ms) {
     SyscallCreateTimer(TIMER_ONESHOT_ABS, 1, prev_timeout);
   }
 
-  AppEvent events[1];
+  Message msg[1];
   for (;;) {
-    SyscallReadEvent(events, 1);
-    if (events[0].type == AppEvent::kTimerTimeout) {
+    SyscallReceiveMessage(msg, 1);
+    if (msg[0].type == Message::kTimerTimeout) {
       return false;
-    } else if (events[0].type == AppEvent::kQuit) {
+    } else if (msg[0].type == Message::aQuit) {
       return true;
     }
   }

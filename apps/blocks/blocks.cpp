@@ -2,7 +2,7 @@
 #include <bitset>
 #include <cmath>
 #include <cstdlib>
-#include "../../libs/kinos/syscall.h"
+#include "../../libs/mikanos/mikanos.hpp"
 
 using namespace std;
 
@@ -22,7 +22,7 @@ const int kBallSpeed = kBarSpeed;
 
 array<bitset<kNumBlocksX>, kNumBlocksY> blocks;
 
-void DrawBlocks(uint64_t layer_id) {
+void DrawBlocks(uint64_t layer_id, bool draw) {
   for (int by = 0; by < kNumBlocksY; ++by) {
     const int y = 24 + kGapHeight + by * kBlockHeight;
     const uint32_t color = 0xff << (by % 3) * 8;
@@ -31,25 +31,25 @@ void DrawBlocks(uint64_t layer_id) {
       if (blocks[by][bx]) {
         const int x = 4 + kGapWidth + bx * kBlockWidth;
         const uint32_t c = color | (0xff << ((bx + by) % 3) * 8);
-        SyscallWinFillRectangle(layer_id, x, y, kBlockWidth, kBlockHeight, c);
+        WinFillRectangle(layer_id, x, y, kBlockWidth, kBlockHeight, draw, c);
       }
     }
   }
 }
 
-void DrawBar(uint64_t layer_id, int bar_x) {
-  SyscallWinFillRectangle(layer_id,
-                          4 + bar_x, 24 + kBarY,
-                          kBarWidth, kBarHeight, 0xffffff);
+void DrawBar(uint64_t layer_id, int bar_x, bool draw) {
+  WinFillRectangle(layer_id,
+                   4 + bar_x, 24 + kBarY,
+                   kBarWidth, kBarHeight, draw, 0xffffff);
 }
 
-void DrawBall(uint64_t layer_id, int x, int y) {
-  SyscallWinFillRectangle(layer_id,
-                          4 + x - kBallRadius, 24 + y - kBallRadius,
-                          2 * kBallRadius, 2 * kBallRadius, 0x007f00);
-  SyscallWinFillRectangle(layer_id,
-                          4 + x - kBallRadius/2, 24 + y - kBallRadius/2,
-                          kBallRadius, kBallRadius, 0x00ff00);
+void DrawBall(uint64_t layer_id, int x, int y, bool draw) {
+  WinFillRectangle(layer_id,
+                   4 + x - kBallRadius, 24 + y - kBallRadius,
+                          2 * kBallRadius, 2 * kBallRadius, draw, 0x007f00);
+  WinFillRectangle(layer_id,
+                   4 + x - kBallRadius/2, 24 + y - kBallRadius/2,
+                   kBallRadius, kBallRadius, draw, 0x00ff00);
 }
 
 template <class T>
@@ -63,10 +63,9 @@ T LimitRange(const T& x, const T& min, const T& max) {
 }
 
 extern "C" void main(int argc, char** argv) {
-  auto [layer_id, err_openwin]
-    = SyscallOpenWindow(kCanvasWidth + 8, kCanvasHeight + 28, 10, 10, "blocks");
-  if (err_openwin) {
-    exit(err_openwin);
+  int layer_id = OpenWindow(kCanvasWidth + 8, kCanvasHeight + 28, 10, 10);
+  if (layer_id == -1) {
+    exit(1);
   }
 
   for (int y = 0; y < kNumBlocksY; ++y) {
@@ -84,15 +83,15 @@ extern "C" void main(int argc, char** argv) {
 
   for (;;) {
     // 画面を一旦クリアし，各種オブジェクトを描画
-    SyscallWinFillRectangle(layer_id | LAYER_NO_REDRAW,
-                            4, 24, kCanvasWidth, kCanvasHeight, 0);
+    WinFillRectangle(layer_id,
+                    4, 24, kCanvasWidth, kCanvasHeight, false, 0);
 
-    DrawBlocks(layer_id | LAYER_NO_REDRAW);
-    DrawBar(layer_id | LAYER_NO_REDRAW, bar_x);
+    DrawBlocks(layer_id, false);
+    DrawBar(layer_id, bar_x, false);
     if (ball_y >= 0) {
-      DrawBall(layer_id | LAYER_NO_REDRAW, ball_x, ball_y);
+      DrawBall(layer_id, ball_x, ball_y, false);
     }
-    SyscallWinRedraw(layer_id);
+    WinRedraw(layer_id);
 
     static unsigned long prev_timeout = 0;
     if (prev_timeout == 0) {
@@ -103,19 +102,19 @@ extern "C" void main(int argc, char** argv) {
       SyscallCreateTimer(TIMER_ONESHOT_ABS, 1, prev_timeout);
     }
 
-    // #@@range_begin(read_event)
-    AppEvent events[1];
+    
+    Message msg[1];
     for (;;) {
-      SyscallReadEvent(events, 1);
-      if (events[0].type == AppEvent::kTimerTimeout) {
+      SyscallReceiveMessage(msg, 1);
+      if (msg[0].type == Message::kTimerTimeout) {
         break;
-      } else if (events[0].type == AppEvent::kQuit) {
+      } else if (msg[0].type == Message::aQuit) {
         goto fin;
-      } else if (events[0].type == AppEvent::kKeyPush) {
-        if (!events[0].arg.keypush.press) { // release
+      } else if (msg[0].type == Message::aKeyPush) {
+        if (!msg[0].arg.keyboard.press) { // release
           move_dir = 0;
         } else {
-          const auto keycode = events[0].arg.keypush.keycode;
+          const auto keycode = msg[0].arg.keyboard.keycode;
           if (keycode == 79 /* RightArrow */) {
             move_dir = 1;
           } else if (keycode == 80 /* LeftArrow */) {
@@ -135,7 +134,7 @@ extern "C" void main(int argc, char** argv) {
         }
       }
     }
-    // #@@range_end(read_event)
+  
 
     bar_x += move_dir * kBarSpeed / kFrameRate;
     bar_x = LimitRange(bar_x, 0, kCanvasWidth - kBarWidth - 1);
@@ -198,6 +197,6 @@ extern "C" void main(int argc, char** argv) {
   }
 
 fin:
-  SyscallCloseWindow(layer_id);
+  CloseWindow(layer_id);
   exit(0);
 }

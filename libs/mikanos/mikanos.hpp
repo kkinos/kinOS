@@ -80,3 +80,9 @@ void WinRedraw(int layer_id) {
     msg.arg.layerid.layerid = layer_id;
     SyscallSendMessageToOs(&msg);
 }
+
+void CloseWindow(int layer_id) {
+    Message msg{Message::aCloseWindow};
+    msg.arg.layerid.layerid = layer_id;
+    SyscallSendMessageToOs(&msg);
+}
