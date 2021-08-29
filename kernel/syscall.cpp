@@ -15,7 +15,6 @@
 #include "font.hpp"
 #include "timer.hpp"
 #include "keyboard.hpp"
-#include "app_event.hpp"
 #include "console.hpp"
 #include "layer.hpp"
 
@@ -68,231 +67,10 @@ SYSCALL(Exit) {
   return { task.OSStackPointer(), static_cast<int>(arg1) };
 }
 
-SYSCALL(OpenWindow) {
-  const int w = arg1, h = arg2, x = arg3, y = arg4;
-  const auto title = reinterpret_cast<const char*>(arg5);
-  const auto win = std::make_shared<ToplevelWindow>(
-      w, h, screen_config.pixel_format, title);
 
-  __asm__("cli");
-  const auto layer_id = layer_manager->NewLayer()
-    .SetWindow(win)
-    .SetDraggable(true)
-    .Move({x, y})
-    .ID();
-  active_layer->Activate(layer_id);
-
-  const auto task_id = task_manager->CurrentTask().ID();
-  layer_task_map->insert(std::make_pair(layer_id, task_id));
-
-  window_layer_id.push_back(layer_id);
-
-  __asm__("sti");
-
-  return { layer_id, 0 };
-
-}
-
-
-namespace {
-  template <class Func, class... Args>
-  Result DoWinFunc(Func f, uint64_t layer_id_flags, Args... args) {
-    const uint32_t layer_flags = layer_id_flags >> 32;
-    const unsigned int layer_id = layer_id_flags & 0xffffffff;
-
-    __asm__("cli");
-    auto layer = layer_manager->FindLayer(layer_id);
-    __asm__("sti");
-    if (layer == nullptr) {
-      return { 0, EBADF };
-    }
-
-    const auto res = f(*layer->GetWindow(), args...);
-    if (res.error) {
-      return res;
-    }
-
-    if ((layer_flags & 1) == 0) {
-      __asm__("cli");
-      layer_manager->Draw(layer_id);
-      __asm__("sti");
-    }
-
-    return res;
-  }
-}
-
-SYSCALL(WinWriteString) {
-  return DoWinFunc(
-      [](Window& win,
-         int x, int y, uint32_t color, const char* s) {
-        WriteString(*win.Writer(), {x, y}, s, ToColor(color));
-        return Result{ 0, 0 };
-      }, arg1, arg2, arg3, arg4, reinterpret_cast<const char*>(arg5));
-}
-
-SYSCALL(WinFillRectangle) {
-  return DoWinFunc(
-      [](Window& win,
-         int x, int y, int w, int h, uint32_t color) {
-        FillRectangle(*win.Writer(), {x, y}, {w, h}, ToColor(color));
-        return Result{ 0, 0 };
-      }, arg1, arg2, arg3, arg4, arg5, arg6);
-}
 
 SYSCALL(GetCurrentTick) {
   return { timer_manager->CurrentTick(), kTimerFreq };
-}
-
-SYSCALL(WinRedraw) {
-  return DoWinFunc(
-      [](Window&) {
-        return Result{ 0, 0 };
-      }, arg1);
-}
-
-
-SYSCALL(WinDrawLine) {
-  return DoWinFunc(
-      [](Window& win,
-         int x0, int y0, int x1, int y1, uint32_t color) {
-        auto sign = [](int x) {
-          return (x > 0) ? 1 : (x < 0) ? -1 : 0;
-        };
-        const int dx = x1 - x0 + sign(x1 - x0);
-        const int dy = y1 - y0 + sign(y1 - y0);
-
-        if (dx == 0 && dy == 0) {
-          win.Writer()->Write({x0, y0}, ToColor(color));
-          return Result{ 0, 0 };
-        }
-
-        const auto floord = static_cast<double(*)(double)>(floor);
-        const auto ceild = static_cast<double(*)(double)>(ceil);
-
-        if (abs(dx) >= abs(dy)) {
-          if (dx < 0) {
-            std::swap(x0, x1);
-            std::swap(y0, y1);
-          }
-          const auto roundish = y1 >= y0 ? floord : ceild;
-          const double m = static_cast<double>(dy) / dx;
-          for (int x = x0; x <= x1; ++x) {
-            const int y = roundish(m * (x - x0) + y0);
-            win.Writer()->Write({x, y}, ToColor(color));
-          }
-        } else {
-          if (dy < 0) {
-            std::swap(x0, x1);
-            std::swap(y0, y1);
-          }
-          const auto roundish = x1 >= x0 ? floord : ceild;
-          const double m = static_cast<double>(dx) / dy;
-          for (int y = y0; y <= y1; ++y) {
-            const int x = roundish(m * (y - y0) + x0);
-            win.Writer()->Write({x, y}, ToColor(color));
-          }
-        }
-        return Result{ 0, 0 };
-      }, arg1, arg2, arg3, arg4, arg5, arg6);
-}
-
-SYSCALL(CloseWindow) {
-  const unsigned int layer_id = arg1 & 0xffffffff;
-  const auto layer = layer_manager->FindLayer(layer_id);
-
-  if (layer == nullptr) {
-    return { EBADF, 0 };
-  }
-
-  const auto layer_pos = layer->GetPosition();
-  const auto win_size = layer->GetWindow()->Size();
-
-  __asm__("cli");
-  active_layer->Activate(0);
-  layer_manager->RemoveLayer(layer_id);
-  layer_manager->Draw({layer_pos, win_size});
-  layer_task_map->erase(layer_id);
-  __asm__("sti");
-
-  return { 0, 0 };
-}
-
-SYSCALL(ReadEvent) {
-  if (arg1 < 0x8000'0000'0000'0000) {
-    return { 0, EFAULT };
-  }
-  const auto app_events = reinterpret_cast<AppEvent*>(arg1);
-  const size_t len = arg2;
-
-  __asm__("cli");
-  auto& task = task_manager->CurrentTask();
-  __asm__("sti");
-  size_t i = 0;
-
-  while (i < len) {
-    __asm__("cli");
-    auto msg = task.ReceiveMessage();
-    if (!msg && i == 0) {
-      task.Sleep();
-      continue;
-    }
-    __asm__("sti");
-
-    if (!msg) {
-      break;
-    }
-
-    switch (msg->type) {
-     case Message::kKeyPush:
-      if (msg->arg.keyboard.keycode == 20 /* Q key */ &&
-          msg->arg.keyboard.modifier & (kLControlBitMask | kRControlBitMask)) {
-        app_events[i].type = AppEvent::kQuit;
-        ++i;
-      } else {
-        app_events[i].type = AppEvent::kKeyPush;
-        app_events[i].arg.keypush.modifier = msg->arg.keyboard.modifier;
-        app_events[i].arg.keypush.keycode = msg->arg.keyboard.keycode;
-        app_events[i].arg.keypush.ascii = msg->arg.keyboard.ascii;
-        app_events[i].arg.keypush.press = msg->arg.keyboard.press;
-        ++i;
-      }
-      break;
-
-     case Message::kMouseMove:
-      app_events[i].type = AppEvent::kMouseMove;
-      app_events[i].arg.mouse_move.x = msg->arg.mouse_move.x;
-      app_events[i].arg.mouse_move.y = msg->arg.mouse_move.y;
-      app_events[i].arg.mouse_move.dx = msg->arg.mouse_move.dx;
-      app_events[i].arg.mouse_move.dy = msg->arg.mouse_move.dy;
-      app_events[i].arg.mouse_move.buttons = msg->arg.mouse_move.buttons;
-      ++i;
-      break;
-
-     case Message::kMouseButton:
-      app_events[i].type = AppEvent::kMouseButton;
-      app_events[i].arg.mouse_button.x = msg->arg.mouse_button.x;
-      app_events[i].arg.mouse_button.y = msg->arg.mouse_button.y;
-      app_events[i].arg.mouse_button.press = msg->arg.mouse_button.press;
-      app_events[i].arg.mouse_button.button = msg->arg.mouse_button.button;
-      ++i;
-      break;
-
-      case Message::kTimerTimeout:
-      if (msg->arg.timer.value < 0) {
-        app_events[i].type = AppEvent::kTimerTimeout;
-        app_events[i].arg.timer.timeout = msg->arg.timer.timeout;
-        app_events[i].arg.timer.value = -msg->arg.timer.value;
-        ++i;
-      }
-      break;
-      
-    default:
-      Log(kInfo, "uncaught event type: %u\n", msg->type);
-    }
-  }
-
-  return { i, 0 };
 }
 
 SYSCALL(CreateTimer) {
@@ -428,8 +206,6 @@ SYSCALL(CreateAppTask) {
   child_task.SetPID(parent_task.ID())
     .SetCommandLine(command_line);
     
-  
-
   Message msg{Message::kCreateAppTask};
   msg.arg.create.pid = parent_task.ID();
   msg.arg.create.cid = child_task.ID();
@@ -439,31 +215,6 @@ SYSCALL(CreateAppTask) {
   __asm__("sti");
   
   return {child_task.ID(), 0};
-}
-
-SYSCALL(ConClear) {
-  console->Clear();
-  return {0, 0};
-}
-
-SYSCALL(WritePixel) {
-  const int x = arg1;
-  const int y = arg2;
-  const uint8_t r = arg3;
-  const uint8_t g = arg4; 
-  const uint8_t b = arg5;
-  screen_writer->Write({ x , y }, PixelColor{ r, g, b });
-  return {0, 0};
-}
-
-SYSCALL(FrameBufferWitdth) {
-  uint64_t w = screen_writer->Width();
-  return { w, 0 };
-}
-
-SYSCALL(FrameBufferHeight) {
-  uint64_t h = screen_writer->Height();
-  return { h, 0};
 }
 
 SYSCALL(ReceiveMessage) {
@@ -497,21 +248,6 @@ SYSCALL(ReceiveMessage) {
     return { i , 0};
   }
 
-
-SYSCALL(CopyToFrameBuffer) {
-  
-  const auto src_buf = reinterpret_cast<uint8_t*>(arg1);
-  int copy_start_x = arg2;
-  int copy_start_y = arg3;
-  int bytes_per_copy_line = arg4;
-  uint8_t* dst_buf = screen->Config().frame_buffer + 4 *
-    (screen->Config().pixels_per_scan_line * copy_start_y + copy_start_x);
-  memcpy(dst_buf, src_buf, bytes_per_copy_line);
-  
-  return{ 0, 0 };
-
-}
-
 SYSCALL(SendMessageToOs) {
   const auto send_message = reinterpret_cast<Message*>(arg1);
 
@@ -521,15 +257,13 @@ SYSCALL(SendMessageToOs) {
 
   Message msg;
   msg = *send_message;
-
   msg.src_task = task.ID();
 
   __asm__("cli");
   task_manager->SendMessageToOs(msg);   
   __asm__("sti");
     
-
-return { 0, 0 };
+  return { 0, 0 };
 }
 
 
@@ -547,6 +281,40 @@ SYSCALL(SendMessageToTask) {
 return { 0, 0 };
 }
 
+SYSCALL(WritePixel) {
+  const int x = arg1;
+  const int y = arg2;
+  const uint8_t r = arg3;
+  const uint8_t g = arg4; 
+  const uint8_t b = arg5;
+  screen_writer->Write({ x , y }, PixelColor{ r, g, b });
+  return {0, 0};
+}
+
+SYSCALL(FrameBufferWitdth) {
+  uint64_t w = screen_writer->Width();
+  return { w, 0 };
+}
+
+SYSCALL(FrameBufferHeight) {
+  uint64_t h = screen_writer->Height();
+  return { h, 0};
+}
+
+SYSCALL(CopyToFrameBuffer) {
+  
+  const auto src_buf = reinterpret_cast<uint8_t*>(arg1);
+  int copy_start_x = arg2;
+  int copy_start_y = arg3;
+  int bytes_per_copy_line = arg4;
+  uint8_t* dst_buf = screen->Config().frame_buffer + 4 *
+    (screen->Config().pixels_per_scan_line * copy_start_y + copy_start_x);
+  memcpy(dst_buf, src_buf, bytes_per_copy_line);
+  
+  return{ 0, 0 };
+
+}
+
 
 #undef SYSCALL
 
@@ -554,32 +322,25 @@ return { 0, 0 };
 
 using SyscallFuncType = syscall::Result (uint64_t, uint64_t, uint64_t,
                                          uint64_t, uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType*, 0x19> syscall_table{
+extern "C" std::array<SyscallFuncType*, 0x11> syscall_table{
   /* 0x00 */ syscall::LogString,
   /* 0x01 */ syscall::PutString,
   /* 0x02 */ syscall::Exit,
-  /* 0x03 */ syscall::OpenWindow,
-  /* 0x04 */ syscall::WinWriteString,
-  /* 0x05 */ syscall::WinFillRectangle,
-  /* 0x06 */ syscall::GetCurrentTick,
-  /* 0x07 */ syscall::WinRedraw,
-  /* 0x08 */ syscall::WinDrawLine,
-  /* 0x09 */ syscall::CloseWindow,
-  /* 0x0a */ syscall::ReadEvent,
-  /* 0x0b */ syscall::CreateTimer,
-  /* 0x0c */ syscall::OpenFile,
-  /* 0x0d */ syscall::ReadFile,
-  /* 0x0e */ syscall::DemandPages,
-  /* 0x0f */ syscall::MapFile,
-  /* 0x10 */ syscall::CreateAppTask,
-  /* 0x11 */ syscall::ConClear,
-  /* 0x12 */ syscall::WritePixel,
-  /* 0x13 */ syscall::FrameBufferWitdth,
-  /* 0x14 */ syscall::FrameBufferHeight,
-  /* 0x15 */ syscall::ReceiveMessage,
-  /* 0x16 */ syscall::CopyToFrameBuffer,
-  /* 0x17 */ syscall::SendMessageToOs,
-  /* 0x18 */ syscall::SendMessageToTask,
+  /* 0x03 */ syscall::GetCurrentTick,
+  /* 0x04 */ syscall::CreateTimer,
+  /* 0x05 */ syscall::OpenFile,
+  /* 0x06 */ syscall::ReadFile,
+  /* 0x07 */ syscall::DemandPages,
+  /* 0x08 */ syscall::MapFile,
+  /* 0x09 */ syscall::CreateAppTask,
+  /* 0x0a */ syscall::ReceiveMessage,
+  /* 0x0b */ syscall::SendMessageToOs,
+  /* 0x0c */ syscall::SendMessageToTask,
+  /* 0x0d */ syscall::WritePixel,
+  /* 0x0e */ syscall::FrameBufferWitdth,
+  /* 0x0f */ syscall::FrameBufferHeight,
+  /* 0x10 */ syscall::CopyToFrameBuffer,
+ 
 
 };
 

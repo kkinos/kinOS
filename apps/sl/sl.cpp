@@ -98,11 +98,11 @@ int add_D51(int x) {
 }
 
 extern "C" void main(int argc, char** argv) {
-    SyscallConClear();
-    for (int x = COLS - 1; ; --x) {
-        if (add_D51(x) == -1) break;
-        SyscallConClear();
-    }
-    exit(0);
+    // SyscallConClear();
+    // for (int x = COLS - 1; ; --x) {
+    //     if (add_D51(x) == -1) break;
+    //     SyscallConClear();
+    // }
+    // exit(0);
     
 }
