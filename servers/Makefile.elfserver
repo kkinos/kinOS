@@ -15,24 +15,20 @@ CXXFLAGS += -O2 -Wall -g --target=x86_64-elf -ffreestanding -mcmodel=large \
 LDFLAGS += -L${LIBC_DIR}/lib --entry main -z norelro --image-base 0xffff800000000000 --static
 
 OBJS += ../../libs/kinos/syscall.o ../../libs/kinos/newlib_support.o ../../libs/kinos/logger.o \
-		../../libs/kinos/exec.o
+		../../libs/kinos/exec.o ../../libs/mikanos/mikansyscall.o
 		
 DEPENDS = $(join $(dir $(OBJS)),$(addprefix .,$(notdir $(OBJS:.o=.d))))
 
-$(TARGET): $(OBJS) Makefile
-	ld.lld $(LDFLAGS) -o $@ $(OBJS) -lc -lc++ -lc++abi -lm
+.PHONY: all
+all: $(TARGET)
 
 .PHONY: clean
 clean:
 	rm -rf *.o
 
-%.o: %.c Makefile
-	clang $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+$(TARGET): $(OBJS) Makefile
+	ld.lld $(LDFLAGS) -o $@ $(OBJS) -lc -lc++ -lc++abi -lm
 
-.%.d: %.c
-	clang $(CPPFLAGS) $(CFLAGS) -MM $< > $@
-	$(eval OBJ = $(<:.c=.o))
-	sed --in-place 's|$(notdir $(OBJ))|$(OBJ)|' $@
 
 %.o: %.cpp Makefile
 	clang++ $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
@@ -40,6 +36,15 @@ clean:
 .%.d: %.cpp
 	clang++ $(CPPFLAGS) $(CXXFLAGS) -MM $< > $@
 	$(eval OBJ = $(<:.cpp=.o))
+	sed --in-place 's|$(notdir $(OBJ))|$(OBJ)|' $@
+
+%.o: %.c Makefile
+	clang $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+
+.%.d: %.c
+	clang $(CPPFLAGS) $(CFLAGS) -MM $< > $@
+	$(eval OBJ = $(<:.c=.o))
 	sed --in-place 's|$(notdir $(OBJ))|$(OBJ)|' $@
 
 %.o: %.asm Makefile

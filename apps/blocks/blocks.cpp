@@ -2,7 +2,7 @@
 #include <bitset>
 #include <cmath>
 #include <cstdlib>
-#include "../../libs/mikanos/mikanos.hpp"
+#include "../../libs/mikanos/mikansyscall.hpp"
 
 using namespace std;
 

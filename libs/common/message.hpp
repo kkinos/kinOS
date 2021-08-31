@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 enum class LayerOperation {
   Move, MoveRelative, Draw, DrawArea
 };

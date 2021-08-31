@@ -1,13 +1,4 @@
-/**
- * @file mikanos.hpp
- *
- * MikanOSが提供する関数
- */
-
-#pragma once
-
-#include "../common/message.hpp"
-#include "../kinos/syscall.h"
+#include "mikansyscall.hpp"
 
 /**
  * @brief ウィンドウを作成する 返り値はlayer_idでウィンドウを操作するような関数はこれを用いる -1はエラー

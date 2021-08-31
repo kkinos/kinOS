@@ -1,6 +1,6 @@
 #include <cstdlib>
 #include <random>
-#include "../../libs/mikanos/mikanos.hpp"
+#include "../../libs/mikanos/mikansyscall.hpp"
 
 static constexpr int kWidth = 100, kHeight = 100;
 

@@ -2,7 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <algorithm>
-#include "../../libs/mikanos/mikanos.hpp"
+#include "../../libs/mikanos/mikansyscall.hpp"
 
 static const int kCanvasSize = 100, kEyeSize = 10;
 

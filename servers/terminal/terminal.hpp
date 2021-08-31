@@ -9,7 +9,7 @@
 
 #include "../../libs/common/template.hpp"
 #include "../../libs/kinos/exec.hpp"
-#include "../../libs/mikanos/mikanos.hpp"
+#include "../../libs/mikanos/mikansyscall.hpp"
 
 
 const int kRows = 15;
