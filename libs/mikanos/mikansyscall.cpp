@@ -89,6 +89,31 @@ void WinDrawLine(int layer_id, bool draw, int x0, int y0, int x1, int y1, uint32
     
 }
 
+/**
+ * @brief ウィンドウ内の領域を移動させる ウィンドウの左上を0とする
+ * 
+ * @param layer_id 
+ * @param draw 
+ * @param x0 移動させたい位置
+ * @param y0 
+ * @param rx0 移動させたい領域
+ * @param ry0 
+ * @param rx1 
+ * @param ry1 
+ */
+void WinMoveRec(int layer_id, bool draw, int x0, int y0, int rx0, int ry0, int rx1, int ry1){
+    Message msg{Message::aWinMoveRec};
+    msg.arg.winmoverec.layer_id = layer_id;
+    msg.arg.winmoverec.draw = draw;
+    msg.arg.winmoverec.x0 = x0;
+    msg.arg.winmoverec.y0 = y0;
+    msg.arg.winmoverec.rx0 = rx0;
+    msg.arg.winmoverec.ry0 = ry0;
+    msg.arg.winmoverec.rx1 = rx1;
+    msg.arg.winmoverec.ry1 = ry1;
+    SyscallSendMessageToOs(&msg);
+}
+
 void WinRedraw(int layer_id) {
     Message msg{Message::aWinRedraw};
     msg.arg.layerid.layerid = layer_id;

@@ -201,6 +201,19 @@ extern "C" int main() {
           layer_manager->Draw(arg.layer_id);
         }
 
+      } else if (msg[0].type == Message::aWinMoveRec) {
+        auto& arg = msg[0].arg.winmoverec;
+        auto layer = layer_manager->FindLayer(arg.layer_id);
+         if (layer == nullptr) {
+          continue;
+        }
+        auto win = layer->GetWindow();
+        win->Move(Vector2D<int>{arg.x0, arg.y0}, Rectangle<int>{{arg.rx0, arg.ry0},{arg.rx1, arg.ry1}});
+
+        if (arg.draw) {
+          layer_manager->Draw(arg.layer_id);
+        }
+        
       } else if (msg[0].type == Message::aWinRedraw) {
         auto& arg = msg[0].arg.layerid;
         layer_manager->Draw(arg.layerid);

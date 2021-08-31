@@ -19,6 +19,8 @@ void WinWriteString(int layer_id, bool draw, int x, int y, uint32_t color, char*
 
 void WinDrawLine(int layer_id, bool draw, int x0, int y0, int x1, int y1, uint32_t color);
 
+void WinMoveRec(int layer_id, bool draw, int x0, int y0, int rx0, int ry0, int rx1, int ry1);
+
 void WinRedraw(int layer_id);
 
 void CloseWindow(int layer_id);
