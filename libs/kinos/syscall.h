@@ -41,13 +41,16 @@ struct SyscallResult SyscallSendMessageToOs(struct Message* msg);
 struct SyscallResult SyscallSendMessageToTask(struct Message* msg, int task_id);
 
 /*--------------------------------------------------------------------------
- * グラフィック用システムコール
+ * サーバ用システムコール
  *--------------------------------------------------------------------------
  */
 struct SyscallResult SyscallWritePixel(int x, int y, int r, int g, int b);
 struct SyscallResult SyscallFrameBufferWidth();
 struct SyscallResult SyscallFrameBufferHeight();
 struct SyscallResult SyscallCopyToFrameBuffer(const uint8_t* src_buf, int start_x , int start_y, int bytes_per_copy_line);
+
+
+
 
 
 #ifdef __cplusplus

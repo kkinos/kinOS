@@ -1,5 +1,6 @@
 #include "terminal.hpp"
 
+#include <cstdio>
 
 Vector2D<int> CalcCursorPos() {
     return kTopLeftMargin + Vector2D<int>{4 + 8 * cursorx, 4 + 16 * cursory};
@@ -102,6 +103,21 @@ void PrintUserName(uint64_t layer_id, const char* s, std::optional<size_t> len) 
 
 }
 
+int PrintToTerminal(uint64_t layer_id, const char* format, ...) 
+{       
+    va_list ap;
+    int result;
+    char s[128];
+
+    va_start(ap, format);
+    result = vsprintf(s, format, ap);
+    va_end(ap);
+
+    Print(layer_id, s);
+    return result;
+
+}
+
 Rectangle<int> InputKey(
     uint64_t layer_id, uint8_t modifier, uint8_t keycode, char ascii) {
         DrawCursor(layer_id, false);
@@ -160,7 +176,8 @@ extern "C" void main() {
     WinFillRectangle(layer_id, true, Marginx, Marginy, kCanvasWidth, kCanvasHeight, 0);
     PrintUserName(layer_id, "user@KinOS:\n");
     PrintUserName(layer_id, "$");
-    
+
+
     Message msg[1];
 
     while (true) {

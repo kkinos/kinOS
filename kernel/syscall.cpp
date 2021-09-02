@@ -15,6 +15,7 @@
 #include "font.hpp"
 #include "timer.hpp"
 #include "keyboard.hpp"
+#include "system.hpp"
 
 namespace syscall {
   struct Result {
@@ -338,6 +339,7 @@ extern "C" std::array<SyscallFuncType*, 0x11> syscall_table{
   /* 0x0e */ syscall::FrameBufferWitdth,
   /* 0x0f */ syscall::FrameBufferHeight,
   /* 0x10 */ syscall::CopyToFrameBuffer,
+
  
 
 };

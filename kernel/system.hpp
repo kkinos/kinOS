@@ -1,7 +1,7 @@
 /**
  * @file system.hpp
  *
- * systemtaskの関数
+ * システムタスクの関数群
  */
 
 #pragma once
@@ -15,19 +15,42 @@
 #include "shell.hpp"
 
 
-WithError<int> ExecuteFile(Task& task, fat::DirectoryEntry& file_entry, char* command, char* first_arg);
-
-/*--------------------------------------------------------------------------
- * Server実行時にわたす情報
- *--------------------------------------------------------------------------
+/**
+ * @brief サーバーにわたす情報
+ * 
  */
 struct DataOfServer {
-    char* command_line;
+    char* file_name; // 実行するサーバーのファイル
 };
 
-
-/*--------------------------------------------------------------------------
- * Serverを実行するタスク
- *--------------------------------------------------------------------------
+/**
+ * @brief サーバーを実行するタスク
+ * 
+ * @param task_id 
+ * @param data DataOfServerのポインタ
  */
-void TaskOfServer(uint64_t task_id, int64_t data);
+void TaskOfServer (
+    uint64_t task_id, 
+    int64_t data 
+);
+
+/**
+ * @brief サーバーを実行する
+ * 
+ * @param file_entry 
+ * @param command 
+ * @param first_arg 
+ * @return WithError<int> 
+ */
+WithError<int> ExecuteFile (
+    fat::DirectoryEntry& file_entry, 
+    char* command, 
+    char* first_arg
+);
+
+/**
+ * @brief いくつかのサーバをあらかじめ起動しておく
+ * 
+ * 
+ */
+void StartSomeServers();

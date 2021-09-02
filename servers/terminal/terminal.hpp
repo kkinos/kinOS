@@ -37,3 +37,5 @@ void Print(uint64_t layer_id, char s);
 void PrintUserName(uint64_t layer_id, const char* s, std::optional<size_t> len = std::nullopt);
 void PrintUserName(uint64_t layer_id, char s);
 void ExecuteLine(uint64_t layer_id);
+
+int PrintToTerminal(uint64_t layer_id, const char* format, ...);

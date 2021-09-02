@@ -58,85 +58,78 @@ extern "C" void KernelMainNewStack(
   const FrameBufferConfig& frame_buffer_config_ref,
   const MemoryMap& memory_map_ref,
   const acpi::RSDP& acpi_table,
-  void* volume_image) {
-  MemoryMap memory_map{memory_map_ref};
+  void* volume_image
+  )
+  {
+    MemoryMap memory_map{memory_map_ref};
 
-  InitializeGraphics(frame_buffer_config_ref);
-  SetLogLevel(kWarn);
+    SetLogLevel(kWarn);
 
-  InitializeSegmentation();
-  InitializePaging();
-  InitializeMemoryManager(memory_map);
-  InitializeTSS();
-  InitializeInterrupt();
+    InitializeSegmentation();
+    InitializePaging();
+    InitializeMemoryManager(memory_map);
+    InitializeTSS();
+    InitializeInterrupt();
 
-  fat::Initialize(volume_image);
-  InitializePCI();
+    InitializePCI();
 
-  screen = new FrameBuffer;
-  screen->Initialize(screen_config);
+    acpi::Initialize(acpi_table);
+    InitializeLAPICTimer();
 
-  acpi::Initialize(acpi_table);
-  InitializeLAPICTimer();
+    /* 画面領域の設定 */
+    InitializeGraphics(frame_buffer_config_ref);
+    screen = new FrameBuffer;
+    screen->Initialize(screen_config);
 
-  InitializeSyscall();
+    InitializeSyscall();
 
-  InitializeTask();
-  Task& system_task = task_manager->CurrentTask();
-  system_task.SetCommandLine("systemtask");
-
-  usb::xhci::Initialize();
-  InitializeKeyboard();
-  InitializeMouse();
-
-  app_loads = new std::map<fat::DirectoryEntry*, AppLoadInfo>;
-
-  Task& os_task = task_manager->NewTask();
-  task_manager->SetOsTaskId(os_task.ID());
-
-  auto os_server_data = new DataOfServer{
-     "servers/mikanos"
-   };
-  os_task.InitContext(TaskOfServer, reinterpret_cast<uint64_t>(os_server_data)).Wakeup();
-  
-  auto terminal_server_data = new DataOfServer {
-    "servers/terminal"
-  };
-  Task& terminal_task = task_manager->NewTask();
-  terminal_task.InitContext(TaskOfServer, reinterpret_cast<uint64_t>(terminal_server_data)).Wakeup();
-  
+    InitializeTask();
 
 
-  while (true) {
-    __asm__("cli");
-    const auto tick = timer_manager->CurrentTick();
-    __asm__("sti");
+    Task& system_task = task_manager->CurrentTask();
+    system_task.SetCommandLine("systemtask");
 
-    __asm__("cli");
-    auto msg = system_task.ReceiveMessage();
-    if (!msg) {
-      system_task.Sleep();
+    usb::xhci::Initialize();
+    InitializeKeyboard();
+    InitializeMouse();
+
+    app_loads = new std::map<fat::DirectoryEntry*, AppLoadInfo>;
+
+    fat::Initialize(volume_image);
+
+    StartSomeServers();
+
+
+    while (true) {
+      __asm__("cli");
+      const auto tick = timer_manager->CurrentTick();
       __asm__("sti");
-      continue;
-  
-    }
-    __asm__("sti");
+
+      __asm__("cli");
+      auto msg = system_task.ReceiveMessage();
+      if (!msg) {
+        system_task.Sleep();
+        __asm__("sti");
+        continue;
     
-
-    switch (msg->type) {
-
-    case Message::kInterruptXHCI:
-      usb::xhci::ProcessEvents();
-      break;
-
-    case Message::kCreateAppTask:
-      task_manager->CreateAppTask(msg->arg.create.pid, msg->arg.create.cid);
-      break;
+      }
+      __asm__("sti");
       
-    default:
-      Log(kError, "Unknown message type: %d\n", msg->type);
+      switch (msg->type) {
+
+      case Message::kInterruptXHCI:
+        usb::xhci::ProcessEvents();
+        break;
+
+      case Message::kCreateAppTask:
+        task_manager->CreateAppTask(msg->arg.create.pid, msg->arg.create.cid);
+        break;
+      
+        
+      default:
+        Log(kError, "Unknown message type: %d\n", msg->type);
+      }
     }
-  }
   }
   
   
