@@ -2,7 +2,7 @@ TARGET = kernel.elf
 OBJS = main.o graphics.o mouse.o font.o hankaku.o newlib_support.o \
        pci.o asmfunc.o libcxx_support.o logger.o interrupt.o segment.o paging.o memory_manager.o \
        timer.o frame_buffer.o acpi.o keyboard.o task.o shell.o \
-       fat.o syscall.o file.o\
+       fat.o syscall.o file.o system.o\
        usb/memory.o usb/device.o usb/xhci/ring.o usb/xhci/trb.o usb/xhci/xhci.o \
        usb/xhci/port.o usb/xhci/device.o usb/xhci/devmgr.o usb/xhci/registers.o \
        usb/classdriver/base.o usb/classdriver/hid.o usb/classdriver/keyboard.o \
@@ -55,7 +55,7 @@ kernel.elf: $(OBJS) Makefile
 	sed --in-place 's|$(notdir $(OBJ))|$(OBJ)|' $@
 
 %.o: %.asm Makefile
-	nasm -f elf64 -o $@ $<
+	nasm -g -f elf64 -o  $@ $<
 
 hankaku.bin: hankaku.txt
 	$(MKFONT_CMD) -o $@ $<

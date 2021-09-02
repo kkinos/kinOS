@@ -62,7 +62,7 @@ void SetDataSegment(SegmentDescriptor& desc,
   desc.bits.default_operation_size = 1; // 32-bit stack segment
 }
 
-// #@@range_begin(set_systemsegm)
+
 void SetSystemSegment(SegmentDescriptor& desc,
                       DescriptorType type,
                       unsigned int descriptor_privilege_level,
@@ -72,7 +72,6 @@ void SetSystemSegment(SegmentDescriptor& desc,
   desc.bits.system_segment = 0;
   desc.bits.long_mode = 0;
 }
-// #@@range_end(set_systemsegm)
 
 void SetupSegments() {
   gdt[0].data = 0;
@@ -90,7 +89,7 @@ void InitializeSegmentation() {
   SetCSSS(kKernelCS, kKernelSS);
 }
 
-// #@@range_begin(init_tss)
+
 void InitializeTSS() {
   SetTSS(1, AllocateStackArea(8));
   SetTSS(7 + 2 * kISTForTimer, AllocateStackArea(8));

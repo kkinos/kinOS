@@ -34,6 +34,7 @@
 #include "shell.hpp"
 #include "fat.hpp"
 #include "syscall.hpp"
+#include "system.hpp"
 
 alignas(16) uint8_t kernel_main_stack[1024 * 1024];
 
@@ -48,6 +49,10 @@ int printk(const char* format, ...) {
 
   return result;
 }
+
+void TaskIdle(uint64_t task_id, int64_t data) {
+        while (true) __asm__("hlt");
+    }
 
 extern "C" void KernelMainNewStack(
   const FrameBufferConfig& frame_buffer_config_ref,
@@ -77,11 +82,8 @@ extern "C" void KernelMainNewStack(
   InitializeSyscall();
 
   InitializeTask();
-  Task& main_task = task_manager->CurrentTask();
-  main_task.SetCommandLine("kinOS");
-
-  Task& os_task = task_manager->NewTask();
-  task_manager->SetOsTaskId(os_task.ID());
+  Task& system_task = task_manager->CurrentTask();
+  system_task.SetCommandLine("systemtask");
 
   usb::xhci::Initialize();
   InitializeKeyboard();
@@ -89,23 +91,21 @@ extern "C" void KernelMainNewStack(
 
   app_loads = new std::map<fat::DirectoryEntry*, AppLoadInfo>;
 
-  auto os_sh_desc = new ShellDescriptor{
-    "servers/mikanos", true, true,
-    { nullptr, nullptr, nullptr }
+  Task& os_task = task_manager->NewTask();
+  task_manager->SetOsTaskId(os_task.ID());
+
+  auto os_server_data = new DataOfServer{
+     "servers/mikanos"
+   };
+  os_task.InitContext(TaskOfServer, reinterpret_cast<uint64_t>(os_server_data)).Wakeup();
+  
+  auto terminal_server_data = new DataOfServer {
+    "servers/terminal"
   };
+  Task& terminal_task = task_manager->NewTask();
+  terminal_task.InitContext(TaskOfServer, reinterpret_cast<uint64_t>(terminal_server_data)).Wakeup();
+  
 
-  os_task.InitContext(TaskShell, reinterpret_cast<uint64_t>(os_sh_desc)).Wakeup();
-
-  auto sh_desc = new ShellDescriptor{
-    "servers/terminal", true, true,
-    { nullptr, nullptr, nullptr }
-  };
-
-  Task& task = task_manager->NewTask()
-                .InitContext(TaskShell, reinterpret_cast<uint64_t>(sh_desc))
-                .Wakeup();
-
-  char str[128];
 
   while (true) {
     __asm__("cli");
@@ -113,9 +113,9 @@ extern "C" void KernelMainNewStack(
     __asm__("sti");
 
     __asm__("cli");
-    auto msg = main_task.ReceiveMessage();
+    auto msg = system_task.ReceiveMessage();
     if (!msg) {
-      main_task.Sleep();
+      system_task.Sleep();
       __asm__("sti");
       continue;
   
