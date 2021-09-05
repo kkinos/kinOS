@@ -314,6 +314,17 @@ SYSCALL(CopyToFrameBuffer) {
 
 }
 
+SYSCALL(ReadVolumeImage) {
+  
+  void* buf = reinterpret_cast<void*>(arg1);
+  size_t offset = arg2;
+  size_t len = arg3;
+
+  ReadImage(buf, offset, len);
+  
+  return{ 0, 0 };
+}
+
 
 #undef SYSCALL
 
@@ -321,7 +332,7 @@ SYSCALL(CopyToFrameBuffer) {
 
 using SyscallFuncType = syscall::Result (uint64_t, uint64_t, uint64_t,
                                          uint64_t, uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType*, 0x11> syscall_table{
+extern "C" std::array<SyscallFuncType*, 0x12> syscall_table{
   /* 0x00 */ syscall::LogString,
   /* 0x01 */ syscall::PutString,
   /* 0x02 */ syscall::Exit,
@@ -339,6 +350,7 @@ extern "C" std::array<SyscallFuncType*, 0x11> syscall_table{
   /* 0x0e */ syscall::FrameBufferWitdth,
   /* 0x0f */ syscall::FrameBufferHeight,
   /* 0x10 */ syscall::CopyToFrameBuffer,
+  /* 0x10 */ syscall::ReadVolumeImage,
 
  
 

@@ -15,6 +15,8 @@
 #include "shell.hpp"
 
 
+#define SECTOR_SIZE 512
+
 /**
  * @brief サーバーにわたす情報
  * 
@@ -29,7 +31,7 @@ struct DataOfServer {
  * @param task_id 
  * @param data DataOfServerのポインタ
  */
-void TaskOfServer (
+void TaskServer (
     uint64_t task_id, 
     int64_t data 
 );
@@ -48,9 +50,26 @@ WithError<int> ExecuteFile (
     char* first_arg
 );
 
+extern uint8_t* v_image;
+
 /**
  * @brief いくつかのサーバをあらかじめ起動しておく
  * 
  * 
  */
-void StartSomeServers();
+void InitializeSystemTask (
+    void* volume_image
+);
+
+/**
+ * @brief ブートローダによってボリュームされたイメージをコピーする
+ * 
+ * @param buf 
+ * @param offset 
+ * @param len 
+ */
+void ReadImage ( 
+    void* buf,
+    size_t offset, 
+    size_t len
+);

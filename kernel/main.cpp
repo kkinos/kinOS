@@ -97,7 +97,7 @@ extern "C" void KernelMainNewStack(
 
     fat::Initialize(volume_image);
 
-    StartSomeServers();
+    InitializeSystemTask(volume_image);
 
 
     while (true) {

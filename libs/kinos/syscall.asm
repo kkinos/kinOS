@@ -27,6 +27,7 @@ define_syscall WritePixel,          0x8000000d
 define_syscall FrameBufferWidth,    0x8000000e
 define_syscall FrameBufferHeight,   0x8000000f
 define_syscall CopyToFrameBuffer,   0x80000010
+define_syscall ReadVolumeImage,     0x80000011
 
 
 

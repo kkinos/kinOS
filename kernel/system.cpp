@@ -288,7 +288,7 @@ WithError<int> ExecuteFile (
     }
 
 
-void TaskOfServer (
+void TaskServer (
     uint64_t task_id, 
     int64_t data
     ) 
@@ -312,12 +312,16 @@ void TaskOfServer (
             
     }
 
+uint8_t* v_image;
 
-
-void StartSomeServers() 
+void InitializeSystemTask (
+    void* volume_image
+    ) 
     {
 
-        /* OSサーバ用のタスク */
+        v_image = reinterpret_cast<uint8_t*>(volume_image);
+
+        /* OSサーバ */
         Task& os_task = task_manager->NewTask();
 
         /* OSサーバのタスクIDを登録*/
@@ -326,16 +330,39 @@ void StartSomeServers()
         auto os_server_data = new DataOfServer{
             "servers/mikanos", // ファイル
         };
-        os_task.InitContext(TaskOfServer, reinterpret_cast<uint64_t>(os_server_data)).Wakeup(); // 起動
+        os_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(os_server_data)).Wakeup(); // 起動
         
-        /* ターミナルサーバ用のタスク */
+        /* ターミナルサーバ */
         Task& terminal_task = task_manager->NewTask();
 
         auto terminal_server_data = new DataOfServer {
             "servers/terminal",
         };
 
-        terminal_task.InitContext(TaskOfServer, reinterpret_cast<uint64_t>(terminal_server_data)).Wakeup();
-  
+        terminal_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(terminal_server_data)).Wakeup();
+        
+        /* ファイルシステムサーバ */
+        Task& fs_task = task_manager->NewTask();
+
+        auto fs_server_data = new DataOfServer {
+            "servers/fs",
+        };
+
+        fs_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(fs_server_data)).Wakeup();
+
+    }
+
+
+void ReadImage (
+    void* buf,
+    size_t offset, 
+    size_t len
+    )
+    {
+        uint8_t* src_buf = reinterpret_cast<uint8_t*>(buf);
+        size_t sector = offset * SECTOR_SIZE;
+        size_t num_sector = len * SECTOR_SIZE;
+        uint8_t* v_image_start = v_image + sector;
+        memcpy(src_buf, v_image_start, num_sector);
 
     }
