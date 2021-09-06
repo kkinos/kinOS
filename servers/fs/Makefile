@@ -1,4 +1,4 @@
 TARGET = fs
-OBJS = fs.o 
+OBJS = fs.o fat.o
 
 include ../Makefile.elfserver

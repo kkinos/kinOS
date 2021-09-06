@@ -1,4 +1,5 @@
 #include "fs.hpp"
+#include "fat.hpp"
 
 #include <cstdio>
 
@@ -166,7 +167,6 @@ void ExecuteLine(uint64_t layer_id) {
     kexec(command);
 }
 
-BPB boot_volume_image;
 
 extern "C" void main() {
     int layer_id = OpenWindow(kColumns * 8 + 12 + Marginx, kRows * 16 + 12 + Marginy, 20, 20);
@@ -178,11 +178,34 @@ extern "C" void main() {
     PrintUserName(layer_id, "user@KinOS:\n");
     PrintUserName(layer_id, "$");
 
-    SyscallReadVolumeImage(&boot_volume_image, 0, 1);
+    InitializeFat();
 
-    PrintToTerminal(layer_id, "%s\n", boot_volume_image.oem_name);
-    PrintToTerminal(layer_id, "%d\n", boot_volume_image.bytes_per_sector);
-    PrintToTerminal(layer_id, "%s\n", boot_volume_image.volume_label);
+    OpenRootDir();
+    
+    PrintToTerminal(layer_id, "%d\n", entries_per_cluster);
+
+    char base[9], ext[4];
+    char s[64];
+    for (int i = 0; i < entries_per_cluster; ++i) {
+        ReadName(root_dir[i], base, ext);
+        if (base[0] == 0x00) {
+            break;
+        } else if (static_cast<uint8_t>(base[0]) == 0xe5) {
+            continue;
+        } else if (root_dir[i].attr == Attribute::kLongName) {
+            continue;
+        }
+
+        if (ext[0]) {
+            sprintf(s, "%s.%s\n", base, ext);
+        } else {
+            sprintf(s, "%s\n", base);
+        }
+        Print(layer_id, s);
+    }
+    
+    
+    PrintToTerminal(layer_id, "%d\n", root_dir_block);
 
 
 
