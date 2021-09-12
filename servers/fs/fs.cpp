@@ -132,7 +132,7 @@ Error InitializeFat(
         // FAT32のみ対応 TODO:他のFATへの対応
         // ファイル操作に必要な容量を確保しておく
         if (boot_volume_image.total_sectors_16 == 0) {
-            fat = reinterpret_cast<uint32_t*>(malloc(SECTOR_SIZE));
+            fat = reinterpret_cast<uint32_t*>(fat_buf);
             fat_file = reinterpret_cast<uint32_t*>(malloc(boot_volume_image.sectors_per_cluster * 
                     SECTOR_SIZE));
            

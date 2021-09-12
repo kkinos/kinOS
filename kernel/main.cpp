@@ -38,17 +38,6 @@
 
 alignas(16) uint8_t kernel_main_stack[1024 * 1024];
 
-int printk(const char* format, ...) {
-  va_list ap;
-  int result;
-  char s[1024];
-
-  va_start(ap, format);
-  result = vsprintf(s, format, ap);
-  va_end(ap);
-
-  return result;
-}
 
 void TaskIdle(uint64_t task_id, int64_t data) {
         while (true) __asm__("hlt");

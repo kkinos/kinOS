@@ -226,6 +226,14 @@ namespace {
     }
 }
 
+/**
+ * @brief サーバーを実行する
+ * 
+ * @param file_entry 
+ * @param command 
+ * @param first_arg 
+ * @return WithError<int> 
+ */
 WithError<int> ExecuteFile (
     fat::DirectoryEntry& file_entry, 
     char* command, 
@@ -287,7 +295,12 @@ WithError<int> ExecuteFile (
         return { ret, FreePML4(task) };
     }
 
-
+/**
+ * @brief サーバーを実行するタスク
+ * 
+ * @param task_id 
+ * @param data DataOfServerのポインタ
+ */
 void TaskServer (
     uint64_t task_id, 
     int64_t data
@@ -315,6 +328,11 @@ void TaskServer (
 
 uint8_t* v_image;
 
+/**
+ * @brief いくつかのサーバをあらかじめ起動しておく
+ * 
+ * 
+ */
 void InitializeSystemTask (
     void* volume_image
     ) 
@@ -322,12 +340,14 @@ void InitializeSystemTask (
 
         v_image = reinterpret_cast<uint8_t*>(volume_image);
 
+        klog_head = 0;
+        klog_tail = 0;
+
         /* OSサーバ */
         Task& os_task = task_manager->NewTask();
 
         /* OSサーバのタスクIDを登録*/
         task_manager->SetOsTaskId(os_task.ID());
-
         auto os_server_data = new DataOfServer{
             "servers/mikanos", // ファイル
         };
@@ -335,34 +355,34 @@ void InitializeSystemTask (
         
         /* ターミナルサーバ */
         Task& terminal_task = task_manager->NewTask();
-
         auto terminal_server_data = new DataOfServer {
             "servers/terminal",
         };
-
         terminal_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(terminal_server_data)).Wakeup();
         
         /* ファイルシステムサーバ */
         Task& fs_task = task_manager->NewTask();
-
         auto fs_server_data = new DataOfServer {
             "servers/fs",
         };
-
         fs_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(fs_server_data)).Wakeup();
 
         /* ログサーバ */
         Task& log_task = task_manager->NewTask();
-
         auto log_server_data = new DataOfServer {
             "servers/log",
         };
-
         log_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(log_server_data)).Wakeup();
 
     }
 
-
+/**
+ * @brief ブートローダによってボリュームされたイメージをコピーする
+ * 
+ * @param buf 
+ * @param offset 
+ * @param len 
+ */
 void ReadImage (
     void* buf,
     size_t offset, 
@@ -376,3 +396,67 @@ void ReadImage (
         memcpy(src_buf, v_image_start, num_sector);
 
     }
+
+char klog_buf[1024];
+size_t klog_head; 
+size_t klog_tail;
+
+/**
+ * @brief kernel logに書き込む
+ * 
+ * @param s 
+ */
+void klog_write (
+    char* s
+    )
+    {   
+        int i = klog_head;
+        while(*s) {
+            klog_buf[klog_head] = *s;
+            klog_head = (klog_head + 1) % sizeof(klog_buf);
+            ++s;
+        }
+        klog_tail = klog_head;
+        klog_head = i;
+    }
+
+/**
+ * @brief kernel logを読む 返り値が0ならまだ読み込めていない部分がある
+ * 
+ * @param buf 
+ * @param len 
+ * @return size_t 
+ */
+size_t klog_read (
+    char* buf,
+    size_t len
+    )
+    {
+        size_t remaining = len;
+        if (klog_head > klog_tail) {
+            int copy_len = std::min(remaining, sizeof(klog_buf) - klog_head);
+            memcpy(buf, &klog_buf[klog_head], copy_len);
+            buf += copy_len;
+            remaining -= copy_len;
+            klog_head = 0;
+        }
+
+        int copy_len = std::min(remaining, klog_tail - klog_head);
+        memcpy(buf, &klog_buf[klog_head], copy_len);
+        remaining -= copy_len;
+        klog_head = (klog_head + copy_len) % sizeof(klog_buf);
+        return remaining;
+    }
+
+int printk(const char* format, ...) {
+  va_list ap;
+  int result;
+  char s[1024];
+
+  va_start(ap, format);
+  result = vsprintf(s, format, ap);
+  va_end(ap);
+  
+  klog_write(s);
+  return result;
+}

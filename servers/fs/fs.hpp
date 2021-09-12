@@ -99,14 +99,11 @@ struct DirectoryEntry {
   }
 } __attribute__((packed));
 
-
 BPB boot_volume_image;
-size_t entries_per_cluster;
+char fat_buf[SECTOR_SIZE];
 uint32_t* fat;
 uint32_t* fat_file;
 
-// size_t root_dir_block;
-// DirectoryEntry* root_dir;
 
 Error InitializeFat();
 
