@@ -277,7 +277,7 @@ WithError<int> ExecuteFile (
             stack_frame_addr.value + 4096 - 8,
             &task.OSStackPointer());
 
-        task.Files().clear();
+        // task.Files().clear();
         task.FileMaps().clear();
         
         if (auto err = CleanPageMaps(LinearAddress4Level{0xffff'8000'0000'0000})) {
@@ -309,6 +309,7 @@ void TaskServer (
                     // printk("cannnot execute server\n");
                 }
             }
+        while (true) __asm__("hlt");
             
     }
 
@@ -349,6 +350,15 @@ void InitializeSystemTask (
         };
 
         fs_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(fs_server_data)).Wakeup();
+
+        /* ログサーバ */
+        Task& log_task = task_manager->NewTask();
+
+        auto log_server_data = new DataOfServer {
+            "servers/log",
+        };
+
+        log_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(log_server_data)).Wakeup();
 
     }
 

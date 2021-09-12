@@ -1,4 +1,4 @@
-TARGET = fs
-OBJS = fs.o 
+TARGET = log
+OBJS = log.o 
 
 include ../Makefile.elfserver
