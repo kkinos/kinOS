@@ -28,6 +28,10 @@ define_syscall FrameBufferWidth,    0x8000000e
 define_syscall FrameBufferHeight,   0x8000000f
 define_syscall CopyToFrameBuffer,   0x80000010
 define_syscall ReadVolumeImage,     0x80000011
+define_syscall ReadKernelLog,       0x80000012
+define_syscall WriteKernelLog,       0x80000013
+
+
 
 
 

@@ -6,12 +6,10 @@
 #include <array>
 #include <optional>
 
-
 #include "../../libs/common/template.hpp"
 #include "../../libs/kinos/exec.hpp"
 #include "../../libs/common/error.hpp"
 #include "../../libs/mikanos/mikansyscall.hpp"
-
 
 #define SECTOR_SIZE 512
 
@@ -33,13 +31,13 @@ void DrawCursor(uint64_t layer_id, bool visible);
 Rectangle<int> BlinkCursor(uint64_t layer_id);
 Rectangle<int> InputKey(uint64_t layer_id, uint8_t modifier, uint8_t keycode, char ascii);
 void Scroll1(uint64_t layer_id);
-void Print(uint64_t layer_id, const char* s, std::optional<size_t> len = std::nullopt);
+void Print(uint64_t layer_id, const char *s, std::optional<size_t> len = std::nullopt);
 void Print(uint64_t layer_id, char s);
 
-int PrintToTerminal(uint64_t layer_id, const char* format, ...);
+int PrintToTerminal(uint64_t layer_id, const char *format, ...);
 
-
-struct BPB {
+struct BPB
+{
   uint8_t jump_boot[3];
   char oem_name[8];
   uint16_t bytes_per_sector;
@@ -69,17 +67,19 @@ struct BPB {
   char fs_type[8];
 } __attribute__((packed));
 
-enum class Attribute : uint8_t {
-  kReadOnly  = 0x01,
-  kHidden    = 0x02,
-  kSystem    = 0x04,
-  kVolumeID  = 0x08,
+enum class Attribute : uint8_t
+{
+  kReadOnly = 0x01,
+  kHidden = 0x02,
+  kSystem = 0x04,
+  kVolumeID = 0x08,
   kDirectory = 0x10,
-  kArchive   = 0x20,
-  kLongName  = 0x0f,
+  kArchive = 0x20,
+  kLongName = 0x0f,
 };
 
-struct DirectoryEntry {
+struct DirectoryEntry
+{
   unsigned char name[11];
   Attribute attr;
   uint8_t ntres;
@@ -93,31 +93,26 @@ struct DirectoryEntry {
   uint16_t first_cluster_low;
   uint32_t file_size;
 
-  uint32_t FirstCluster() const {
+  uint32_t FirstCluster() const
+  {
     return first_cluster_low |
-      (static_cast<uint32_t>(first_cluster_high) << 16);
+           (static_cast<uint32_t>(first_cluster_high) << 16);
   }
 } __attribute__((packed));
 
 BPB boot_volume_image;
 char fat_buf[SECTOR_SIZE];
-uint32_t* fat;
-uint32_t* fat_file;
-
+uint32_t *fat;
+uint32_t *fat_file;
 
 Error InitializeFat();
 
 unsigned long NextCluster(unsigned long cluster);
 
-uint32_t* ReadCluster(unsigned long cluster);
+uint32_t *ReadCluster(unsigned long cluster);
 
-DirectoryEntry* FindFile(const char* name, unsigned long directory_cluster = 0);
+DirectoryEntry *FindFile(const char *name, unsigned long directory_cluster = 0);
 
-bool NameIsEqual(const DirectoryEntry& entry, const char* name);
+bool NameIsEqual(const DirectoryEntry &entry, const char *name);
 
-void ReadName(DirectoryEntry& root_dir, char* base, char* ext);
-
-
-
-
-
+void ReadName(DirectoryEntry &root_dir, char *base, char *ext);
