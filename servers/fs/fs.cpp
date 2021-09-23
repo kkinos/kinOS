@@ -318,42 +318,50 @@ extern "C" void main()
 
     WinFillRectangle(layer_id, true, Marginx, Marginy, kCanvasWidth, kCanvasHeight, 0);
 
-    SyscallWriteKernelLog("File System Server Ready...\n");
+    SyscallWriteKernelLog("File System Server> Ready...\n");
 
     InitializeFat();
 
     PrintToTerminal(layer_id, "%d\n", boot_volume_image.sectors_per_cluster * SECTOR_SIZE);
 
-    // auto file_entry = FindFile("memmap");
-    // if (!file_entry)
-    // {
-    //     Print(layer_id, "no such file\n");
-    // }
-    // else
-    // {
-    //     auto cluster = file_entry->FirstCluster();
-    //     auto remain_bytes = file_entry->file_size;
-    //     PrintToTerminal(layer_id, "next cluster %d\n", cluster);
-    //     DrawCursor(layer_id, false);
+    auto file_entry = FindFile("memmap");
+    if (!file_entry)
+    {
+        Print(layer_id, "no such file\n");
+    }
+    else
+    {
+        auto cluster = file_entry->FirstCluster();
+        auto remain_bytes = file_entry->file_size;
+        PrintToTerminal(layer_id, "next cluster %d\n", cluster);
+        DrawCursor(layer_id, false);
 
-    //     while (cluster != 0 && cluster != 0x0ffffffflu)
-    //     {
-    //         char *p = reinterpret_cast<char *>(ReadCluster(cluster));
-    //         int i = 0;
-    //         for (; i < boot_volume_image.bytes_per_sector * boot_volume_image.sectors_per_cluster &&
-    //                i < remain_bytes;
-    //              ++i)
-    //         {
-    //             Print(layer_id, *p);
-    //             ++p;
-    //         }
-    //         remain_bytes -= i;
-    //         cluster = NextCluster(cluster);
-    //     }
-    //     DrawCursor(layer_id, true);
-    //     PrintToTerminal(layer_id, "remain bytes %d\n", remain_bytes);
-    //     PrintToTerminal(layer_id, "next cluster %d\n", cluster);
-    // }
+        while (cluster != 0 && cluster != 0x0ffffffflu)
+        {
+            char *p = reinterpret_cast<char *>(ReadCluster(cluster));
+            int i = 0;
+            for (; i < boot_volume_image.bytes_per_sector * boot_volume_image.sectors_per_cluster &&
+                   i < remain_bytes;
+                 ++i)
+            {
+                // Print(layer_id, *p);
+                ++p;
+            }
+            remain_bytes -= i;
+            cluster = NextCluster(cluster);
+        }
+        DrawCursor(layer_id, true);
+        PrintToTerminal(layer_id, "remain bytes %d\n", remain_bytes);
+        PrintToTerminal(layer_id, "next cluster %d\n", cluster);
+    }
+
+    auto [id, err]  = SyscallFindServer("servers/fs");
+    if (id == -1) {
+        PrintToTerminal(layer_id, "no such task\n");
+    } else {
+        PrintToTerminal(layer_id, "os task id %d", id);
+    } 
+    SyscallWriteKernelLog("File System Server> OK!\n");
 
     Message msg[1];
 

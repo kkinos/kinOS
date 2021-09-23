@@ -34,13 +34,14 @@ extern "C"
 
   struct SyscallResult SyscallCreateAppTask(char *command_line);
 
+  struct  SyscallResult SyscallFindServer(const char *command_line);
+  
   /*--------------------------------------------------------------------------
  * プロセス間通信用システムコール
  *--------------------------------------------------------------------------
  */
   struct SyscallResult SyscallReceiveMessage(struct Message *msg, size_t len);
-  struct SyscallResult SyscallSendMessageToOs(struct Message *msg);
-  struct SyscallResult SyscallSendMessageToTask(struct Message *msg, int task_id);
+  struct SyscallResult SyscallSendMessage(struct Message *msg, int task_id);
 
   /*--------------------------------------------------------------------------
  * サーバ用システムコール

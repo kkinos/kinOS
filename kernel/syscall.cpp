@@ -248,6 +248,13 @@ namespace syscall
     return {child_task.ID(), 0};
   }
 
+  SYSCALL(FindServer)
+  {
+    const char *command_line = reinterpret_cast<const char *>(arg1);
+
+    return {task_manager->FindTask(command_line), 0};
+  }
+
   SYSCALL(ReceiveMessage)
   {
     const auto receive_message = reinterpret_cast<Message *>(arg1);
@@ -282,32 +289,20 @@ namespace syscall
     return {i, 0};
   }
 
-  SYSCALL(SendMessageToOs)
+  SYSCALL(SendMessage)
   {
     const auto send_message = reinterpret_cast<Message *>(arg1);
+    int task_id = arg2;
 
     __asm__("cli");
     auto &task = task_manager->CurrentTask();
     __asm__("sti");
 
+
     Message msg;
     msg = *send_message;
     msg.src_task = task.ID();
 
-    __asm__("cli");
-    task_manager->SendMessageToOs(msg);
-    __asm__("sti");
-
-    return {0, 0};
-  }
-
-  SYSCALL(SendMessageToTask)
-  {
-    const auto send_message = reinterpret_cast<Message *>(arg1);
-    int task_id = arg2;
-
-    Message msg;
-    msg = *send_message;
     __asm__("cli");
     task_manager->SendMessage(task_id, msg);
     __asm__("sti");
@@ -404,9 +399,9 @@ extern "C" std::array<SyscallFuncType *, 0x14> syscall_table{
     /* 0x07 */ syscall::DemandPages,
     /* 0x08 */ syscall::MapFile,
     /* 0x09 */ syscall::CreateAppTask,
-    /* 0x0a */ syscall::ReceiveMessage,
-    /* 0x0b */ syscall::SendMessageToOs,
-    /* 0x0c */ syscall::SendMessageToTask,
+    /* 0x0a */ syscall::FindServer,
+    /* 0x0b */ syscall::ReceiveMessage,
+    /* 0x0c */ syscall::SendMessage,
     /* 0x0d */ syscall::WritePixel,
     /* 0x0e */ syscall::FrameBufferWitdth,
     /* 0x0f */ syscall::FrameBufferHeight,

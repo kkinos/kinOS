@@ -62,7 +62,7 @@ namespace {
       msg.arg.mouse_move.dx = posdiff.x;
       msg.arg.mouse_move.dy = posdiff.y;
       msg.arg.mouse_move.buttons = buttons;
-      SyscallSendMessageToTask(&msg, task_it->second);
+      SyscallSendMessage(&msg, task_it->second);
     }
 
     if (previous_buttons != buttons) {
@@ -74,7 +74,7 @@ namespace {
           msg.arg.mouse_button.y = relpos.y;
           msg.arg.mouse_button.press = (buttons >> i) & 1;
           msg.arg.mouse_button.button = i;
-          SyscallSendMessageToTask(&msg, task_it->second);
+          SyscallSendMessage(&msg, task_it->second);
         }
       }
     }

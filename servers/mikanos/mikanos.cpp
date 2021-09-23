@@ -101,9 +101,9 @@ extern "C" int main() {
             if (msg[0].arg.keyboard.keycode == 20 /* Q key */ &&
                 msg[0].arg.keyboard.modifier & (1 | 16)) {
                   Message rmsg{Message::aQuit};
-                  SyscallSendMessageToTask(&rmsg, task_it->second);
+                  SyscallSendMessage(&rmsg, task_it->second);
                 } else {
-                  SyscallSendMessageToTask(&msg[0], task_it->second);
+                  SyscallSendMessage(&msg[0], task_it->second);
                 }
           } else {
             printk("key push not handled: keycode %02x, ascii %02x\n",
@@ -128,7 +128,7 @@ extern "C" int main() {
         
         Message rmsg{Message::aLayerId};
         rmsg.arg.layerid.layerid = layer_id;
-        SyscallSendMessageToTask(&rmsg, task_id);
+        SyscallSendMessage(&rmsg, task_id);
         
         layer_task_map->insert(std::make_pair(layer_id, task_id));
         

@@ -395,8 +395,6 @@ void InitializeSystemTask(
     /* OSサーバ */
     Task &os_task = task_manager->NewTask();
 
-    /* OSサーバのタスクIDを登録*/
-    task_manager->SetOsTaskId(os_task.ID());
     auto os_server_data = new DataOfServer{
         "servers/mikanos", // ファイル
     };

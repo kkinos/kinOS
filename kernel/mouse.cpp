@@ -12,7 +12,8 @@ void Mouse::OnInterrupt(uint8_t buttons, int8_t displacement_x, int8_t displacem
   msg.arg.mouse_move.dx = displacement_x;
   msg.arg.mouse_move.dy = displacement_y;
   msg.arg.mouse_move.buttons = buttons;
-  task_manager->SendMessageToOs(msg);
+  uint64_t id = task_manager->FindTask("servers/mikanos");
+  task_manager->SendMessage(id, msg);
 
 }
 

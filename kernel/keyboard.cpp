@@ -64,6 +64,7 @@ void InitializeKeyboard() {
       msg.arg.keyboard.keycode = keycode;
       msg.arg.keyboard.ascii = ascii;
       msg.arg.keyboard.press = press;
-      task_manager->SendMessageToOs(msg);
+      uint64_t id = task_manager->FindTask("servers/mikanos");
+      task_manager->SendMessage(id, msg);
     };
 }

@@ -114,8 +114,6 @@ class TaskManager {
     Error SendMessage(uint64_t id, const Message& msg);
     Task& CurrentTask();
     
-    void SetOsTaskId(uint64_t os_task_id) { os_task_id_ = os_task_id; }
-    Error SendMessageToOs(const Message& msg);
 
 
     void Finish(int exit_code);
@@ -124,6 +122,7 @@ class TaskManager {
     Error RestartTask(uint64_t id);
     Error CreateAppTask(uint64_t pid, uint64_t cid);
     Task* FindTask (uint64_t id);
+    uint64_t FindTask(const char* command_line);
     uint64_t NumOfTask() { return latest_id_; } // タスクの数  
 
   private:
@@ -135,8 +134,6 @@ class TaskManager {
     std::map<uint64_t, int> finish_tasks_{}; // key: ID of a finished task
     std::map<uint64_t, Task*> finish_waiter_{}; // key: ID of a finished task
     
-    uint64_t os_task_id_{0};
-
     void ChangeLevelRunning(Task* task, int level);
     Task* RotateCurrentRunQueue(bool current_sleep);
 };
