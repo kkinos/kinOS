@@ -248,7 +248,6 @@ Error TaskManager::SendMessage(uint64_t id, const Message &msg)
   return MAKE_ERROR(Error::kSuccess);
 }
 
-
 Task &TaskManager::CurrentTask()
 {
   return *running_[current_level_].front();
@@ -310,24 +309,23 @@ Error TaskManager::CreateAppTask(uint64_t pid, uint64_t cid)
 }
 
 /**
- * @brief taskのcommand_line_から該当するタスクを探す 存在しない場合は-1
+ * @brief taskのcommand_line_から該当するタスクを探す 存在しない場合は0
  * 
  * @param command_line
- * @return uint64_t 
+ * @return uint64_t
  */
 uint64_t TaskManager::FindTask(const char *command_line)
 {
   auto it = std::find_if(tasks_.begin(), tasks_.end(),
                          [command_line](const auto &t)
                          { return t->GetCommandLine() == command_line; });
-  
+
   if (it == tasks_.end())
   {
-    return -1;
+    return 0;
   }
 
   return (*it)->ID();
-                      
 }
 
 Task *TaskManager::FindTask(uint64_t id)

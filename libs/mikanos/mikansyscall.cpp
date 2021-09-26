@@ -59,7 +59,7 @@ int OpenWindow(int w, int h, int x, int y)
 void WinFillRectangle(int layer_id, bool draw, int x, int y, int w, int h, uint32_t color)
 {
     auto [id, err] = SyscallFindServer("servers/mikanos");
-    if (id == -1)
+    if (err)
     {
     }
     else
@@ -79,7 +79,7 @@ void WinFillRectangle(int layer_id, bool draw, int x, int y, int w, int h, uint3
 void WinWriteChar(int layer_id, bool draw, int x, int y, uint32_t color, char c)
 {
     auto [id, err] = SyscallFindServer("servers/mikanos");
-    if (id == -1)
+    if (err)
     {
     }
     else
@@ -109,7 +109,7 @@ void WinWriteString(int layer_id, bool draw, int x, int y, uint32_t color, char 
 void WinDrawLine(int layer_id, bool draw, int x0, int y0, int x1, int y1, uint32_t color)
 {
     auto [id, err] = SyscallFindServer("servers/mikanos");
-    if (id == -1)
+    if (err)
     {
     }
     else
@@ -141,7 +141,7 @@ void WinDrawLine(int layer_id, bool draw, int x0, int y0, int x1, int y1, uint32
 void WinMoveRec(int layer_id, bool draw, int x0, int y0, int rx0, int ry0, int rx1, int ry1)
 {
     auto [id, err] = SyscallFindServer("servers/mikanos");
-    if (id == -1)
+    if (err)
     {
     }
     else
@@ -162,7 +162,7 @@ void WinMoveRec(int layer_id, bool draw, int x0, int y0, int rx0, int ry0, int r
 void WinRedraw(int layer_id)
 {
     auto [id, err] = SyscallFindServer("servers/mikanos");
-    if (id == -1)
+    if (err)
     {
     }
     else
@@ -176,7 +176,7 @@ void WinRedraw(int layer_id)
 void CloseWindow(int layer_id)
 {
     auto [id, err] = SyscallFindServer("servers/mikanos");
-    if (id == -1)
+    if (err)
     {
     }
     else

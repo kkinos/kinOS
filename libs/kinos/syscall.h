@@ -34,32 +34,38 @@ extern "C"
 
   struct SyscallResult SyscallCreateAppTask(char *command_line);
 
-  struct  SyscallResult SyscallFindServer(const char *command_line);
-  
+  /**
+   * @brief command_lineで指定された名前のサーバを探す
+   * 
+   * @param command_line 
+   * @return struct SyscallResult 
+   */
+  struct SyscallResult SyscallFindServer(const char *command_line);
+
   /*--------------------------------------------------------------------------
- * プロセス間通信用システムコール
- *--------------------------------------------------------------------------
- */
+   * プロセス間通信用システムコール
+   *--------------------------------------------------------------------------
+   */
   struct SyscallResult SyscallReceiveMessage(struct Message *msg, size_t len);
   struct SyscallResult SyscallSendMessage(struct Message *msg, int task_id);
 
   /*--------------------------------------------------------------------------
- * サーバ用システムコール
- *--------------------------------------------------------------------------
- */
+   * サーバ用システムコール
+   *--------------------------------------------------------------------------
+   */
   struct SyscallResult SyscallWritePixel(int x, int y, int r, int g, int b);
   struct SyscallResult SyscallFrameBufferWidth();
   struct SyscallResult SyscallFrameBufferHeight();
   struct SyscallResult SyscallCopyToFrameBuffer(const uint8_t *src_buf, int start_x, int start_y, int bytes_per_copy_line);
 
   /**
- * @brief ブートローダによってボリュームされたイメージを指定されたものにコピーする
- * 
- * @param buf コピーさせたいもののアドレス
- * @param offset 512バイトを単位とする
- * @param len 512バイトを単位とする
- * @return struct SyscallResult 
- */
+   * @brief ブートローダによってボリュームされたイメージを指定されたものにコピーする
+   * 
+   * @param buf コピーさせたいもののアドレス
+   * @param offset 512バイトを単位とする
+   * @param len 512バイトを単位とする
+   * @return struct SyscallResult 
+   */
   struct SyscallResult SyscallReadVolumeImage(void *buf, size_t offset, size_t len);
 
   /**

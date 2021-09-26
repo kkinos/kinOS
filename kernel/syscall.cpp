@@ -251,8 +251,12 @@ namespace syscall
   SYSCALL(FindServer)
   {
     const char *command_line = reinterpret_cast<const char *>(arg1);
-
-    return {task_manager->FindTask(command_line), 0};
+    uint64_t task_id = task_manager->FindTask(command_line);
+    if (task_id == 0)
+    {
+      return {0, ESRCH};
+    }
+    return {task_id, 0};
   }
 
   SYSCALL(ReceiveMessage)
@@ -297,7 +301,6 @@ namespace syscall
     __asm__("cli");
     auto &task = task_manager->CurrentTask();
     __asm__("sti");
-
 
     Message msg;
     msg = *send_message;

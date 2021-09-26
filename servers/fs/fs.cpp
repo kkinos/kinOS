@@ -355,8 +355,8 @@ extern "C" void main()
         PrintToTerminal(layer_id, "next cluster %d\n", cluster);
     }
 
-    auto [id, err]  = SyscallFindServer("servers/fs");
-    if (id == -1) {
+    auto [id, err]  = SyscallFindServer("servers/mikanos");
+    if (err) {
         PrintToTerminal(layer_id, "no such task\n");
     } else {
         PrintToTerminal(layer_id, "os task id %d", id);
