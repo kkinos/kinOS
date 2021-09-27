@@ -181,8 +181,7 @@ Error InitializeFat()
  * @param cluster 
  * @return unsigned long 
  */
-unsigned long NextCluster(
-    unsigned long cluster)
+unsigned long NextCluster(unsigned long cluster)
 {
     // クラスタ番号がFATの何ブロック目にあるか
     unsigned long sector_offset = cluster /
@@ -214,8 +213,7 @@ unsigned long NextCluster(
  * @param cluster 
  * @return uint32_t* 
  */
-uint32_t *ReadCluster(
-    unsigned long cluster)
+uint32_t *ReadCluster(unsigned long cluster)
 {
     unsigned long sector_offset =
         boot_volume_image.reserved_sector_count +
@@ -231,9 +229,7 @@ uint32_t *ReadCluster(
     return fat_file;
 }
 
-bool NameIsEqual(
-    DirectoryEntry &entry,
-    const char *name)
+bool NameIsEqual(DirectoryEntry &entry, const char *name)
 {
     unsigned char name83[11];
     memset(name83, 0x20, sizeof(name83));
@@ -253,20 +249,51 @@ bool NameIsEqual(
 }
 
 /**
+ * @brief path文字列を先頭から/で区切ってpath_elemにコピー
+ * 
+ * @param path 
+ * @param path_elem 
+ * @return std::pair<const char *, bool> 
+ */
+std::pair<const char *, bool>
+NextPathElement(const char *path, char *path_elem)
+{
+    const char *next_slash = strchr(path, '/');
+    if (next_slash == nullptr)
+    {
+        strcpy(path_elem, path);
+        return {nullptr, false};
+    }
+
+    const auto elem_len = next_slash - path;
+    strncpy(path_elem, path, elem_len);
+    path_elem[elem_len] = '\0';
+    return {&next_slash[1], true};
+}
+
+/**
  * @brief 名前と一致するファイルを探し、なければnullptrを返す
  * 
- * @param name 
- * @param directory_cluster デフォルトで0になっていて、0のときルートディレクトリから探す
- * @return DirectoryEntry* 
+ * @param path 
+ * @param directory_cluster デフォルトで0になっていて0の場合はルートディレクトリを探す
+ * @return std::pair<DirectoryEntry *, bool> 
  */
-DirectoryEntry *FindFile(
-    const char *name,
-    unsigned long directory_cluster)
+std::pair<DirectoryEntry *, bool>
+FindFile(const char *path, unsigned long directory_cluster)
 {
-    if (directory_cluster == 0)
+    if (path[0] == '/')
+    {
+        directory_cluster = boot_volume_image.root_cluster;
+        ++path;
+    }
+    else if (directory_cluster == 0)
     {
         directory_cluster = boot_volume_image.root_cluster;
     }
+
+    char path_elem[13];
+    const auto [next_path, post_slash] = NextPathElement(path, path_elem);
+    const bool path_last = next_path == nullptr || next_path[0] == '\0';
 
     while (directory_cluster != 0x0ffffffflu)
     {
@@ -278,21 +305,31 @@ DirectoryEntry *FindFile(
                      sizeof(DirectoryEntry);
              ++i)
         {
-            if (NameIsEqual(dir[i], name))
+            if (dir[i].name == 0x00)
             {
-                return &dir[i];
+                goto not_found;
+            }
+            else if (!NameIsEqual(dir[i], path_elem))
+            {
+                continue;
+            }
+
+            if (dir[i].attr == Attribute::kDirectory && !path_last)
+            {
+                return FindFile(next_path, dir[i].FirstCluster());
+            }
+            else
+            {
+                return {&dir[i], post_slash};
             }
         }
         directory_cluster = NextCluster(directory_cluster);
     }
-
-    return nullptr;
+not_found:
+    return {nullptr, post_slash};
 }
 
-void ReadName(
-    DirectoryEntry &entry,
-    char *base, 
-    char *ext)
+void ReadName(DirectoryEntry &entry, char *base, char *ext)
 {
     memcpy(base, &entry.name[0], 8);
     base[8] = 0;
@@ -324,43 +361,47 @@ extern "C" void main()
 
     PrintToTerminal(layer_id, "%d\n", boot_volume_image.sectors_per_cluster * SECTOR_SIZE);
 
-    auto file_entry = FindFile("memmap");
+    auto [file_entry, post_slash] = FindFile("app/cube");
     if (!file_entry)
     {
-        Print(layer_id, "no such file\n");
+        Print(layer_id, "no such file or directory\n");
+    }
+    else
+    {   
+         Print(layer_id, "yes\n");
+        // auto cluster = file_entry->FirstCluster();
+        // auto remain_bytes = file_entry->file_size;
+        // PrintToTerminal(layer_id, "next cluster %d\n", cluster);
+        // DrawCursor(layer_id, false);
+
+        // while (cluster != 0 && cluster != 0x0ffffffflu)
+        // {
+        //     char *p = reinterpret_cast<char *>(ReadCluster(cluster));
+        //     int i = 0;
+        //     for (; i < boot_volume_image.bytes_per_sector * boot_volume_image.sectors_per_cluster &&
+        //            i < remain_bytes;
+        //          ++i)
+        //     {
+        //         // Print(layer_id, *p);
+        //         ++p;
+        //     }
+        //     remain_bytes -= i;
+        //     cluster = NextCluster(cluster);
+        // }
+        // DrawCursor(layer_id, true);
+        // PrintToTerminal(layer_id, "remain bytes %d\n", remain_bytes);
+        // PrintToTerminal(layer_id, "next cluster %d\n", cluster);
+    }
+
+    auto [id, err] = SyscallFindServer("servers/mikanos");
+    if (err)
+    {
+        PrintToTerminal(layer_id, "no such task\n");
     }
     else
     {
-        auto cluster = file_entry->FirstCluster();
-        auto remain_bytes = file_entry->file_size;
-        PrintToTerminal(layer_id, "next cluster %d\n", cluster);
-        DrawCursor(layer_id, false);
-
-        while (cluster != 0 && cluster != 0x0ffffffflu)
-        {
-            char *p = reinterpret_cast<char *>(ReadCluster(cluster));
-            int i = 0;
-            for (; i < boot_volume_image.bytes_per_sector * boot_volume_image.sectors_per_cluster &&
-                   i < remain_bytes;
-                 ++i)
-            {
-                // Print(layer_id, *p);
-                ++p;
-            }
-            remain_bytes -= i;
-            cluster = NextCluster(cluster);
-        }
-        DrawCursor(layer_id, true);
-        PrintToTerminal(layer_id, "remain bytes %d\n", remain_bytes);
-        PrintToTerminal(layer_id, "next cluster %d\n", cluster);
-    }
-
-    auto [id, err]  = SyscallFindServer("servers/mikanos");
-    if (err) {
-        PrintToTerminal(layer_id, "no such task\n");
-    } else {
         PrintToTerminal(layer_id, "os task id %d", id);
-    } 
+    }
     SyscallWriteKernelLog("File System Server> OK!\n");
 
     Message msg[1];

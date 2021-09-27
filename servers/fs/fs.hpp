@@ -111,7 +111,11 @@ unsigned long NextCluster(unsigned long cluster);
 
 uint32_t *ReadCluster(unsigned long cluster);
 
-DirectoryEntry *FindFile(const char *name, unsigned long directory_cluster = 0);
+std::pair<const char *, bool>
+NextPathElement(const char *path, char *path_elem);
+
+std::pair<DirectoryEntry *, bool>
+FindFile(const char *path, unsigned long directory_cluster = 0);
 
 bool NameIsEqual(const DirectoryEntry &entry, const char *name);
 
