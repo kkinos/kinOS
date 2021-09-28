@@ -265,14 +265,6 @@ namespace
     }
 }
 
-/**
- * @brief サーバーを実行する
- * 
- * @param file_entry 
- * @param command 
- * @param first_arg 
- * @return WithError<int> 
- */
 WithError<int> ExecuteFile(
     fat::DirectoryEntry &file_entry,
     char *command,
@@ -337,12 +329,6 @@ WithError<int> ExecuteFile(
     return {ret, FreePML4(task)};
 }
 
-/**
- * @brief サーバーを実行するタスク
- * 
- * @param task_id 
- * @param data DataOfServerのポインタ
- */
 void TaskServer(
     uint64_t task_id,
     int64_t data)
@@ -377,11 +363,6 @@ size_t klog_head;
 size_t klog_tail;
 bool klog_changed;
 
-/**
- * @brief いくつかのサーバをあらかじめ起動しておく
- * 
- * 
- */
 void InitializeSystemTask(
     void *volume_image)
 {
@@ -422,13 +403,6 @@ void InitializeSystemTask(
     log_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(log_server_data)).Wakeup();
 }
 
-/**
- * @brief ブートローダによってボリュームされたイメージをコピーする
- * 
- * @param buf 
- * @param offset 
- * @param len 
- */
 void ReadImage(
     void *buf,
     size_t offset,
@@ -441,11 +415,6 @@ void ReadImage(
     memcpy(src_buf, v_image_start, num_sector);
 }
 
-/**
- * @brief kernel logに書き込む
- * 
- * @param s 
- */
 void klog_write(
     char *s)
 {
@@ -466,13 +435,6 @@ void klog_write(
     klog_changed = true;
 }
 
-/**
- * @brief kernel logを読む 返り値が0ならまだ読み込めていない部分がある
- * 
- * @param buf 
- * @param len 
- * @return size_t 
- */
 size_t klog_read(
     char *buf,
     size_t len)

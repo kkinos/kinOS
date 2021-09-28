@@ -105,15 +105,46 @@ char fat_buf[SECTOR_SIZE];
 uint32_t *fat;
 uint32_t *fat_file;
 
+/**
+ * @brief ファイルサーバの最初の処理 BPBを読み取りファイル操作に必要な容量を確保する
+ * 
+ * @return Error 
+ */
 Error InitializeFat();
 
+/**
+ * @brief クラスタ番号を受け取りFATを読んで次のクラスタ番号を取得 エラーは0
+ * 
+ * @param cluster 
+ * @return unsigned long 
+ */
 unsigned long NextCluster(unsigned long cluster);
 
+/**
+ * @brief クラスタ番号から該当するクラスタを読む エラーはnullptr
+ * 
+ * @param cluster 
+ * @return uint32_t* 
+ */
 uint32_t *ReadCluster(unsigned long cluster);
 
+/**
+ * @brief path文字列を先頭から/で区切ってpath_elemにコピー
+ * 
+ * @param path 
+ * @param path_elem 
+ * @return std::pair<const char *, bool> 
+ */
 std::pair<const char *, bool>
 NextPathElement(const char *path, char *path_elem);
 
+/**
+ * @brief 名前と一致するファイルを探し、なければnullptrを返す
+ * 
+ * @param path 
+ * @param directory_cluster デフォルトで0になっていて0の場合はルートディレクトリを探す
+ * @return std::pair<DirectoryEntry *, bool> 
+ */
 std::pair<DirectoryEntry *, bool>
 FindFile(const char *path, unsigned long directory_cluster = 0);
 

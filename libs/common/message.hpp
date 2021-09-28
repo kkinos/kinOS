@@ -30,6 +30,7 @@ struct Message {
     aMouseButton,
     aWinDrawLine,
     aWinMoveRec,
+    aFindFile,
   } type;
 
   uint64_t src_task;
@@ -111,6 +112,11 @@ struct Message {
       int layer_id, x0, y0, rx0, ry0, rx1, ry1;
       bool draw;
     } winmoverec;
+
+    struct {
+      char command[16];
+      bool find;
+    } findfile;
 
   } arg;
 };

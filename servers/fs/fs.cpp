@@ -146,11 +146,6 @@ Rectangle<int> InputKey(
     return draw_area;
 };
 
-/**
- * @brief ファイルサーバの最初の処理 BPBを読み取りファイル操作に必要な容量を確保する
- * 
- * @return Error 
- */
 Error InitializeFat()
 {
     auto [ret, err] = SyscallReadVolumeImage(&boot_volume_image, 0, 1);
@@ -175,12 +170,6 @@ Error InitializeFat()
     }
 }
 
-/**
- * @brief クラスタ番号を受け取りFATを読んで次のクラスタ番号を取得 エラーは0
- * 
- * @param cluster 
- * @return unsigned long 
- */
 unsigned long NextCluster(unsigned long cluster)
 {
     // クラスタ番号がFATの何ブロック目にあるか
@@ -207,12 +196,6 @@ unsigned long NextCluster(unsigned long cluster)
     return next;
 }
 
-/**
- * @brief クラスタ番号から該当するクラスタを読む エラーはnullptr
- * 
- * @param cluster 
- * @return uint32_t* 
- */
 uint32_t *ReadCluster(unsigned long cluster)
 {
     unsigned long sector_offset =
@@ -248,13 +231,6 @@ bool NameIsEqual(DirectoryEntry &entry, const char *name)
     return memcmp(entry.name, name83, sizeof(name83)) == 0;
 }
 
-/**
- * @brief path文字列を先頭から/で区切ってpath_elemにコピー
- * 
- * @param path 
- * @param path_elem 
- * @return std::pair<const char *, bool> 
- */
 std::pair<const char *, bool>
 NextPathElement(const char *path, char *path_elem)
 {
@@ -271,13 +247,6 @@ NextPathElement(const char *path, char *path_elem)
     return {&next_slash[1], true};
 }
 
-/**
- * @brief 名前と一致するファイルを探し、なければnullptrを返す
- * 
- * @param path 
- * @param directory_cluster デフォルトで0になっていて0の場合はルートディレクトリを探す
- * @return std::pair<DirectoryEntry *, bool> 
- */
 std::pair<DirectoryEntry *, bool>
 FindFile(const char *path, unsigned long directory_cluster)
 {
@@ -359,71 +328,81 @@ extern "C" void main()
 
     InitializeFat();
 
-    PrintToTerminal(layer_id, "%d\n", boot_volume_image.sectors_per_cluster * SECTOR_SIZE);
+    // auto [file_entry, post_slash] = FindFile("app/cube");
+    // if (!file_entry)
+    // {
+    //     Print(layer_id, "no such file or directory\n");
+    // }
+    // else
+    // {
+    //     Print(layer_id, "yes\n");
+    //     // auto cluster = file_entry->FirstCluster();
+    //     // auto remain_bytes = file_entry->file_size;
+    //     // PrintToTerminal(layer_id, "next cluster %d\n", cluster);
+    //     // DrawCursor(layer_id, false);
 
-    auto [file_entry, post_slash] = FindFile("app/cube");
-    if (!file_entry)
-    {
-        Print(layer_id, "no such file or directory\n");
-    }
-    else
-    {   
-         Print(layer_id, "yes\n");
-        // auto cluster = file_entry->FirstCluster();
-        // auto remain_bytes = file_entry->file_size;
-        // PrintToTerminal(layer_id, "next cluster %d\n", cluster);
-        // DrawCursor(layer_id, false);
+    //     // while (cluster != 0 && cluster != 0x0ffffffflu)
+    //     // {
+    //     //     char *p = reinterpret_cast<char *>(ReadCluster(cluster));
+    //     //     int i = 0;
+    //     //     for (; i < boot_volume_image.bytes_per_sector * boot_volume_image.sectors_per_cluster &&
+    //     //            i < remain_bytes;
+    //     //          ++i)
+    //     //     {
+    //     //         // Print(layer_id, *p);
+    //     //         ++p;
+    //     //     }
+    //     //     remain_bytes -= i;
+    //     //     cluster = NextCluster(cluster);
+    //     // }
+    //     // DrawCursor(layer_id, true);
+    //     // PrintToTerminal(layer_id, "remain bytes %d\n", remain_bytes);
+    //     // PrintToTerminal(layer_id, "next cluster %d\n", cluster);
+    // }
 
-        // while (cluster != 0 && cluster != 0x0ffffffflu)
-        // {
-        //     char *p = reinterpret_cast<char *>(ReadCluster(cluster));
-        //     int i = 0;
-        //     for (; i < boot_volume_image.bytes_per_sector * boot_volume_image.sectors_per_cluster &&
-        //            i < remain_bytes;
-        //          ++i)
-        //     {
-        //         // Print(layer_id, *p);
-        //         ++p;
-        //     }
-        //     remain_bytes -= i;
-        //     cluster = NextCluster(cluster);
-        // }
-        // DrawCursor(layer_id, true);
-        // PrintToTerminal(layer_id, "remain bytes %d\n", remain_bytes);
-        // PrintToTerminal(layer_id, "next cluster %d\n", cluster);
-    }
-
-    auto [id, err] = SyscallFindServer("servers/mikanos");
-    if (err)
-    {
-        PrintToTerminal(layer_id, "no such task\n");
-    }
-    else
-    {
-        PrintToTerminal(layer_id, "os task id %d", id);
-    }
     SyscallWriteKernelLog("File System Server> OK!\n");
 
-    Message msg[1];
+    Message rmsg[1];
 
     while (true)
     {
-        auto [n, err] = SyscallReceiveMessage(msg, 1);
+        auto [n, err] = SyscallReceiveMessage(rmsg, 1);
         if (err)
         {
             printf("ReadEvent failed: %s\n", strerror(err));
             break;
         }
-        if (msg[0].type == Message::aKeyPush)
+        if (rmsg[0].type == Message::aKeyPush)
         {
-            if (msg[0].arg.keyboard.press)
+            if (rmsg[0].arg.keyboard.press)
             {
 
                 const auto area = InputKey(layer_id,
-                                           msg[0].arg.keyboard.modifier,
-                                           msg[0].arg.keyboard.keycode,
-                                           msg[0].arg.keyboard.ascii);
+                                           rmsg[0].arg.keyboard.modifier,
+                                           rmsg[0].arg.keyboard.keycode,
+                                           rmsg[0].arg.keyboard.ascii);
             }
+        }
+        if (rmsg[0].type == Message::aFindFile)
+        {
+            uint64_t task_id = rmsg[0].src_task;
+            const char *path = rmsg[0].arg.findfile.command;
+
+            Message msg{Message::aFindFile};
+
+            auto [file_entry, post_slash] = FindFile(path);
+            if (!file_entry)
+            {
+                PrintToTerminal(layer_id, "no such file or directory\n");
+                msg.arg.findfile.find = false;
+            }
+            else
+            {
+                PrintToTerminal(layer_id, "%s exists\n", path);
+                msg.arg.findfile.find = true;
+            }
+
+            SyscallSendMessage(&msg, task_id);
         }
     }
 }
