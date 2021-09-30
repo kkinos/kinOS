@@ -210,57 +210,101 @@ Rectangle<int> InputKey(
 void ExecuteLine(uint64_t layer_id)
 {
     char *command = &linebuf_[0];
-    auto [id, err] = SyscallFindServer("servers/fs");
+
+    if (strcmp(command, "help") == 0)
+    {
+        PrintToTerminal(layer_id, "help!\n");
+    }
+    else
+    {
+        ExecuteFile(layer_id);
+    }
+    // kexec(command);
+}
+
+void ExecuteFile(uint64_t layer_id)
+{
+    char *command = &linebuf_[0];
+    auto [fs_id, err] = SyscallFindServer("servers/fs");
     if (err)
     {
         PrintToTerminal(layer_id, "cannot find file system server\n");
         return;
     }
-    else
-    {
-        Message msg{Message::aFindFile};
-        msg.arg.findfile.find = false;
-        int i = 0;
-        while (*command)
-        {
-            if (i > 14)
-            {
-                PrintToTerminal(layer_id, "too large file name\n");
-                return;
-            }
-            msg.arg.findfile.command[i] = *command;
-            ++i;
-            ++command;
-        }
-        msg.arg.findfile.command[i] = '\0';
-        SyscallSendMessage(&msg, id);
 
-        Message rmsg[1];
-        while (true)
+    // 指定されたファイルがあるかチェックする
+    Message msg{Message::aFindFile};
+    msg.arg.findfile.exist = false;
+    int i = 0;
+    while (*command)
+    {
+        if (i > 14)
         {
-            auto [n, err] = SyscallReceiveMessage(rmsg, 1);
-            if (err)
+            PrintToTerminal(layer_id, "too large file name\n");
+            return;
+        }
+        msg.arg.findfile.filename[i] = *command;
+        ++i;
+        ++command;
+    }
+    msg.arg.findfile.filename[i] = '\0';
+    SyscallSendMessage(&msg, fs_id);
+
+    Message rmsg[1];
+    while (true)
+    {
+        auto [n, err] = SyscallReceiveMessage(rmsg, 1);
+        if (err)
+        {
+            PrintToTerminal(layer_id, "ReadEvent failed: %s\n", strerror(err));
+            return;
+        }
+        if (rmsg[0].type == Message::aFindFile)
+        {
+            // 指定されたファイルがあれば実行する
+            if (rmsg[0].arg.findfile.exist)
             {
-                PrintToTerminal(layer_id, "ReadEvent failed: %s\n", strerror(err));
+                PrintToTerminal(layer_id, "the file exists\n");
+
+                // 新しいタスクを作成
+                auto [am_id, err] = SyscallFindServer("servers/am");
+                if (err)
+                {
+                    PrintToTerminal(layer_id, "cannot find file application management server\n");
+                    return;
+                }
+
+                msg.type = Message::aCreateTask;
+                SyscallSendMessage(&msg, am_id);
+
+                while (true)
+                {
+                    auto [n, err] = SyscallReceiveMessage(rmsg, 1);
+                    if (err)
+                    {
+                        PrintToTerminal(layer_id, "ReadEvent failed: %s\n", strerror(err));
+                        return;
+                    }
+
+                    if (rmsg[0].type == Message::aCreateTask)
+                    {
+                        PrintToTerminal(layer_id, "New Task ID is %d\n", rmsg[0].arg.createtask.id);
+                        break;
+                    }
+                }
+
+                msg.type = Message::aExecuteFile;
+                msg.arg.executefile.id = rmsg[0].arg.createtask.id;
+                SyscallSendMessage(&msg, fs_id);
                 return;
             }
-            if (rmsg[0].type == Message::aFindFile)
+            else
             {
-                if (rmsg[0].arg.findfile.find)
-                {
-                    PrintToTerminal(layer_id, "the file exists\n");
-                    return;
-                }
-                else
-                {
-                    PrintToTerminal(layer_id, "no such file\n");
-                    return;
-                }
+                PrintToTerminal(layer_id, "no such file\n");
+                return;
             }
         }
     }
-
-    // kexec(command);
 }
 
 extern "C" void main()

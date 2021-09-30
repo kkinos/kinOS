@@ -395,6 +395,13 @@ void InitializeSystemTask(
     };
     fs_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(fs_server_data)).Wakeup();
 
+    /* アプリケーションマネジメントサーバ */
+    Task &am_task = task_manager->NewTask();
+    auto am_server_data = new DataOfServer{
+        "servers/am",
+    };
+    am_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(am_server_data)).Wakeup();
+
     /* ログサーバ */
     Task &log_task = task_manager->NewTask();
     auto log_server_data = new DataOfServer{

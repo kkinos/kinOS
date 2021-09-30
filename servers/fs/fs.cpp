@@ -386,7 +386,7 @@ extern "C" void main()
         if (rmsg[0].type == Message::aFindFile)
         {
             uint64_t task_id = rmsg[0].src_task;
-            const char *path = rmsg[0].arg.findfile.command;
+            const char *path = rmsg[0].arg.findfile.filename;
 
             Message msg{Message::aFindFile};
 
@@ -394,15 +394,18 @@ extern "C" void main()
             if (!file_entry)
             {
                 PrintToTerminal(layer_id, "no such file or directory\n");
-                msg.arg.findfile.find = false;
+                msg.arg.findfile.exist = false;
             }
             else
             {
                 PrintToTerminal(layer_id, "%s exists\n", path);
-                msg.arg.findfile.find = true;
+                msg.arg.findfile.exist = true;
             }
-
             SyscallSendMessage(&msg, task_id);
+        }
+
+        if (rmsg[0].type == Message::aExecuteFile) {
+            PrintToTerminal(layer_id, "Task id is %d\n",rmsg[0].arg.executefile.id);
         }
     }
 }
