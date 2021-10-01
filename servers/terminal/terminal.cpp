@@ -233,8 +233,8 @@ void ExecuteFile(uint64_t layer_id)
     }
 
     // 指定されたファイルがあるかチェックする
-    Message msg{Message::aFindFile};
-    msg.arg.findfile.exist = false;
+    msg[0].type = Message::aFindFile;
+    msg[0].arg.findfile.exist = false;
     int i = 0;
     while (*command)
     {
@@ -243,26 +243,37 @@ void ExecuteFile(uint64_t layer_id)
             PrintToTerminal(layer_id, "too large file name\n");
             return;
         }
-        msg.arg.findfile.filename[i] = *command;
+        msg[0].arg.findfile.filename[i] = *command;
         ++i;
         ++command;
     }
-    msg.arg.findfile.filename[i] = '\0';
-    SyscallSendMessage(&msg, fs_id);
+    msg[0].arg.findfile.filename[i] = '\0';
+    SyscallSendMessage(msg, fs_id);
 
-    Message rmsg[1];
     while (true)
     {
-        auto [n, err] = SyscallReceiveMessage(rmsg, 1);
+        auto [n, err] = SyscallReceiveMessage(msg, 1);
         if (err)
         {
             PrintToTerminal(layer_id, "ReadEvent failed: %s\n", strerror(err));
             return;
         }
-        if (rmsg[0].type == Message::aFindFile)
+        if (msg[0].type == Message::Error)
         {
-            // 指定されたファイルがあれば実行する
-            if (rmsg[0].arg.findfile.exist)
+            PrintToTerminal(layer_id, "Error at file system server\n");
+            return;
+        }
+        if (msg[0].type == Message::aFindFile)
+        {
+            // 指定されたファイルが存在しない
+            if (!msg[0].arg.findfile.exist)
+            {
+                PrintToTerminal(layer_id, "no such file\n");
+                return;
+            }
+
+            // 指定されたファイルがあれば実行処理へ
+            else
             {
                 PrintToTerminal(layer_id, "the file exists\n");
 
@@ -274,34 +285,34 @@ void ExecuteFile(uint64_t layer_id)
                     return;
                 }
 
-                msg.type = Message::aCreateTask;
-                SyscallSendMessage(&msg, am_id);
+                msg[0].type = Message::aCreateTask;
+                SyscallSendMessage(msg, am_id);
 
                 while (true)
                 {
-                    auto [n, err] = SyscallReceiveMessage(rmsg, 1);
+                    auto [n, err] = SyscallReceiveMessage(msg, 1);
                     if (err)
                     {
                         PrintToTerminal(layer_id, "ReadEvent failed: %s\n", strerror(err));
                         return;
                     }
 
-                    if (rmsg[0].type == Message::aCreateTask)
+                    if (msg[0].type == Message::Error) {
+                        PrintToTerminal(layer_id, "Error at Application Management server\n");
+                        return;
+                    }
+
+                    if (msg[0].type == Message::aCreateTask)
                     {
-                        PrintToTerminal(layer_id, "New Task ID is %d\n", rmsg[0].arg.createtask.id);
+                        PrintToTerminal(layer_id, "New Task ID is %d\n", msg[0].arg.createtask.id);
                         break;
                     }
                 }
-
-                msg.type = Message::aExecuteFile;
-                msg.arg.executefile.id = rmsg[0].arg.createtask.id;
-                SyscallSendMessage(&msg, fs_id);
-                return;
-            }
-            else
-            {
-                PrintToTerminal(layer_id, "no such file\n");
-                return;
+                
+                uint64_t id = msg[0].arg.createtask.id;
+                msg[0].type = Message::aExecuteFile;
+                msg[0].arg.executefile.id = id;
+                SyscallSendMessage(msg, fs_id);
             }
         }
     }
@@ -318,8 +329,6 @@ extern "C" void main()
     WinFillRectangle(layer_id, true, Marginx, Marginy, kCanvasWidth, kCanvasHeight, 0);
     PrintUserName(layer_id, "user@KinOS:\n");
     PrintUserName(layer_id, "$");
-
-    Message msg[1];
 
     while (true)
     {
@@ -341,4 +350,6 @@ extern "C" void main()
             }
         }
     }
+
+    exit(1);
 }

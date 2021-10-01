@@ -31,3 +31,5 @@ void PrintUserName(uint64_t layer_id, const char *s, std::optional<size_t> len =
 void PrintUserName(uint64_t layer_id, char s);
 
 int PrintToTerminal(uint64_t layer_id, const char *format, ...);
+
+Message msg[1];

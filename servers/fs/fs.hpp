@@ -26,6 +26,8 @@ const int kLineMax = 128;
 int linebuf_index_{0};
 Vector2D<int> kTopLeftMargin = {4, 24};
 
+Message msg[1];
+
 Vector2D<int> CalcCursorPos();
 void DrawCursor(uint64_t layer_id, bool visible);
 Rectangle<int> BlinkCursor(uint64_t layer_id);

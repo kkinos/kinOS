@@ -14,6 +14,7 @@ struct Message
 {
   enum Type
   {
+    Error,
     kInterruptXHCI,
     kTimerTimeout,
     kKeyPush,

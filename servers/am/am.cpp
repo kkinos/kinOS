@@ -146,23 +146,22 @@ extern "C" void main()
 
     WinFillRectangle(layer_id, true, Marginx, Marginy, kCanvasWidth, kCanvasHeight, 0);
 
-    Message rmsg[1];
     while (true)
     {
-        auto [n, err] = SyscallReceiveMessage(rmsg, 1);
+        auto [n, err] = SyscallReceiveMessage(msg, 1);
         if (err)
         {
             SyscallWriteKernelLog("am > ReadEvent failed\n");
         }
 
-        if (rmsg[0].type == Message::aCreateTask)
+        if (msg[0].type == Message::aCreateTask)
         {
             PrintToTerminal(layer_id, "Create Task\n");
-            uint64_t task_id = rmsg[0].src_task;
+            uint64_t task_id = msg[0].src_task;
 
-            Message msg{Message::aCreateTask};
-            msg.arg.createtask.id = 100;
-            SyscallSendMessage(&msg, task_id);
+            msg[0].type = Message::aCreateTask;
+            msg[0].arg.createtask.id = 100;
+            SyscallSendMessage(msg, task_id);
 
         }
     }

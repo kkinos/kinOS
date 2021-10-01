@@ -362,50 +362,48 @@ extern "C" void main()
 
     SyscallWriteKernelLog("File System Server> OK!\n");
 
-    Message rmsg[1];
-
     while (true)
     {
-        auto [n, err] = SyscallReceiveMessage(rmsg, 1);
+        auto [n, err] = SyscallReceiveMessage(msg, 1);
         if (err)
         {
             printf("ReadEvent failed: %s\n", strerror(err));
             break;
         }
-        if (rmsg[0].type == Message::aKeyPush)
+        if (msg[0].type == Message::aKeyPush)
         {
-            if (rmsg[0].arg.keyboard.press)
+            if (msg[0].arg.keyboard.press)
             {
 
                 const auto area = InputKey(layer_id,
-                                           rmsg[0].arg.keyboard.modifier,
-                                           rmsg[0].arg.keyboard.keycode,
-                                           rmsg[0].arg.keyboard.ascii);
+                                           msg[0].arg.keyboard.modifier,
+                                           msg[0].arg.keyboard.keycode,
+                                           msg[0].arg.keyboard.ascii);
             }
         }
-        if (rmsg[0].type == Message::aFindFile)
+        if (msg[0].type == Message::aFindFile)
         {
-            uint64_t task_id = rmsg[0].src_task;
-            const char *path = rmsg[0].arg.findfile.filename;
+            uint64_t task_id = msg[0].src_task;
+            const char *path = msg[0].arg.findfile.filename;
 
-            Message msg{Message::aFindFile};
+            msg[0].type = Message::aFindFile;
 
             auto [file_entry, post_slash] = FindFile(path);
             if (!file_entry)
             {
                 PrintToTerminal(layer_id, "no such file or directory\n");
-                msg.arg.findfile.exist = false;
+                msg[0].arg.findfile.exist = false;
             }
             else
             {
                 PrintToTerminal(layer_id, "%s exists\n", path);
-                msg.arg.findfile.exist = true;
+                msg[0].arg.findfile.exist = true;
             }
-            SyscallSendMessage(&msg, task_id);
+            SyscallSendMessage(msg, task_id);
         }
 
-        if (rmsg[0].type == Message::aExecuteFile) {
-            PrintToTerminal(layer_id, "Task id is %d\n",rmsg[0].arg.executefile.id);
+        if (msg[0].type == Message::aExecuteFile) {
+            PrintToTerminal(layer_id, "Task id is %d\n",msg[0].arg.executefile.id);
         }
     }
 }
