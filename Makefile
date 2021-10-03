@@ -33,3 +33,11 @@ run:
 		APPS_DIR=apps  SERVS_DIR=servers KINOS_DIR=$(WORKDIR) $(WORKDIR)/tools/run_kinos.sh
 
 
+.PHONY: clean
+clean:
+		find kernel -name *.d | xargs rm
+		find kernel -name *.o | xargs rm
+		find servers -name *.d | xargs rm
+		find servers -name *.o | xargs rm
+		find apps -name *.o | xargs rm
+
