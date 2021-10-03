@@ -1,15 +1,13 @@
 #pragma once
 
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <array>
 #include <optional>
-
 
 #include "../../libs/common/template.hpp"
 #include "../../libs/mikanos/mikansyscall.hpp"
-
 
 const int kRows = 15;
 const int kColumns = 60;
@@ -31,11 +29,14 @@ Message msg[1];
 Vector2D<int> CalcCursorPos();
 void DrawCursor(uint64_t layer_id, bool visible);
 Rectangle<int> BlinkCursor(uint64_t layer_id);
-Rectangle<int> InputKey(uint64_t layer_id, uint8_t modifier, uint8_t keycode, char ascii);
+Rectangle<int> InputKey(uint64_t layer_id, uint8_t modifier, uint8_t keycode,
+                        char ascii);
 void Scroll1(uint64_t layer_id);
-void Print(uint64_t layer_id, const char* s, std::optional<size_t> len = std::nullopt);
+void Print(uint64_t layer_id, const char* s,
+           std::optional<size_t> len = std::nullopt);
 void Print(uint64_t layer_id, char s);
-void PrintUserName(uint64_t layer_id, const char* s, std::optional<size_t> len = std::nullopt);
+void PrintUserName(uint64_t layer_id, const char* s,
+                   std::optional<size_t> len = std::nullopt);
 void PrintUserName(uint64_t layer_id, char s);
 
 void ExecuteLine(uint64_t layer_id);

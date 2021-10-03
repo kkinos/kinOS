@@ -6,13 +6,13 @@
 
 #pragma once
 
-#include <vector>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "graphics.hpp"
-#include "shadow_buffer_config.hpp"
 #include "shadow_buffer.hpp"
+#include "shadow_buffer_config.hpp"
 
 /** @brief Window クラスはグラフィックの表示領域を表す。
  *
@@ -20,23 +20,23 @@
  */
 
 class Window {
-    public:
-     class WindowWriter : public PixelWriter {
-         public:
-         WindowWriter(Window& window) : window_{window} {}
-         /** @brief 指定された位置に指定された色を描く */
-         virtual void Write(Vector2D<int> pos, const PixelColor& c) override {
+   public:
+    class WindowWriter : public PixelWriter {
+       public:
+        WindowWriter(Window& window) : window_{window} {}
+        /** @brief 指定された位置に指定された色を描く */
+        virtual void Write(Vector2D<int> pos, const PixelColor& c) override {
             window_.Write(pos, c);
         }
         /** @brief Width は関連付けられた Window の横幅をピクセル単位で返す。 */
         virtual int Width() const override { return window_.Width(); }
-        /** @brief Height は関連付けられた Window の高さをピクセル単位で返す。 */
+        /** @brief Height は関連付けられた Window の高さをピクセル単位で返す。
+         */
         virtual int Height() const override { return window_.Height(); }
 
-    private:
+       private:
         Window& window_;
-
-     };
+    };
 
     /** @brief 指定されたピクセル数の平面描画領域を作成する。 */
     Window(int width, int height);
@@ -44,13 +44,14 @@ class Window {
     Window(const Window& rhs) = delete;
     Window& operator=(const Window& rhs) = delete;
 
-  /** @brief FrameBuffer にこのウィンドウの表示領域を描画する。
-   *
-   * @param writer 透過色がある場合に使われる描画方法
-   * @param pos  dst の左上を基準としたウィンドウの位置
-   * @param area  dst の左上を基準とした描画対象範囲
-   */
-    void DrawTo(PixelWriter& writer,Vector2D<int> pos, const Rectangle<int>& area);
+    /** @brief FrameBuffer にこのウィンドウの表示領域を描画する。
+     *
+     * @param writer 透過色がある場合に使われる描画方法
+     * @param pos  dst の左上を基準としたウィンドウの位置
+     * @param area  dst の左上を基準とした描画対象範囲
+     */
+    void DrawTo(PixelWriter& writer, Vector2D<int> pos,
+                const Rectangle<int>& area);
     /** @brief 透過色を設定する。 */
     void SetTransparentColor(std::optional<PixelColor> c);
     /** @brief このインスタンスに紐付いた WindowWriter を取得する。 */
@@ -67,63 +68,62 @@ class Window {
     int Height() const;
     /** @brief 平面描画領域のサイズをピクセル単位で返す。 */
     Vector2D<int> Size() const;
-    
-  /** @brief このウィンドウの平面描画領域内で，矩形領域を移動する。
-   *
-   * @param src_pos   移動元矩形の原点
-   * @param src_size  移動元矩形の大きさ
-   * @param dst_pos   移動先の原点
-   */
+
+    /** @brief このウィンドウの平面描画領域内で，矩形領域を移動する。
+     *
+     * @param src_pos   移動元矩形の原点
+     * @param src_size  移動元矩形の大きさ
+     * @param dst_pos   移動先の原点
+     */
     void Move(Vector2D<int> dst_pos, const Rectangle<int>& src);
-    
+
     virtual void Activate() {}
     virtual void Deactivate() {}
-    
-    private:
+
+   private:
     int width_, height_;
     std::vector<std::vector<PixelColor>> data_{};
     WindowWriter writer_{*this};
     std::optional<PixelColor> transparent_color_{std::nullopt};
 
     ShadowBuffer shadow_buffer_{};
-
-    
 };
 
 class ToplevelWindow : public Window {
-    public:
-        static constexpr Vector2D<int> kTopLeftMargin{4, 24};
-        static constexpr Vector2D<int> kBottomRightMargin{4, 4};
-        static constexpr int kMarginX = kTopLeftMargin.x + kBottomRightMargin.x;
-        static constexpr int kMarginY = kTopLeftMargin.y + kBottomRightMargin.y;
+   public:
+    static constexpr Vector2D<int> kTopLeftMargin{4, 24};
+    static constexpr Vector2D<int> kBottomRightMargin{4, 4};
+    static constexpr int kMarginX = kTopLeftMargin.x + kBottomRightMargin.x;
+    static constexpr int kMarginY = kTopLeftMargin.y + kBottomRightMargin.y;
 
-        class InnerAreaWriter : public PixelWriter {
-            public:
-                InnerAreaWriter(ToplevelWindow& window) : window_{window} {}
-                virtual void Write(Vector2D<int> pos, const PixelColor& c) override {
-                    window_.Write(pos + kTopLeftMargin, c);
-                }
-                virtual int Width() const override {
-                    return window_.Width() - kTopLeftMargin.x - kBottomRightMargin.x; }
-                virtual int Height() const override {
-                    return window_.Height() - kTopLeftMargin.y - kBottomRightMargin.y; }
-            
-            private:
-                ToplevelWindow& window_;
-        };
+    class InnerAreaWriter : public PixelWriter {
+       public:
+        InnerAreaWriter(ToplevelWindow& window) : window_{window} {}
+        virtual void Write(Vector2D<int> pos, const PixelColor& c) override {
+            window_.Write(pos + kTopLeftMargin, c);
+        }
+        virtual int Width() const override {
+            return window_.Width() - kTopLeftMargin.x - kBottomRightMargin.x;
+        }
+        virtual int Height() const override {
+            return window_.Height() - kTopLeftMargin.y - kBottomRightMargin.y;
+        }
 
-        ToplevelWindow(int width, int height,
-                        const std::string& title);
-        
-        virtual void Activate() override;
-        virtual void Deactivate() override;
+       private:
+        ToplevelWindow& window_;
+    };
 
-        InnerAreaWriter* InnerWriter() { return &inner_writer_; }
-        Vector2D<int> InnerSize() const;
+    ToplevelWindow(int width, int height, const std::string& title);
 
-    private:
-        std::string title_;
-        InnerAreaWriter inner_writer_{*this};
+    virtual void Activate() override;
+    virtual void Deactivate() override;
+
+    InnerAreaWriter* InnerWriter() { return &inner_writer_; }
+    Vector2D<int> InnerSize() const;
+
+   private:
+    std::string title_;
+    InnerAreaWriter inner_writer_{*this};
 };
 
 void DrawWindow(PixelWriter& writer, const char* title);

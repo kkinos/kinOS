@@ -1,4 +1,5 @@
 #include "window.hpp"
+
 #include "console.hpp"
 #include "font.hpp"
 
@@ -17,25 +18,29 @@ Window::Window(int width, int height) : width_{width}, height_{height} {
     }
 }
 
-void Window::DrawTo(PixelWriter& writer, Vector2D<int> pos, const Rectangle<int>& area) {
+void Window::DrawTo(PixelWriter& writer, Vector2D<int> pos,
+                    const Rectangle<int>& area) {
     if (!transparent_color_) {
-        Rectangle<int> window_area{pos, Size()};    /*layerに対応したwindowの大きさ*/
-        Rectangle<int> intersection = area & window_area;   /*そのwindowと再描写したい部分の重なり*/
-        shadow_buffer_.CopyToFrameBuffer(intersection.pos, {intersection.pos - pos, intersection.size}); /*shadowbuffer用の座標にあわせる*/
+        Rectangle<int> window_area{pos,
+                                   Size()}; /*layerに対応したwindowの大きさ*/
+        Rectangle<int> intersection =
+            area & window_area; /*そのwindowと再描写したい部分の重なり*/
+        shadow_buffer_.CopyToFrameBuffer(
+            intersection.pos,
+            {intersection.pos - pos,
+             intersection.size}); /*shadowbuffer用の座標にあわせる*/
         return;
     }
     const auto tc = transparent_color_.value();
-    for (int y = std::max(0, 0 - pos.y); 
-         y < std::min(Height(), writer.Height() - pos.y);
-         ++y) {
-             for (int x = std::max(0, 0 - pos.x);
-                  x < std::min(Width(), writer.Width() - pos.x);
-                  ++x) {
-                      const auto c = At(Vector2D<int>{x, y});
-                      if (c != tc) {
-                          writer.Write(pos + Vector2D<int>{x, y}, c);
-                      }
-         }
+    for (int y = std::max(0, 0 - pos.y);
+         y < std::min(Height(), writer.Height() - pos.y); ++y) {
+        for (int x = std::max(0, 0 - pos.x);
+             x < std::min(Width(), writer.Width() - pos.x); ++x) {
+            const auto c = At(Vector2D<int>{x, y});
+            if (c != tc) {
+                writer.Write(pos + Vector2D<int>{x, y}, c);
+            }
+        }
     }
 }
 
@@ -47,12 +52,9 @@ void Window::SetTransparentColor(std::optional<PixelColor> c) {
     transparent_color_ = c;
 }
 
-Window::WindowWriter* Window::Writer() {
-    return &writer_;
-}
+Window::WindowWriter* Window::Writer() { return &writer_; }
 
-
-const PixelColor& Window::At(Vector2D<int> pos) const{
+const PixelColor& Window::At(Vector2D<int> pos) const {
     return data_[pos.y][pos.x];
 }
 
@@ -61,20 +63,13 @@ void Window::Write(Vector2D<int> pos, PixelColor c) {
     shadow_buffer_.Writer().Write(pos, c);
 }
 
-int Window::Width() const {
-    return width_;
-}
+int Window::Width() const { return width_; }
 
-int Window::Height() const {
-    return height_;
-}
+int Window::Height() const { return height_; }
 
-Vector2D<int> Window::Size() const {
-  return {width_, height_};
-}
+Vector2D<int> Window::Size() const { return {width_, height_}; }
 
-ToplevelWindow::ToplevelWindow(int width, int height,
-                               const std::string& title)
+ToplevelWindow::ToplevelWindow(int width, int height, const std::string& title)
     : Window{width, height}, title_{title} {
     DrawWindow(*Writer(), title_.c_str());
 }
@@ -93,46 +88,36 @@ Vector2D<int> ToplevelWindow::InnerSize() const {
     return Size() - kTopLeftMargin - kBottomRightMargin;
 }
 
-
 namespace {
-  const int kCloseButtonWidth = 16;
-  const int kCloseButtonHeight = 14;
-  const char close_button[kCloseButtonHeight][kCloseButtonWidth + 1] = {
-    "...............@",
-    ".:::::::::::::$@",
-    ".:::::::::::::$@",
-    ".:::@@::::@@::$@",
-    ".::::@@::@@:::$@",
-    ".:::::@@@@::::$@",
-    ".::::::@@:::::$@",
-    ".:::::@@@@::::$@",
-    ".::::@@::@@:::$@",
-    ".:::@@::::@@::$@",
-    ".:::::::::::::$@",
-    ".:::::::::::::$@",
-    ".$$$$$$$$$$$$$$@",
-    "@@@@@@@@@@@@@@@@",
-  };
-}
-
+const int kCloseButtonWidth = 16;
+const int kCloseButtonHeight = 14;
+const char close_button[kCloseButtonHeight][kCloseButtonWidth + 1] = {
+    "...............@", ".:::::::::::::$@", ".:::::::::::::$@",
+    ".:::@@::::@@::$@", ".::::@@::@@:::$@", ".:::::@@@@::::$@",
+    ".::::::@@:::::$@", ".:::::@@@@::::$@", ".::::@@::@@:::$@",
+    ".:::@@::::@@::$@", ".:::::::::::::$@", ".:::::::::::::$@",
+    ".$$$$$$$$$$$$$$@", "@@@@@@@@@@@@@@@@",
+};
+}  // namespace
 
 void DrawWindow(PixelWriter& writer, const char* title) {
-    auto fill_rect = [&writer](Vector2D<int> pos, Vector2D<int> size, uint32_t c) {
+    auto fill_rect = [&writer](Vector2D<int> pos, Vector2D<int> size,
+                               uint32_t c) {
         FillRectangle(writer, pos, size, ToColor(c));
     };
     const auto win_w = writer.Width();
     const auto win_h = writer.Height();
 
-    fill_rect({0, 0},         {win_w, 1},             0xc6c6c6);
-    fill_rect({1, 1},         {win_w - 2, 1},         0xffffff);
-    fill_rect({0, 0},         {1, win_h},             0xc6c6c6);
-    fill_rect({1, 1},         {1, win_h - 2},         0xffffff);
-    fill_rect({win_w - 2, 1}, {1, win_h - 2},         0x848484);
-    fill_rect({win_w - 1, 0}, {1, win_h},             0x000000);
-    fill_rect({2, 2},         {win_w - 4, win_h - 4}, 0xc6c6c6);
-    fill_rect({3, 3},         {win_w - 6, 18},        0x009b6b);
-    fill_rect({1, win_h - 2}, {win_w - 2, 1},         0x848484);
-    fill_rect({0, win_h - 1}, {win_w, 1},             0x000000);
+    fill_rect({0, 0}, {win_w, 1}, 0xc6c6c6);
+    fill_rect({1, 1}, {win_w - 2, 1}, 0xffffff);
+    fill_rect({0, 0}, {1, win_h}, 0xc6c6c6);
+    fill_rect({1, 1}, {1, win_h - 2}, 0xffffff);
+    fill_rect({win_w - 2, 1}, {1, win_h - 2}, 0x848484);
+    fill_rect({win_w - 1, 0}, {1, win_h}, 0x000000);
+    fill_rect({2, 2}, {win_w - 4, win_h - 4}, 0xc6c6c6);
+    fill_rect({3, 3}, {win_w - 6, 18}, 0x009b6b);
+    fill_rect({1, win_h - 2}, {win_w - 2, 1}, 0x848484);
+    fill_rect({0, win_h - 1}, {win_w, 1}, 0x000000);
 
     DrawWindowTitle(writer, title, false);
 }

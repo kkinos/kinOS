@@ -1,9 +1,9 @@
 #pragma once
 
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <array>
 #include <optional>
 
 #include "../../libs/common/template.hpp"
@@ -24,9 +24,11 @@ Vector2D<int> kTopLeftMargin = {4, 24};
 Vector2D<int> CalcCursorPos();
 
 void Scroll1(uint64_t layer_id);
-void Print(uint64_t layer_id, const char *s, std::optional<size_t> len = std::nullopt);
+void Print(uint64_t layer_id, const char *s,
+           std::optional<size_t> len = std::nullopt);
 void Print(uint64_t layer_id, char s);
-void PrintUserName(uint64_t layer_id, const char *s, std::optional<size_t> len = std::nullopt);
+void PrintUserName(uint64_t layer_id, const char *s,
+                   std::optional<size_t> len = std::nullopt);
 void PrintUserName(uint64_t layer_id, char s);
 
 int PrintToTerminal(uint64_t layer_id, const char *format, ...);
