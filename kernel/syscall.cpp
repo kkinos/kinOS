@@ -224,28 +224,9 @@ namespace syscall
     return {vaddr_begin, 0};
   }
 
-  SYSCALL(CreateAppTask)
+  SYSCALL(NewTask)
   {
-    char *command_line = reinterpret_cast<char *>(arg1);
-
-    __asm__("cli");
-    auto &parent_task = task_manager->CurrentTask();
-    __asm__("sti");
-
-    auto &child_task = task_manager->NewTask();
-
-    child_task.SetPID(parent_task.ID())
-        .SetCommandLine(command_line);
-
-    Message msg{Message::kCreateAppTask};
-    msg.arg.create.pid = parent_task.ID();
-    msg.arg.create.cid = child_task.ID();
-
-    __asm__("cli");
-    task_manager->SendMessage(1, msg);
-    __asm__("sti");
-
-    return {child_task.ID(), 0};
+    return {task_manager->NewTask().ID(), 0};
   }
 
   SYSCALL(FindServer)
@@ -401,7 +382,7 @@ extern "C" std::array<SyscallFuncType *, 0x14> syscall_table{
     /* 0x06 */ syscall::ReadFile,
     /* 0x07 */ syscall::DemandPages,
     /* 0x08 */ syscall::MapFile,
-    /* 0x09 */ syscall::CreateAppTask,
+    /* 0x09 */ syscall::NewTask,
     /* 0x0a */ syscall::FindServer,
     /* 0x0b */ syscall::ReceiveMessage,
     /* 0x0c */ syscall::SendMessage,

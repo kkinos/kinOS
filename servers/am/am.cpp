@@ -148,11 +148,7 @@ extern "C" void main()
 
     while (true)
     {
-        auto [n, err] = SyscallReceiveMessage(msg, 1);
-        if (err)
-        {
-            SyscallWriteKernelLog("am > ReadEvent failed\n");
-        }
+        SyscallReceiveMessage(msg, 1);
 
         if (msg[0].type == Message::aCreateTask)
         {
@@ -160,7 +156,8 @@ extern "C" void main()
             uint64_t task_id = msg[0].src_task;
 
             msg[0].type = Message::aCreateTask;
-            msg[0].arg.createtask.id = 100;
+            auto res = SyscallNewTask();
+            msg[0].arg.createtask.id = res.value;
             SyscallSendMessage(msg, task_id);
 
         }

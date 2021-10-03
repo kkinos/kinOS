@@ -252,12 +252,8 @@ void ExecuteFile(uint64_t layer_id)
 
     while (true)
     {
-        auto [n, err] = SyscallReceiveMessage(msg, 1);
-        if (err)
-        {
-            PrintToTerminal(layer_id, "ReadEvent failed: %s\n", strerror(err));
-            return;
-        }
+        SyscallReceiveMessage(msg, 1);
+        
         if (msg[0].type == Message::Error)
         {
             PrintToTerminal(layer_id, "Error at file system server\n");
@@ -290,14 +286,10 @@ void ExecuteFile(uint64_t layer_id)
 
                 while (true)
                 {
-                    auto [n, err] = SyscallReceiveMessage(msg, 1);
-                    if (err)
-                    {
-                        PrintToTerminal(layer_id, "ReadEvent failed: %s\n", strerror(err));
-                        return;
-                    }
+                    SyscallReceiveMessage(msg, 1);
 
-                    if (msg[0].type == Message::Error) {
+                    if (msg[0].type == Message::Error)
+                    {
                         PrintToTerminal(layer_id, "Error at Application Management server\n");
                         return;
                     }
@@ -308,11 +300,12 @@ void ExecuteFile(uint64_t layer_id)
                         break;
                     }
                 }
-                
+
                 uint64_t id = msg[0].arg.createtask.id;
                 msg[0].type = Message::aExecuteFile;
                 msg[0].arg.executefile.id = id;
                 SyscallSendMessage(msg, fs_id);
+                return;
             }
         }
     }
@@ -332,12 +325,8 @@ extern "C" void main()
 
     while (true)
     {
-        auto [n, err] = SyscallReceiveMessage(msg, 1);
-        if (err)
-        {
-            PrintToTerminal(layer_id, "ReadEvent failed: %s\n", strerror(err));
-            break;
-        }
+        SyscallReceiveMessage(msg, 1);
+
         if (msg[0].type == Message::aKeyPush)
         {
             if (msg[0].arg.keyboard.press)
@@ -350,6 +339,4 @@ extern "C" void main()
             }
         }
     }
-
-    exit(1);
 }

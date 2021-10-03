@@ -19,7 +19,7 @@ define_syscall OpenFile,            0x80000005
 define_syscall ReadFile,            0x80000006
 define_syscall DemandPages,         0x80000007
 define_syscall MapFile,             0x80000008
-define_syscall CreateAppTask,       0x80000009
+define_syscall NewTask,             0x80000009
 define_syscall FindServer,          0x8000000a
 define_syscall ReceiveMessage,      0x8000000b
 define_syscall SendMessage,         0x8000000c

@@ -364,12 +364,8 @@ extern "C" void main()
 
     while (true)
     {
-        auto [n, err] = SyscallReceiveMessage(msg, 1);
-        if (err)
-        {
-            printf("ReadEvent failed: %s\n", strerror(err));
-            break;
-        }
+        SyscallReceiveMessage(msg, 1);
+
         if (msg[0].type == Message::aKeyPush)
         {
             if (msg[0].arg.keyboard.press)

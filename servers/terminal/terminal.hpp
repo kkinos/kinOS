@@ -8,7 +8,6 @@
 
 
 #include "../../libs/common/template.hpp"
-#include "../../libs/kinos/exec.hpp"
 #include "../../libs/mikanos/mikansyscall.hpp"
 
 
