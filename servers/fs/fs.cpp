@@ -327,9 +327,14 @@ extern "C" void main() {
             if (!file_entry) {
                 PrintToTerminal(layer_id, "no such file or directory\n");
                 msg[0].arg.findfile.exist = false;
+            } else if (file_entry->attr == Attribute::kDirectory) {
+                msg[0].arg.findfile.directory = true;
+                msg[0].arg.findfile.exist = true;
+                PrintToTerminal(layer_id, "this is directory\n");
             } else {
                 PrintToTerminal(layer_id, "%s exists\n", path);
                 msg[0].arg.findfile.exist = true;
+                msg[0].arg.findfile.directory = false;
             }
             SyscallSendMessage(msg, task_id);
         }

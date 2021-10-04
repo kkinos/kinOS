@@ -212,6 +212,11 @@ void ExecuteFile(uint64_t layer_id) {
                 PrintToTerminal(layer_id, "no such file\n");
                 return;
             }
+            // 指定されたファイルがディレクトリ
+            if (msg[0].arg.findfile.directory) {
+                PrintToTerminal(layer_id, "this is directory\n");
+                return;
+            }
 
             // 指定されたファイルがあれば実行処理へ
             else {
@@ -242,14 +247,16 @@ void ExecuteFile(uint64_t layer_id) {
                     if (msg[0].type == Message::aCreateTask) {
                         PrintToTerminal(layer_id, "New Task ID is %d\n",
                                         msg[0].arg.createtask.id);
+
+                        uint64_t id = msg[0].arg.createtask.id;
+                        msg[0].type = Message::aExecuteFile;
+                        msg[0].arg.executefile.id = id;
+                        SyscallSendMessage(msg, fs_id);
+
                         break;
                     }
                 }
 
-                uint64_t id = msg[0].arg.createtask.id;
-                msg[0].type = Message::aExecuteFile;
-                msg[0].arg.executefile.id = id;
-                SyscallSendMessage(msg, fs_id);
                 return;
             }
         }

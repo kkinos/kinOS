@@ -116,6 +116,7 @@ struct Message {
         struct {
             char filename[16];
             bool exist;
+            bool directory;
         } findfile;
 
         struct {
