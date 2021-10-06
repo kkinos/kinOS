@@ -2,460 +2,367 @@
 
 #include "asmfunc.h"
 #include "segment.hpp"
-#include "timer.hpp"
 #include "shell.hpp"
+#include "timer.hpp"
 
-namespace
-{
-  template <class T, class U>
-  void Erase(T &c, const U &value)
-  {
+namespace {
+template <class T, class U>
+void Erase(T &c, const U &value) {
     auto it = std::remove(c.begin(), c.end(), value);
     c.erase(it, c.end());
-  }
-
-  void TaskIdle(uint64_t task_id, int64_t data)
-  {
-    while (true)
-      __asm__("hlt");
-  }
 }
 
-Task::Task(uint64_t id) : id_{id}
-{
+void TaskIdle(uint64_t task_id, int64_t data) {
+    while (true) __asm__("hlt");
+}
+}  // namespace
+
+Task::Task(uint64_t id) : id_{id} {}
+
+Task &Task::InitContext(TaskFunc *f, int64_t data) {
+    const size_t stack_size = kDefaultStackBytes / sizeof(stack_[0]);
+    stack_.resize(stack_size);
+    uint64_t stack_end = reinterpret_cast<uint64_t>(&stack_[stack_size]);
+
+    memset(&context_, 0, sizeof(context_));
+    context_.cr3 = GetCR3();
+    context_.rflags = 0x202;
+    context_.cs = kKernelCS;
+    context_.ss = kKernelSS;
+    context_.rsp = (stack_end & ~0xflu) - 8;
+
+    context_.rip = reinterpret_cast<uint64_t>(f);
+    context_.rdi = id_;
+    context_.rsi = data;
+
+    *reinterpret_cast<uint32_t *>(&context_.fxsave_area[24]) = 0x1f80;
+
+    return *this;
 }
 
-Task &Task::InitContext(TaskFunc *f, int64_t data)
-{
-  const size_t stack_size = kDefaultStackBytes / sizeof(stack_[0]);
-  stack_.resize(stack_size);
-  uint64_t stack_end = reinterpret_cast<uint64_t>(&stack_[stack_size]);
+TaskContext &Task::Context() { return context_; }
 
-  memset(&context_, 0, sizeof(context_));
-  context_.cr3 = GetCR3();
-  context_.rflags = 0x202;
-  context_.cs = kKernelCS;
-  context_.ss = kKernelSS;
-  context_.rsp = (stack_end & ~0xflu) - 8;
+uint64_t &Task::OSStackPointer() { return os_stack_ptr_; }
 
-  context_.rip = reinterpret_cast<uint64_t>(f);
-  context_.rdi = id_;
-  context_.rsi = data;
+uint64_t Task::ID() const { return id_; }
 
-  *reinterpret_cast<uint32_t *>(&context_.fxsave_area[24]) = 0x1f80;
-
-  return *this;
+Task &Task::Sleep() {
+    task_manager->Sleep(this);
+    return *this;
 }
 
-TaskContext &Task::Context()
-{
-  return context_;
+Task &Task::Wakeup() {
+    task_manager->Wakeup(this);
+    return *this;
 }
 
-uint64_t &Task::OSStackPointer()
-{
-  return os_stack_ptr_;
+void Task::SendMessage(const Message &msg) {
+    msgs_.push_back(msg);
+    Wakeup();
 }
 
-uint64_t Task::ID() const
-{
-  return id_;
+std::optional<Message> Task::ReceiveMessage() {
+    if (msgs_.empty()) {
+        return std::nullopt;
+    }
+
+    auto m = msgs_.front();
+    msgs_.pop_front();
+    return m;
 }
 
-Task &Task::Sleep()
-{
-  task_manager->Sleep(this);
-  return *this;
+std::vector<std::shared_ptr<::FileDescriptor>> &Task::Files() { return files_; }
+
+uint64_t Task::DPagingBegin() const { return dpaging_begin_; }
+
+void Task::SetDPagingBegin(uint64_t v) { dpaging_begin_ = v; }
+
+uint64_t Task::DPagingEnd() const { return dpaging_end_; }
+
+void Task::SetDPagingEnd(uint64_t v) { dpaging_end_ = v; }
+
+uint64_t Task::FileMapEnd() const { return file_map_end_; }
+
+void Task::SetFileMapEnd(uint64_t v) { file_map_end_ = v; }
+
+std::vector<FileMapping> &Task::FileMaps() { return file_maps_; }
+
+void Task::ExpandBuffer(uint32_t bytes) { buf_.resize(bytes); }
+
+TaskManager::TaskManager() {
+    Task &task = NewTask().SetLevel(current_level_).SetRunning(true);
+    running_[current_level_].push_back(&task);
+
+    Task &idle =
+        NewTask().InitContext(TaskIdle, 0).SetLevel(0).SetRunning(true);
+    running_[0].push_back(&idle);
 }
 
-Task &Task::Wakeup()
-{
-  task_manager->Wakeup(this);
-  return *this;
+Task &TaskManager::NewTask() {
+    ++latest_id_;
+    return *tasks_.emplace_back(new Task{latest_id_});
 }
 
-void Task::SendMessage(const Message &msg)
-{
-  msgs_.push_back(msg);
-  Wakeup();
+void TaskManager::SwitchTask(const TaskContext &current_ctx) {
+    TaskContext &task_ctx = task_manager->CurrentTask().Context();
+    memcpy(&task_ctx, &current_ctx, sizeof(TaskContext));
+    Task *current_task = RotateCurrentRunQueue(false);
+    if (&CurrentTask() != current_task) {
+        RestoreContext(&CurrentTask().Context());
+    }
 }
 
-std::optional<Message> Task::ReceiveMessage()
-{
-  if (msgs_.empty())
-  {
-    return std::nullopt;
-  }
+void TaskManager::Sleep(Task *task) {
+    if (!task->Running()) {
+        return;
+    }
 
-  auto m = msgs_.front();
-  msgs_.pop_front();
-  return m;
+    task->SetRunning(false);
+
+    if (task == running_[current_level_].front()) {
+        Task *current_task = RotateCurrentRunQueue(true);
+        SwitchContext(&CurrentTask().Context(), &current_task->Context());
+        return;
+    }
+
+    Erase(running_[task->Level()], task);
 }
 
-std::vector<std::shared_ptr<::FileDescriptor>> &Task::Files()
-{
-  return files_;
+Error TaskManager::Sleep(uint64_t id) {
+    auto it = std::find_if(tasks_.begin(), tasks_.end(),
+                           [id](const auto &t) { return t->ID() == id; });
+    if (it == tasks_.end()) {
+        return MAKE_ERROR(Error::kNoSuchTask);
+    }
+
+    Sleep(it->get());
+    return MAKE_ERROR(Error::kSuccess);
 }
 
-uint64_t Task::DPagingBegin() const
-{
-  return dpaging_begin_;
-}
+void TaskManager::Wakeup(Task *task, int level) {
+    if (task->Running()) {
+        ChangeLevelRunning(task, level);
+        return;
+    }
 
-void Task::SetDPagingBegin(uint64_t v)
-{
-  dpaging_begin_ = v;
-}
+    if (level < 0) {
+        level = task->Level();
+    }
 
-uint64_t Task::DPagingEnd() const
-{
-  return dpaging_end_;
-}
+    task->SetLevel(level);
+    task->SetRunning(true);
 
-void Task::SetDPagingEnd(uint64_t v)
-{
-  dpaging_end_ = v;
-}
-
-uint64_t Task::FileMapEnd() const
-{
-  return file_map_end_;
-}
-
-void Task::SetFileMapEnd(uint64_t v)
-{
-  file_map_end_ = v;
-}
-
-std::vector<FileMapping> &Task::FileMaps()
-{
-  return file_maps_;
-}
-
-TaskManager::TaskManager()
-{
-  Task &task = NewTask()
-                   .SetLevel(current_level_)
-                   .SetRunning(true);
-  running_[current_level_].push_back(&task);
-
-  Task &idle = NewTask()
-                   .InitContext(TaskIdle, 0)
-                   .SetLevel(0)
-                   .SetRunning(true);
-  running_[0].push_back(&idle);
-}
-
-Task &TaskManager::NewTask()
-{
-  ++latest_id_;
-  return *tasks_.emplace_back(new Task{latest_id_});
-}
-
-void TaskManager::SwitchTask(const TaskContext &current_ctx)
-{
-  TaskContext &task_ctx = task_manager->CurrentTask().Context();
-  memcpy(&task_ctx, &current_ctx, sizeof(TaskContext));
-  Task *current_task = RotateCurrentRunQueue(false);
-  if (&CurrentTask() != current_task)
-  {
-    RestoreContext(&CurrentTask().Context());
-  }
-}
-
-void TaskManager::Sleep(Task *task)
-{
-  if (!task->Running())
-  {
+    running_[level].push_back(task);
+    if (level > current_level_) {
+        level_changed_ = true;
+    }
     return;
-  }
-
-  task->SetRunning(false);
-
-  if (task == running_[current_level_].front())
-  {
-    Task *current_task = RotateCurrentRunQueue(true);
-    SwitchContext(&CurrentTask().Context(), &current_task->Context());
-    return;
-  }
-
-  Erase(running_[task->Level()], task);
 }
 
-Error TaskManager::Sleep(uint64_t id)
-{
-  auto it = std::find_if(tasks_.begin(), tasks_.end(),
-                         [id](const auto &t)
-                         { return t->ID() == id; });
-  if (it == tasks_.end())
-  {
-    return MAKE_ERROR(Error::kNoSuchTask);
-  }
+Error TaskManager::Wakeup(uint64_t id, int level) {
+    auto it = std::find_if(tasks_.begin(), tasks_.end(),
+                           [id](const auto &t) { return t->ID() == id; });
+    if (it == tasks_.end()) {
+        return MAKE_ERROR(Error::kNoSuchTask);
+    }
 
-  Sleep(it->get());
-  return MAKE_ERROR(Error::kSuccess);
+    Wakeup(it->get(), level);
+    return MAKE_ERROR(Error::kSuccess);
 }
 
-void TaskManager::Wakeup(Task *task, int level)
-{
-  if (task->Running())
-  {
-    ChangeLevelRunning(task, level);
-    return;
-  }
+Error TaskManager::SendMessage(uint64_t id, const Message &msg) {
+    auto it = std::find_if(tasks_.begin(), tasks_.end(),
+                           [id](const auto &t) { return t->ID() == id; });
+    if (it == tasks_.end()) {
+        return MAKE_ERROR(Error::kNoSuchTask);
+    }
 
-  if (level < 0)
-  {
-    level = task->Level();
-  }
-
-  task->SetLevel(level);
-  task->SetRunning(true);
-
-  running_[level].push_back(task);
-  if (level > current_level_)
-  {
-    level_changed_ = true;
-  }
-  return;
+    (*it)->SendMessage(msg);
+    return MAKE_ERROR(Error::kSuccess);
 }
 
-Error TaskManager::Wakeup(uint64_t id, int level)
-{
-  auto it = std::find_if(tasks_.begin(), tasks_.end(),
-                         [id](const auto &t)
-                         { return t->ID() == id; });
-  if (it == tasks_.end())
-  {
-    return MAKE_ERROR(Error::kNoSuchTask);
-  }
-
-  Wakeup(it->get(), level);
-  return MAKE_ERROR(Error::kSuccess);
-}
-
-Error TaskManager::SendMessage(uint64_t id, const Message &msg)
-{
-  auto it = std::find_if(tasks_.begin(), tasks_.end(),
-                         [id](const auto &t)
-                         { return t->ID() == id; });
-  if (it == tasks_.end())
-  {
-    return MAKE_ERROR(Error::kNoSuchTask);
-  }
-
-  (*it)->SendMessage(msg);
-  return MAKE_ERROR(Error::kSuccess);
-}
-
-Task &TaskManager::CurrentTask()
-{
-  return *running_[current_level_].front();
-}
+Task &TaskManager::CurrentTask() { return *running_[current_level_].front(); }
 
 /**
- * @brief タスクをリスタートさせる 
- * 
+ * @brief タスクをリスタートさせる
+ *
  * @param id リスタートさせたいタスクのid
- * @return Error 
+ * @return Error
  */
-Error TaskManager::RestartTask(uint64_t id)
-{
-  auto it = std::find_if(tasks_.begin(), tasks_.end(),
-                         [id](const auto &t)
-                         { return t->ID() == id; });
-  if (it == tasks_.end())
-  {
-    return MAKE_ERROR(Error::kNoSuchTask);
-  }
-  auto sh_desc = new ShellDescriptor{
-      (*it)->GetCommandLine(), true, false, {(*it)->Files()[0], (*it)->Files()[1], (*it)->Files()[2]}};
+Error TaskManager::RestartTask(uint64_t id) {
+    auto it = std::find_if(tasks_.begin(), tasks_.end(),
+                           [id](const auto &t) { return t->ID() == id; });
+    if (it == tasks_.end()) {
+        return MAKE_ERROR(Error::kNoSuchTask);
+    }
+    auto sh_desc = new ShellDescriptor{
+        (*it)->GetCommandLine(),
+        true,
+        false,
+        {(*it)->Files()[0], (*it)->Files()[1], (*it)->Files()[2]}};
 
-  (*it)->InitContext(TaskShell, reinterpret_cast<uint64_t>(sh_desc)).Wakeup();
-  return MAKE_ERROR(Error::kSuccess);
+    (*it)->InitContext(TaskShell, reinterpret_cast<uint64_t>(sh_desc)).Wakeup();
+    return MAKE_ERROR(Error::kSuccess);
 }
 
 /**
  * @brief 新しいタスクを作成しアプリを起動する forkとexecを同時に行う
- * 
+ *
  * @param pid 親のid
  * @param cid 子のid
- * @return Error 
+ * @return Error
  */
-Error TaskManager::CreateAppTask(uint64_t pid, uint64_t cid)
-{
-  auto parent = std::find_if(tasks_.begin(), tasks_.end(),
-                             [pid](const auto &t)
-                             { return t->ID() == pid; });
-  if (parent == tasks_.end())
-  {
-    return MAKE_ERROR(Error::kNoSuchTask);
-  }
+Error TaskManager::CreateAppTask(uint64_t pid, uint64_t cid) {
+    auto parent = std::find_if(tasks_.begin(), tasks_.end(),
+                               [pid](const auto &t) { return t->ID() == pid; });
+    if (parent == tasks_.end()) {
+        return MAKE_ERROR(Error::kNoSuchTask);
+    }
 
-  auto child = std::find_if(tasks_.begin(), tasks_.end(),
-                            [cid](const auto &t)
-                            { return t->ID() == cid; });
-  if (child == tasks_.end())
-  {
-    return MAKE_ERROR(Error::kNoSuchTask);
-  }
+    auto child = std::find_if(tasks_.begin(), tasks_.end(),
+                              [cid](const auto &t) { return t->ID() == cid; });
+    if (child == tasks_.end()) {
+        return MAKE_ERROR(Error::kNoSuchTask);
+    }
 
-  auto sh_desc = new ShellDescriptor{
-      (*child)->GetCommandLine(), true, false, {(*parent)->Files()[0], (*parent)->Files()[1], (*parent)->Files()[2]}};
+    auto sh_desc = new ShellDescriptor{
+        (*child)->GetCommandLine(),
+        true,
+        false,
+        {(*parent)->Files()[0], (*parent)->Files()[1], (*parent)->Files()[2]}};
 
-  (*child)->InitContext(TaskShell, reinterpret_cast<int64_t>(sh_desc)).SetPID(pid).Wakeup();
+    (*child)
+        ->InitContext(TaskShell, reinterpret_cast<int64_t>(sh_desc))
+        .SetPID(pid)
+        .Wakeup();
 
-  return MAKE_ERROR(Error::kSuccess);
+    return MAKE_ERROR(Error::kSuccess);
 }
 
-/**
- * @brief taskのcommand_line_から該当するタスクを探す 存在しない場合は0
- * 
- * @param command_line
- * @return uint64_t
- */
-uint64_t TaskManager::FindTask(const char *command_line)
-{
-  auto it = std::find_if(tasks_.begin(), tasks_.end(),
-                         [command_line](const auto &t)
-                         { return t->GetCommandLine() == command_line; });
+uint64_t TaskManager::FindTask(const char *command_line) {
+    auto it = std::find_if(tasks_.begin(), tasks_.end(),
+                           [command_line](const auto &t) {
+                               return t->GetCommandLine() == command_line;
+                           });
 
-  if (it == tasks_.end())
-  {
-    return 0;
-  }
+    if (it == tasks_.end()) {
+        return 0;
+    }
 
-  return (*it)->ID();
+    return (*it)->ID();
 }
 
-Task *TaskManager::FindTask(uint64_t id)
-{
-  auto it = std::find_if(tasks_.begin(), tasks_.end(),
-                         [id](const auto &t)
-                         { return t->ID() == id; });
+Task *TaskManager::FindTask(uint64_t id) {
+    auto it = std::find_if(tasks_.begin(), tasks_.end(),
+                           [id](const auto &t) { return t->ID() == id; });
 
-  return it->get();
+    return it->get();
 }
 
-void TaskManager::Finish(int exit_code)
-{
-  Task *current_task = RotateCurrentRunQueue(true);
-
-  const auto task_id = current_task->ID();
-  auto it = std::find_if(
-      tasks_.begin(), tasks_.end(),
-      [current_task](const auto &t)
-      { return t.get() == current_task; });
-
-  tasks_.erase(it);
-
-  finish_tasks_[task_id] = exit_code;
-  if (auto it = finish_waiter_.find(task_id); it != finish_waiter_.end())
-  {
-    auto waiter = it->second;
-    finish_waiter_.erase(it);
-    Wakeup(waiter);
-  }
-
-  RestoreContext(&CurrentTask().Context());
+void TaskManager::ExpandTaskBuffer(uint64_t id, uint32_t bytes) {
+    auto task = task_manager->FindTask(id);
+    task->ExpandBuffer(bytes);
 }
 
-void TaskManager::ChangeLevelRunning(Task *task, int level)
-{
-  if (level < 0 || level == task->Level())
-  {
-    return;
-  }
+void TaskManager::Finish(int exit_code) {
+    Task *current_task = RotateCurrentRunQueue(true);
 
-  if (task != running_[current_level_].front())
-  {
-    // change level of other task
-    Erase(running_[task->Level()], task);
-    running_[level].push_back(task);
+    const auto task_id = current_task->ID();
+    auto it = std::find_if(
+        tasks_.begin(), tasks_.end(),
+        [current_task](const auto &t) { return t.get() == current_task; });
+
+    tasks_.erase(it);
+
+    finish_tasks_[task_id] = exit_code;
+    if (auto it = finish_waiter_.find(task_id); it != finish_waiter_.end()) {
+        auto waiter = it->second;
+        finish_waiter_.erase(it);
+        Wakeup(waiter);
+    }
+
+    RestoreContext(&CurrentTask().Context());
+}
+
+void TaskManager::ChangeLevelRunning(Task *task, int level) {
+    if (level < 0 || level == task->Level()) {
+        return;
+    }
+
+    if (task != running_[current_level_].front()) {
+        // change level of other task
+        Erase(running_[task->Level()], task);
+        running_[level].push_back(task);
+        task->SetLevel(level);
+        if (level > current_level_) {
+            level_changed_ = true;
+        }
+        return;
+    }
+
+    // change level myself
+    running_[current_level_].pop_front();
+    running_[level].push_front(task);
     task->SetLevel(level);
-    if (level > current_level_)
-    {
-      level_changed_ = true;
+    if (level >= current_level_) {
+        current_level_ = level;
+    } else {
+        current_level_ = level;
+        level_changed_ = true;
     }
-    return;
-  }
-
-  // change level myself
-  running_[current_level_].pop_front();
-  running_[level].push_front(task);
-  task->SetLevel(level);
-  if (level >= current_level_)
-  {
-    current_level_ = level;
-  }
-  else
-  {
-    current_level_ = level;
-    level_changed_ = true;
-  }
 }
 
-WithError<int> TaskManager::WaitFinish(uint64_t task_id)
-{
-  int exit_code;
-  Task *current_task = &CurrentTask();
-  while (true)
-  {
-    if (auto it = finish_tasks_.find(task_id); it != finish_tasks_.end())
-    {
-      exit_code = it->second;
-      finish_tasks_.erase(it);
-      break;
+WithError<int> TaskManager::WaitFinish(uint64_t task_id) {
+    int exit_code;
+    Task *current_task = &CurrentTask();
+    while (true) {
+        if (auto it = finish_tasks_.find(task_id); it != finish_tasks_.end()) {
+            exit_code = it->second;
+            finish_tasks_.erase(it);
+            break;
+        }
+        finish_waiter_[task_id] = current_task;
+        Sleep(current_task);
     }
-    finish_waiter_[task_id] = current_task;
-    Sleep(current_task);
-  }
-  return {exit_code, MAKE_ERROR(Error::kSuccess)};
+    return {exit_code, MAKE_ERROR(Error::kSuccess)};
 }
 
-Task *TaskManager::RotateCurrentRunQueue(bool current_sleep)
-{
-  auto &level_queue = running_[current_level_];
-  Task *current_task = level_queue.front();
-  level_queue.pop_front();
-  if (!current_sleep)
-  {
-    level_queue.push_back(current_task);
-  }
-  if (level_queue.empty())
-  {
-    level_changed_ = true;
-  }
-
-  if (level_changed_)
-  {
-    level_changed_ = false;
-    for (int lv = kMaxLevel; lv >= 0; --lv)
-    {
-      if (!running_[lv].empty())
-      {
-        current_level_ = lv;
-        break;
-      }
+Task *TaskManager::RotateCurrentRunQueue(bool current_sleep) {
+    auto &level_queue = running_[current_level_];
+    Task *current_task = level_queue.front();
+    level_queue.pop_front();
+    if (!current_sleep) {
+        level_queue.push_back(current_task);
     }
-  }
+    if (level_queue.empty()) {
+        level_changed_ = true;
+    }
 
-  return current_task;
+    if (level_changed_) {
+        level_changed_ = false;
+        for (int lv = kMaxLevel; lv >= 0; --lv) {
+            if (!running_[lv].empty()) {
+                current_level_ = lv;
+                break;
+            }
+        }
+    }
+
+    return current_task;
 }
 
 TaskManager *task_manager;
 
-void InitializeTask()
-{
-  task_manager = new TaskManager;
+void InitializeTask() {
+    task_manager = new TaskManager;
 
-  __asm__("cli");
-  timer_manager->AddTimer(
-      Timer{timer_manager->CurrentTick() + kTaskTimerPeriod, kTaskTimerValue, 1});
-  __asm__("sti");
+    __asm__("cli");
+    timer_manager->AddTimer(Timer{
+        timer_manager->CurrentTick() + kTaskTimerPeriod, kTaskTimerValue, 1});
+    __asm__("sti");
 }
 
-__attribute__((no_caller_saved_registers)) extern "C" uint64_t GetCurrentTaskOSStackPointer()
-{
-  return task_manager->CurrentTask().OSStackPointer();
+__attribute__((no_caller_saved_registers)) extern "C" uint64_t
+GetCurrentTaskOSStackPointer() {
+    return task_manager->CurrentTask().OSStackPointer();
 }

@@ -175,88 +175,59 @@ void ExecuteLine(uint64_t layer_id) {
     // kexec(command);
 }
 
+/**
+ * @brief ファイルを実行する
+ *
+ * @param layer_id
+ */
 void ExecuteFile(uint64_t layer_id) {
     char *command = &linebuf_[0];
-    auto [fs_id, err] = SyscallFindServer("servers/fs");
+
+    // amサーバを探す
+    auto [am_id, err] = SyscallFindServer("servers/am");
     if (err) {
-        PrintToTerminal(layer_id, "cannot find file system server\n");
+        PrintToTerminal(layer_id,
+                        "cannot find application management server\n");
         return;
     }
 
-    // 指定されたファイルがあるかチェックする
-    msg[0].type = Message::aFindFile;
-    msg[0].arg.findfile.exist = false;
+    smsg[0].type = Message::aExecuteFile;
+    smsg[0].arg.executefile.exist = false;
+    smsg[0].arg.executefile.directory = false;
+
     int i = 0;
     while (*command) {
         if (i > 14) {
             PrintToTerminal(layer_id, "too large file name\n");
             return;
         }
-        msg[0].arg.findfile.filename[i] = *command;
+        smsg[0].arg.executefile.filename[i] = *command;
         ++i;
         ++command;
     }
-    msg[0].arg.findfile.filename[i] = '\0';
-    SyscallSendMessage(msg, fs_id);
+    smsg[0].arg.executefile.filename[i] = '\0';
+    SyscallSendMessage(smsg, am_id);
 
     while (true) {
-        SyscallReceiveMessage(msg, 1);
+        SyscallCloseReceiveMessage(rmsg, 1, am_id);
 
-        if (msg[0].type == Message::Error) {
-            PrintToTerminal(layer_id, "Error at file system server\n");
-            return;
+        if (rmsg[0].type == Message::Error) {
+            if (rmsg[0].arg.error.retry) {
+                SyscallSendMessage(smsg, am_id);
+            } else {
+                PrintToTerminal(layer_id, "Error at other server\n");
+                return;
+            }
         }
-        if (msg[0].type == Message::aFindFile) {
+        if (rmsg[0].type == Message::aExecuteFile) {
             // 指定されたファイルが存在しない
-            if (!msg[0].arg.findfile.exist) {
+            if (!rmsg[0].arg.executefile.exist) {
                 PrintToTerminal(layer_id, "no such file\n");
                 return;
             }
             // 指定されたファイルがディレクトリ
-            if (msg[0].arg.findfile.directory) {
+            if (rmsg[0].arg.executefile.directory) {
                 PrintToTerminal(layer_id, "this is directory\n");
-                return;
-            }
-
-            // 指定されたファイルがあれば実行処理へ
-            else {
-                PrintToTerminal(layer_id, "the file exists\n");
-
-                // 新しいタスクを作成
-                auto [am_id, err] = SyscallFindServer("servers/am");
-                if (err) {
-                    PrintToTerminal(
-                        layer_id,
-                        "cannot find file application management server\n");
-                    return;
-                }
-
-                msg[0].type = Message::aCreateTask;
-                SyscallSendMessage(msg, am_id);
-
-                while (true) {
-                    SyscallReceiveMessage(msg, 1);
-
-                    if (msg[0].type == Message::Error) {
-                        PrintToTerminal(
-                            layer_id,
-                            "Error at Application Management server\n");
-                        return;
-                    }
-
-                    if (msg[0].type == Message::aCreateTask) {
-                        PrintToTerminal(layer_id, "New Task ID is %d\n",
-                                        msg[0].arg.createtask.id);
-
-                        uint64_t id = msg[0].arg.createtask.id;
-                        msg[0].type = Message::aExecuteFile;
-                        msg[0].arg.executefile.id = id;
-                        SyscallSendMessage(msg, fs_id);
-
-                        break;
-                    }
-                }
-
                 return;
             }
         }
@@ -275,14 +246,16 @@ extern "C" void main() {
     PrintUserName(layer_id, "user@KinOS:\n");
     PrintUserName(layer_id, "$");
 
-    while (true) {
-        SyscallReceiveMessage(msg, 1);
+    SyscallWriteKernelLog("terminal: Start\n");
 
-        if (msg[0].type == Message::aKeyPush) {
-            if (msg[0].arg.keyboard.press) {
+    while (true) {
+        SyscallOpenReceiveMessage(rmsg, 1);
+
+        if (rmsg[0].type == Message::aKeyPush) {
+            if (rmsg[0].arg.keyboard.press) {
                 const auto area = InputKey(
-                    layer_id, msg[0].arg.keyboard.modifier,
-                    msg[0].arg.keyboard.keycode, msg[0].arg.keyboard.ascii);
+                    layer_id, rmsg[0].arg.keyboard.modifier,
+                    rmsg[0].arg.keyboard.keycode, rmsg[0].arg.keyboard.ascii);
             }
         }
     }

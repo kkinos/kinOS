@@ -66,7 +66,7 @@ extern "C" int main() {
     Message msg[1];
     int i = 1;
     while (true) {
-        auto [n, err] = SyscallReceiveMessage(msg, 1);
+        auto [n, err] = SyscallOpenReceiveMessage(msg, 1);
         if (err) {
             printk("Receive message failed: %s\n", strerror(err));
         }

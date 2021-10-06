@@ -16,7 +16,7 @@ struct Message {
         kMouseButton,
         kWindowActive,
         kPipe,
-        kCreateAppTask,
+        kExpandTaskBuffer,
         aMouseMove,
         aKeyPush,
         aOpenWindow,
@@ -37,6 +37,10 @@ struct Message {
     uint64_t src_task;
 
     union {
+        struct {
+            bool retry;
+        } error;
+
         struct {
             unsigned long timeout;
             int value;
@@ -82,6 +86,11 @@ struct Message {
         } create;
 
         struct {
+            uint64_t task_id;
+            uint32_t bytes;
+        } expand;
+
+        struct {
             int w, h, x, y;
         } openwindow;
 
@@ -120,12 +129,15 @@ struct Message {
         } findfile;
 
         struct {
+            char filename[16];
             uint64_t id;
-        } createtask;
+            bool exist;
+            bool directory;
+        } executefile;
 
         struct {
             uint64_t id;
-        } executefile;
+        } createtask;
 
     } arg;
 };

@@ -2,128 +2,65 @@
 
 #include <cstdio>
 
-Vector2D<int> CalcCursorPos() {
-    return kTopLeftMargin + Vector2D<int>{4 + 8 * cursorx, 4 + 16 * cursory};
-}
-
-void Scroll1(uint64_t layer_id) {
-    WinMoveRec(layer_id, false, Marginx + 4, Marginy + 4, Marginx + 4,
-               Marginy + 4 + 16, 8 * kColumns, 16 * (kRows - 1));
-    WinFillRectangle(layer_id, false, 4, 24 + 4 + 16 * cursory, (8 * kColumns),
-                     16, 0);
-    WinRedraw(layer_id);
-}
-
-void Print(uint64_t layer_id, char c) {
-    auto newline = [layer_id]() {
-        cursorx = 0;
-        if (cursory < kRows - 1) {
-            ++cursory;
-        } else {
-            Scroll1(layer_id);
-        }
-    };
-
-    if (c == '\n') {
-        newline();
-    } else {
-        WinWriteChar(layer_id, true, CalcCursorPos().x, CalcCursorPos().y,
-                     0xffffff, c);
-        if (cursorx == kColumns - 1) {
-            newline();
-        } else {
-            ++cursorx;
-        }
-    }
-}
-
-void Print(uint64_t layer_id, const char *s, std::optional<size_t> len) {
-    if (len) {
-        for (size_t i = 0; i < *len; ++i) {
-            Print(layer_id, *s);
-            ++s;
-        }
-    } else {
-        while (*s) {
-            Print(layer_id, *s);
-            ++s;
-        }
-    }
-}
-
-void PrintUserName(uint64_t layer_id, char c) {
-    auto newline = [layer_id]() {
-        cursorx = 0;
-        if (cursory < kRows - 1) {
-            ++cursory;
-        } else {
-            Scroll1(layer_id);
-        }
-    };
-
-    if (c == '\n') {
-        newline();
-    } else {
-        WinWriteChar(layer_id, true, CalcCursorPos().x, CalcCursorPos().y,
-                     0x29ff86, c);
-
-        if (cursorx == kColumns - 1) {
-            newline();
-        } else {
-            ++cursorx;
-        }
-    }
-}
-
-void PrintUserName(uint64_t layer_id, const char *s,
-                   std::optional<size_t> len) {
-    if (len) {
-        for (size_t i = 0; i < *len; ++i) {
-            PrintUserName(layer_id, *s);
-            ++s;
-        }
-    } else {
-        while (*s) {
-            PrintUserName(layer_id, *s);
-            ++s;
-        }
-    }
-}
-
-int PrintToTerminal(uint64_t layer_id, const char *format, ...) {
-    va_list ap;
-    int result;
-    char s[128];
-
-    va_start(ap, format);
-    result = vsprintf(s, format, ap);
-    va_end(ap);
-
-    Print(layer_id, s);
-    return result;
-}
-
 extern "C" void main() {
-    int layer_id = OpenWindow(kColumns * 8 + 12 + Marginx,
-                              kRows * 16 + 12 + Marginy, 20, 20);
-    if (layer_id == -1) {
-        exit(1);
-    }
-
-    WinFillRectangle(layer_id, true, Marginx, Marginy, kCanvasWidth,
-                     kCanvasHeight, 0);
+    SyscallWriteKernelLog("am: Start\n");
 
     while (true) {
-        SyscallReceiveMessage(msg, 1);
+        SyscallOpenReceiveMessage(rmsg, 1);
 
-        if (msg[0].type == Message::aCreateTask) {
-            PrintToTerminal(layer_id, "Create Task\n");
-            uint64_t task_id = msg[0].src_task;
+        if (rmsg[0].type == Message::aExecuteFile) {
+            uint64_t task_id = rmsg[0].src_task;
+            auto [fs_id, err] = SyscallFindServer("servers/fs");
+            if (err) {
+                smsg[0].type = Message::Error;
+                smsg[0].arg.error.retry = false;
+                SyscallWriteKernelLog("am: cannnot find file system server\n");
+                SyscallSendMessage(smsg, task_id);
+            }
 
-            msg[0].type = Message::aCreateTask;
-            auto res = SyscallNewTask();
-            msg[0].arg.createtask.id = res.value;
-            SyscallSendMessage(msg, task_id);
+            smsg[0] = rmsg[0];
+            SyscallSendMessage(smsg, fs_id);
+
+            while (true) {
+                SyscallCloseReceiveMessage(rmsg, 1, fs_id);
+
+                if (rmsg[0].type == Message::Error) {
+                    if (rmsg[0].arg.error.retry) {
+                        SyscallSendMessage(smsg, fs_id);
+                    } else {
+                        SyscallWriteKernelLog("am: Error at other server\n");
+                        smsg[0].type = Message::Error;
+                        smsg[0].arg.error.retry = false;
+                        SyscallSendMessage(smsg, task_id);
+                        break;
+                    }
+                } else if (rmsg[0].type == Message::aExecuteFile) {
+                    // 指定されたファイルが存在しないかディレクトリであるとき
+                    if (!rmsg[0].arg.executefile.exist ||
+                        rmsg[0].arg.executefile.directory) {
+                        smsg[0] = rmsg[0];
+                        SyscallSendMessage(smsg, task_id);
+                        break;
+                    }
+                    // 指定されたファイルが実行可能であるとき
+                    else {
+                        SyscallWriteKernelLog("am: CreateTask\n");
+                        auto [id, err] = SyscallNewTask();
+                        if (err) {
+                            SyscallWriteKernelLog("am: Syscall Error\n");
+                            smsg[0].type = Message::Error;
+                            smsg[0].arg.error.retry = false;
+                            SyscallSendMessage(smsg, task_id);
+                            SyscallSendMessage(smsg, fs_id);
+                            break;
+                        }
+                        smsg[0] = rmsg[0];
+                        smsg[0].arg.executefile.id = id;
+                        SyscallSendMessage(smsg, fs_id);
+                        break;
+                    }
+                }
+            }
         }
     }
 }

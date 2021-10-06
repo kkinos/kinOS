@@ -268,9 +268,15 @@ extern "C" void main() {
     WinFillRectangle(layer_id, true, Marginx, Marginy, kCanvasWidth,
                      kCanvasHeight, 0);
 
-    SyscallWriteKernelLog("File System Server> Ready...\n");
-
     InitializeFat();
+
+    SyscallWriteKernelLog("fs: Start\n");
+
+    auto [am_id, err] = SyscallFindServer("servers/am");
+    if (err) {
+        SyscallWriteKernelLog(
+            "fs: cannot find file application management server\n");
+    }
 
     // auto [file_entry, post_slash] = FindFile("app/cube");
     // if (!file_entry)
@@ -305,43 +311,85 @@ extern "C" void main() {
     //     // PrintToTerminal(layer_id, "next cluster %d\n", cluster);
     // }
 
-    SyscallWriteKernelLog("File System Server> OK!\n");
-
     while (true) {
-        SyscallReceiveMessage(msg, 1);
+        SyscallOpenReceiveMessage(rmsg, 1);
 
-        if (msg[0].type == Message::aKeyPush) {
-            if (msg[0].arg.keyboard.press) {
+        if (rmsg[0].type == Message::aKeyPush) {
+            if (rmsg[0].arg.keyboard.press) {
                 const auto area = InputKey(
-                    layer_id, msg[0].arg.keyboard.modifier,
-                    msg[0].arg.keyboard.keycode, msg[0].arg.keyboard.ascii);
+                    layer_id, rmsg[0].arg.keyboard.modifier,
+                    rmsg[0].arg.keyboard.keycode, rmsg[0].arg.keyboard.ascii);
             }
         }
-        if (msg[0].type == Message::aFindFile) {
-            uint64_t task_id = msg[0].src_task;
-            const char *path = msg[0].arg.findfile.filename;
 
-            msg[0].type = Message::aFindFile;
+        // amサーバからファイル実行のメッセージが来たとき
+        if (rmsg[0].type == Message::aExecuteFile &&
+            rmsg[0].src_task == am_id) {
+            const char *path = rmsg[0].arg.executefile.filename;
 
             auto [file_entry, post_slash] = FindFile(path);
+
+            // 指定されたファイルが無いとき
             if (!file_entry) {
                 PrintToTerminal(layer_id, "no such file or directory\n");
-                msg[0].arg.findfile.exist = false;
-            } else if (file_entry->attr == Attribute::kDirectory) {
-                msg[0].arg.findfile.directory = true;
-                msg[0].arg.findfile.exist = true;
-                PrintToTerminal(layer_id, "this is directory\n");
-            } else {
-                PrintToTerminal(layer_id, "%s exists\n", path);
-                msg[0].arg.findfile.exist = true;
-                msg[0].arg.findfile.directory = false;
+                smsg[0] = rmsg[0];
+                smsg[0].arg.executefile.exist = false;
+                smsg[0].arg.executefile.directory = false;
+                SyscallSendMessage(smsg, rmsg[0].src_task);
             }
-            SyscallSendMessage(msg, task_id);
-        }
 
-        if (msg[0].type == Message::aExecuteFile) {
-            PrintToTerminal(layer_id, "Task id is %d\n",
-                            msg[0].arg.executefile.id);
+            // 指定されたファイルがディレクトリのとき
+            else if (file_entry->attr == Attribute::kDirectory) {
+                PrintToTerminal(layer_id, "this is directory\n");
+                smsg[0] = rmsg[0];
+                smsg[0].arg.executefile.exist = true;
+                smsg[0].arg.executefile.directory = true;
+                SyscallSendMessage(smsg, rmsg[0].src_task);
+            }
+
+            // 指定されたファイルがあるとき
+            else {
+                PrintToTerminal(layer_id, "%s exists\n", path);
+                smsg[0] = rmsg[0];
+                smsg[0].arg.executefile.exist = true;
+                smsg[0].arg.executefile.directory = false;
+                SyscallSendMessage(smsg, am_id);
+
+                while (true) {
+                    SyscallCloseReceiveMessage(rmsg, 1, am_id);
+
+                    if (rmsg[0].type == Message::Error) {
+                        if (rmsg[0].arg.error.retry) {
+                            SyscallSendMessage(smsg, am_id);
+                            SyscallWriteKernelLog("fs: retry\n");
+                        } else {
+                            SyscallWriteKernelLog(
+                                "fs: Error at other server\n");
+                            break;
+                        }
+                    }
+
+                    else if (rmsg[0].type == Message::aExecuteFile) {
+                        PrintToTerminal(layer_id, "New Task ID is %d\n",
+                                        rmsg[0].arg.executefile.id);
+
+                        uint64_t id = rmsg[0].arg.executefile.id;
+                        smsg[0].type = Message::kExpandTaskBuffer;
+                        smsg[0].arg.expand.task_id = id;
+                        smsg[0].arg.expand.bytes = file_entry->file_size;
+
+                        SyscallSendMessage(smsg, 1);
+
+                        while (true) {
+                            SyscallCloseReceiveMessage(rmsg, 1, 1);
+                            if (rmsg[0].type == Message::kExpandTaskBuffer) {
+                                PrintToTerminal(layer_id,
+                                                "expand task buffer\n");
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

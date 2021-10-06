@@ -24,7 +24,8 @@ std::array<char, kLineMax> linebuf_{};
 char buffer[kRows][kColumns + 1];
 Vector2D<int> kTopLeftMargin = {4, 24};
 
-Message msg[1];
+Message smsg[1];
+Message rmsg[1];
 
 Vector2D<int> CalcCursorPos();
 void DrawCursor(uint64_t layer_id, bool visible);

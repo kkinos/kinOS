@@ -114,7 +114,7 @@ extern "C" void main() {
                      kCanvasHeight, 0);
 
     while (true) {
-        char buf[128];
+        char buf[128] = {};
         auto [n, err] = SyscallReadKernelLog(&buf[0], sizeof(buf));
         if (err) {
             continue;
