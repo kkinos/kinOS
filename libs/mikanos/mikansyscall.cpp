@@ -13,7 +13,7 @@ int OpenWindow(int w, int h, int x, int y) {
         SyscallSendMessage(&msg, id);
         Message rmsg[1];
         int layer_id;
-        auto [n, err2] = SyscallCloseReceiveMessage(rmsg, 1, id);
+        auto [n, err2] = SyscallClosedReceiveMessage(rmsg, 1, id);
         if (err2) {
             layer_id = -1;
             return layer_id;

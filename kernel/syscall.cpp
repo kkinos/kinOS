@@ -233,7 +233,7 @@ SYSCALL(OpenReceiveMessage) {
     return {i, 0};
 }
 
-SYSCALL(CloseReceiveMessage) {
+SYSCALL(ClosedReceiveMessage) {
     const auto receive_message = reinterpret_cast<Message *>(arg1);
     const size_t len = arg2;
     uint64_t target_task_id = arg3;
@@ -375,7 +375,7 @@ extern "C" std::array<SyscallFuncType *, 0x15> syscall_table{
     /* 0x09 */ syscall::NewTask,
     /* 0x0a */ syscall::FindServer,
     /* 0x0b */ syscall::OpenReceiveMessage,
-    /* 0x0c */ syscall::CloseReceiveMessage,
+    /* 0x0c */ syscall::ClosedReceiveMessage,
     /* 0x0d */ syscall::SendMessage,
     /* 0x0e */ syscall::WritePixel,
     /* 0x0f */ syscall::FrameBufferWitdth,

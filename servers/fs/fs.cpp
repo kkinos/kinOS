@@ -356,7 +356,7 @@ extern "C" void main() {
                 SyscallSendMessage(smsg, am_id);
 
                 while (true) {
-                    SyscallCloseReceiveMessage(rmsg, 1, am_id);
+                    SyscallClosedReceiveMessage(rmsg, 1, am_id);
 
                     if (rmsg[0].type == Message::Error) {
                         if (rmsg[0].arg.error.retry) {
@@ -381,7 +381,7 @@ extern "C" void main() {
                         SyscallSendMessage(smsg, 1);
 
                         while (true) {
-                            SyscallCloseReceiveMessage(rmsg, 1, 1);
+                            SyscallClosedReceiveMessage(rmsg, 1, 1);
                             if (rmsg[0].type == Message::kExpandTaskBuffer) {
                                 PrintToTerminal(layer_id,
                                                 "expand task buffer\n");

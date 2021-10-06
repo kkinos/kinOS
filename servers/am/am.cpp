@@ -22,7 +22,7 @@ extern "C" void main() {
             SyscallSendMessage(smsg, fs_id);
 
             while (true) {
-                SyscallCloseReceiveMessage(rmsg, 1, fs_id);
+                SyscallClosedReceiveMessage(rmsg, 1, fs_id);
 
                 if (rmsg[0].type == Message::Error) {
                     if (rmsg[0].arg.error.retry) {

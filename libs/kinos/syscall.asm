@@ -22,7 +22,7 @@ define_syscall MapFile,             0x80000008
 define_syscall NewTask,             0x80000009
 define_syscall FindServer,          0x8000000a
 define_syscall OpenReceiveMessage,  0x8000000b
-define_syscall CloseReceiveMessage, 0x8000000c
+define_syscall ClosedReceiveMessage, 0x8000000c
 define_syscall SendMessage,         0x8000000d
 define_syscall WritePixel,          0x8000000e
 define_syscall FrameBufferWidth,    0x8000000f

@@ -45,8 +45,9 @@ struct SyscallResult SyscallFindServer(const char *command_line);
  *--------------------------------------------------------------------------
  */
 struct SyscallResult SyscallOpenReceiveMessage(struct Message *msg, size_t len);
-struct SyscallResult SyscallCloseReceiveMessage(struct Message *msg, size_t len,
-                                                uint64_t target_task_id);
+struct SyscallResult SyscallClosedReceiveMessage(struct Message *msg,
+                                                 size_t len,
+                                                 uint64_t target_task_id);
 struct SyscallResult SyscallSendMessage(struct Message *msg, uint64_t task_id);
 
 /*--------------------------------------------------------------------------
