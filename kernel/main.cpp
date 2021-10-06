@@ -113,11 +113,11 @@ extern "C" void KernelMainNewStack(
                 task_manager->SendMessage(msg->src_task, rmsg);
                 __asm__("sti");
 
-                printk("expand buffer\n");
+                printk("kernel: expand buffer\n");
                 break;
 
             default:
-                printk("Unknown message type: %d\n", msg->type);
+                printk("kernel: Unknown message type: %d\n", msg->type);
         }
     }
 }

@@ -349,6 +349,7 @@ extern "C" void main() {
 
             // 指定されたファイルがあるとき
             else {
+                // amサーバに新しいタスクを作成させる
                 PrintToTerminal(layer_id, "%s exists\n", path);
                 smsg[0] = rmsg[0];
                 smsg[0].arg.executefile.exist = true;
@@ -369,6 +370,7 @@ extern "C" void main() {
                         }
                     }
 
+                    // 新しいタスクのidを用いてタスクバッファを拡大する
                     else if (rmsg[0].type == Message::aExecuteFile) {
                         PrintToTerminal(layer_id, "New Task ID is %d\n",
                                         rmsg[0].arg.executefile.id);
@@ -382,9 +384,40 @@ extern "C" void main() {
 
                         while (true) {
                             SyscallClosedReceiveMessage(rmsg, 1, 1);
+
+                            // タスクバッファに実行ファイルの内容をコピー
                             if (rmsg[0].type == Message::kExpandTaskBuffer) {
-                                PrintToTerminal(layer_id,
-                                                "expand task buffer\n");
+                                auto cluster = file_entry->FirstCluster();
+                                auto remain_bytes = file_entry->file_size;
+                                int offset = 0;
+
+                                while (cluster != 0 &&
+                                       cluster != 0x0ffffffflu) {
+                                    char *p = reinterpret_cast<char *>(
+                                        ReadCluster(cluster));
+                                    int i = 0;
+                                    for (; i < boot_volume_image
+                                                       .bytes_per_sector *
+                                                   boot_volume_image
+                                                       .sectors_per_cluster &&
+                                           i < remain_bytes;
+                                         ++i) {
+                                        auto [res, err] =
+                                            SyscallCopyToTaskBuffer(id, p,
+                                                                    offset, 1);
+                                        if (err) {
+                                            SyscallWriteKernelLog(
+                                                "fs: Syscall Error\n");
+                                            break;
+                                        }
+                                        ++p;
+                                        ++offset;
+                                    }
+                                    remain_bytes -= i;
+                                    cluster = NextCluster(cluster);
+                                }
+                                PrintToTerminal(layer_id, "copy total %d bytes",
+                                                offset);
                             }
                         }
                     }

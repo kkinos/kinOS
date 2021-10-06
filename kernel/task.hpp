@@ -77,6 +77,7 @@ class Task {
     std::string GetCommandLine() { return command_line_; }
 
     void ExpandBuffer(uint32_t bytes);
+    int CopyToBuffer(void* buf, size_t offset, size_t len);
 
    private:
     uint64_t id_;               // タスクのID
@@ -142,6 +143,7 @@ class TaskManager {
     uint64_t NumOfTask() { return latest_id_; }  // タスクの数
 
     void ExpandTaskBuffer(uint64_t id, uint32_t bytes);
+    int CopyToTaskBuffer(uint64_t id, void* buf, size_t offset, size_t len);
 
    private:
     std::vector<std::unique_ptr<Task>> tasks_{};  // タスクすべての配列

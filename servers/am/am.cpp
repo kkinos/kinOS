@@ -45,6 +45,7 @@ extern "C" void main() {
                     // 指定されたファイルが実行可能であるとき
                     else {
                         SyscallWriteKernelLog("am: CreateTask\n");
+                        // 新しいタスクを生成
                         auto [id, err] = SyscallNewTask();
                         if (err) {
                             SyscallWriteKernelLog("am: Syscall Error\n");
@@ -54,6 +55,7 @@ extern "C" void main() {
                             SyscallSendMessage(smsg, fs_id);
                             break;
                         }
+                        // 新しいタスクのidをfsサーバに伝える
                         smsg[0] = rmsg[0];
                         smsg[0].arg.executefile.id = id;
                         SyscallSendMessage(smsg, fs_id);

@@ -32,26 +32,38 @@ struct SyscallResult SyscallMapFile(int fd, size_t *file_size, int flags);
 
 struct SyscallResult SyscallNewTask();
 
-/**
- * @brief command_lineで指定された名前のサーバを探す
- *
- * @param command_line
- * @return struct SyscallResult
- */
-struct SyscallResult SyscallFindServer(const char *command_line);
+struct SyscallResult SyscallCopyToTaskBuffer(uint64_t target_task_id, void *buf,
+                                             size_t offset, size_t len);
 
 /*--------------------------------------------------------------------------
  * プロセス間通信用システムコール
  *--------------------------------------------------------------------------
  */
+
+/**
+ * @brief オープン受信 どこからのメッセージも受け取る
+ *
+ * @param msg
+ * @param len
+ * @return struct SyscallResult
+ */
 struct SyscallResult SyscallOpenReceiveMessage(struct Message *msg, size_t len);
+
+/**
+ * @brief クローズド受信 指定されたタスク以外のメッセージにはType Errorを返す
+ *
+ * @param msg
+ * @param len
+ * @param target_task_id
+ * @return struct SyscallResult
+ */
 struct SyscallResult SyscallClosedReceiveMessage(struct Message *msg,
                                                  size_t len,
                                                  uint64_t target_task_id);
 struct SyscallResult SyscallSendMessage(struct Message *msg, uint64_t task_id);
 
 /*--------------------------------------------------------------------------
- * サーバ用システムコール
+ * GUIサーバ用システムコール
  *--------------------------------------------------------------------------
  */
 struct SyscallResult SyscallWritePixel(int x, int y, int r, int g, int b);
@@ -60,6 +72,11 @@ struct SyscallResult SyscallFrameBufferHeight();
 struct SyscallResult SyscallCopyToFrameBuffer(const uint8_t *src_buf,
                                               int start_x, int start_y,
                                               int bytes_per_copy_line);
+
+/*--------------------------------------------------------------------------
+ * ファイルシステムサーバ用システムコール
+ *--------------------------------------------------------------------------
+ */
 
 /**
  * @brief
@@ -72,6 +89,19 @@ struct SyscallResult SyscallCopyToFrameBuffer(const uint8_t *src_buf,
  */
 struct SyscallResult SyscallReadVolumeImage(void *buf, size_t offset,
                                             size_t len);
+
+/*--------------------------------------------------------------------------
+ * すべてのサーバ用システムコール
+ *--------------------------------------------------------------------------
+ */
+
+/**
+ * @brief command_lineで指定された名前のサーバを探す
+ *
+ * @param command_line
+ * @return struct SyscallResult
+ */
+struct SyscallResult SyscallFindServer(const char *command_line);
 
 /**
  * @brief kernel logを読み込む

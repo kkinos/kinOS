@@ -3,6 +3,7 @@
 #include "asmfunc.h"
 #include "segment.hpp"
 #include "shell.hpp"
+#include "system.hpp"
 #include "timer.hpp"
 
 namespace {
@@ -88,6 +89,23 @@ void Task::SetFileMapEnd(uint64_t v) { file_map_end_ = v; }
 std::vector<FileMapping> &Task::FileMaps() { return file_maps_; }
 
 void Task::ExpandBuffer(uint32_t bytes) { buf_.resize(bytes); }
+
+/**
+ * @brief タスクの持つバッファにコピーする エラーは-1
+ *
+ * @param buf
+ * @param offset
+ * @param len
+ * @return int
+ */
+int Task::CopyToBuffer(void *buf, size_t offset, size_t len) {
+    int remain_bytes = buf_.size() - (offset + len);
+    if (remain_bytes < 0) {
+        return -1;
+    }
+    memcpy(buf, &buf_[offset], len);
+    return remain_bytes;
+}
 
 TaskManager::TaskManager() {
     Task &task = NewTask().SetLevel(current_level_).SetRunning(true);
@@ -262,6 +280,12 @@ Task *TaskManager::FindTask(uint64_t id) {
 void TaskManager::ExpandTaskBuffer(uint64_t id, uint32_t bytes) {
     auto task = task_manager->FindTask(id);
     task->ExpandBuffer(bytes);
+}
+
+int TaskManager::CopyToTaskBuffer(uint64_t id, void *buf, size_t offset,
+                                  size_t len) {
+    auto task = task_manager->FindTask(id);
+    return task->CopyToBuffer(buf, offset, len);
 }
 
 void TaskManager::Finish(int exit_code) {

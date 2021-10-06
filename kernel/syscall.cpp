@@ -194,6 +194,20 @@ SYSCALL(MapFile) {
 
 SYSCALL(NewTask) { return {task_manager->NewTask().ID(), 0}; }
 
+SYSCALL(CopyToTaskBuffer) {
+    uint64_t target_task_id = arg1;
+    void *buf = reinterpret_cast<void *>(arg2);
+    size_t offset = arg3;
+    size_t len = arg4;
+    int remain_bytes =
+        task_manager->CopyToTaskBuffer(target_task_id, buf, offset, len);
+    if (remain_bytes == -1) {
+        return {0, EFBIG};
+    }
+    size_t res = remain_bytes;
+    return {res, 0};
+}
+
 SYSCALL(FindServer) {
     const char *command_line = reinterpret_cast<const char *>(arg1);
     uint64_t task_id = task_manager->FindTask(command_line);
@@ -362,7 +376,7 @@ SYSCALL(WriteKernelLog) {
 
 using SyscallFuncType = syscall::Result(uint64_t, uint64_t, uint64_t, uint64_t,
                                         uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType *, 0x15> syscall_table{
+extern "C" std::array<SyscallFuncType *, 0x16> syscall_table{
     /* 0x00 */ syscall::LogString,
     /* 0x01 */ syscall::PutString,
     /* 0x02 */ syscall::Exit,
@@ -373,17 +387,18 @@ extern "C" std::array<SyscallFuncType *, 0x15> syscall_table{
     /* 0x07 */ syscall::DemandPages,
     /* 0x08 */ syscall::MapFile,
     /* 0x09 */ syscall::NewTask,
-    /* 0x0a */ syscall::FindServer,
-    /* 0x0b */ syscall::OpenReceiveMessage,
-    /* 0x0c */ syscall::ClosedReceiveMessage,
-    /* 0x0d */ syscall::SendMessage,
-    /* 0x0e */ syscall::WritePixel,
-    /* 0x0f */ syscall::FrameBufferWitdth,
-    /* 0x10 */ syscall::FrameBufferHeight,
-    /* 0x11 */ syscall::CopyToFrameBuffer,
-    /* 0x12 */ syscall::ReadVolumeImage,
-    /* 0x13 */ syscall::ReadKernelLog,
-    /* 0x14 */ syscall::WriteKernelLog,
+    /* 0x0a */ syscall::CopyToTaskBuffer,
+    /* 0x0b */ syscall::FindServer,
+    /* 0x0c */ syscall::OpenReceiveMessage,
+    /* 0x0d */ syscall::ClosedReceiveMessage,
+    /* 0x0e */ syscall::SendMessage,
+    /* 0x0f */ syscall::WritePixel,
+    /* 0x10 */ syscall::FrameBufferWitdth,
+    /* 0x11 */ syscall::FrameBufferHeight,
+    /* 0x12 */ syscall::CopyToFrameBuffer,
+    /* 0x13 */ syscall::ReadVolumeImage,
+    /* 0x14 */ syscall::ReadKernelLog,
+    /* 0x15 */ syscall::WriteKernelLog,
 
 };
 
