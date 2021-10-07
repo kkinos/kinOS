@@ -34,7 +34,7 @@ struct SyscallResult SyscallNewTask();
 
 struct SyscallResult SyscallCopyToTaskBuffer(uint64_t target_task_id, void *buf,
                                              size_t offset, size_t len);
-
+struct SyscallResult SyscallSetArgument(uint64_t target_task_id, char *buf);
 /*--------------------------------------------------------------------------
  * プロセス間通信用システムコール
  *--------------------------------------------------------------------------

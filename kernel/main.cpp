@@ -113,11 +113,12 @@ extern "C" void KernelMainNewStack(
                 task_manager->SendMessage(msg->src_task, rmsg);
                 __asm__("sti");
 
-                printk("kernel: expand buffer\n");
+                printk("[ kinOS ] Expand task %d buffer\n",
+                       msg->arg.expand.task_id);
                 break;
 
             default:
-                printk("kernel: Unknown message type: %d\n", msg->type);
+                printk("[ kinOS ] Unknown message type: %d\n", msg->type);
         }
     }
 }

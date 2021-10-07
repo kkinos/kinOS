@@ -1,6 +1,7 @@
 #include "syscall.hpp"
 
 #include <fcntl.h>
+#include <string.h>
 
 #include <array>
 #include <cerrno>
@@ -208,6 +209,20 @@ SYSCALL(CopyToTaskBuffer) {
     return {res, 0};
 }
 
+SYSCALL(SetArgument) {
+    uint64_t target_task_id = arg1;
+    char *arg = reinterpret_cast<char *>(arg2);
+
+    auto task = task_manager->FindTask(target_task_id);
+
+    if (task == nullptr) {
+        return {0, ESRCH};
+    }
+    strcpy(task->arg_, arg);
+
+    return {0, 0};
+}
+
 SYSCALL(FindServer) {
     const char *command_line = reinterpret_cast<const char *>(arg1);
     uint64_t task_id = task_manager->FindTask(command_line);
@@ -376,7 +391,7 @@ SYSCALL(WriteKernelLog) {
 
 using SyscallFuncType = syscall::Result(uint64_t, uint64_t, uint64_t, uint64_t,
                                         uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType *, 0x16> syscall_table{
+extern "C" std::array<SyscallFuncType *, 0x17> syscall_table{
     /* 0x00 */ syscall::LogString,
     /* 0x01 */ syscall::PutString,
     /* 0x02 */ syscall::Exit,
@@ -388,17 +403,18 @@ extern "C" std::array<SyscallFuncType *, 0x16> syscall_table{
     /* 0x08 */ syscall::MapFile,
     /* 0x09 */ syscall::NewTask,
     /* 0x0a */ syscall::CopyToTaskBuffer,
-    /* 0x0b */ syscall::FindServer,
-    /* 0x0c */ syscall::OpenReceiveMessage,
-    /* 0x0d */ syscall::ClosedReceiveMessage,
-    /* 0x0e */ syscall::SendMessage,
-    /* 0x0f */ syscall::WritePixel,
-    /* 0x10 */ syscall::FrameBufferWitdth,
-    /* 0x11 */ syscall::FrameBufferHeight,
-    /* 0x12 */ syscall::CopyToFrameBuffer,
-    /* 0x13 */ syscall::ReadVolumeImage,
-    /* 0x14 */ syscall::ReadKernelLog,
-    /* 0x15 */ syscall::WriteKernelLog,
+    /* 0x0b */ syscall::SetArgument,
+    /* 0x0c */ syscall::FindServer,
+    /* 0x0d */ syscall::OpenReceiveMessage,
+    /* 0x0e */ syscall::ClosedReceiveMessage,
+    /* 0x0f */ syscall::SendMessage,
+    /* 0x10 */ syscall::WritePixel,
+    /* 0x11 */ syscall::FrameBufferWitdth,
+    /* 0x12 */ syscall::FrameBufferHeight,
+    /* 0x13 */ syscall::CopyToFrameBuffer,
+    /* 0x14 */ syscall::ReadVolumeImage,
+    /* 0x15 */ syscall::ReadKernelLog,
+    /* 0x16 */ syscall::WriteKernelLog,
 
 };
 

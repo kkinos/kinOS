@@ -182,6 +182,11 @@ void ExecuteLine(uint64_t layer_id) {
  */
 void ExecuteFile(uint64_t layer_id) {
     char *command = &linebuf_[0];
+    char *first_arg = strchr(&linebuf_[0], ' ');
+    if (first_arg) {
+        *first_arg = 0;
+        ++first_arg;
+    }
 
     // amサーバを探す
     auto [am_id, err] = SyscallFindServer("servers/am");
@@ -198,7 +203,7 @@ void ExecuteFile(uint64_t layer_id) {
     int i = 0;
     while (*command) {
         if (i > 14) {
-            PrintToTerminal(layer_id, "too large file name\n");
+            PrintToTerminal(layer_id, "too long file name\n");
             return;
         }
         smsg[0].arg.executefile.filename[i] = *command;
@@ -206,6 +211,20 @@ void ExecuteFile(uint64_t layer_id) {
         ++command;
     }
     smsg[0].arg.executefile.filename[i] = '\0';
+
+    if (first_arg) {
+        i = 0;
+        while (*first_arg) {
+            if (i > 30) {
+                PrintToTerminal(layer_id, "too long argument\n");
+                return;
+            }
+            smsg[0].arg.executefile.arg[i] = *first_arg;
+            ++i;
+            ++first_arg;
+        }
+        smsg[0].arg.executefile.arg[i] = '\0';
+    }
     SyscallSendMessage(smsg, am_id);
 
     while (true) {
@@ -246,7 +265,7 @@ extern "C" void main() {
     PrintUserName(layer_id, "user@KinOS:\n");
     PrintUserName(layer_id, "$");
 
-    SyscallWriteKernelLog("terminal: Start\n");
+    SyscallWriteKernelLog("[ terminal ] Start\n");
 
     while (true) {
         SyscallOpenReceiveMessage(rmsg, 1);

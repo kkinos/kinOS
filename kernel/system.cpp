@@ -9,7 +9,7 @@
 #include "paging.hpp"
 
 /*--------------------------------------------------------------------------
- * 実行ファイルをメモリ上にコピーして実行するための関数群
+ * 実行ファイルを実行するための関数群
  *--------------------------------------------------------------------------
  */
 namespace {
@@ -149,31 +149,6 @@ Error FreePML4(Task &current_task) {
     return memory_manager->Free(frame, 1);
 }
 
-void ListAllEntries(FileDescriptor &fd, uint32_t dir_cluster) {
-    const auto kEntriesPerCluster =
-        fat::bytes_per_cluster / sizeof(fat::DirectoryEntry);
-
-    while (dir_cluster != fat::kEndOfClusterchain) {
-        auto dir = fat::GetSectorByCluster<fat::DirectoryEntry>(dir_cluster);
-
-        for (int i = 0; i < kEntriesPerCluster; ++i) {
-            if (dir[i].name[0] == 0x00) {
-                return;
-            } else if (static_cast<uint8_t>(dir[i].name[0]) == 0xe5) {
-                continue;
-            } else if (dir[i].attr == fat::Attribute::kLongName) {
-                continue;
-            }
-
-            char name[13];
-            fat::FormatName(dir[i], name);
-            PrintToFD(fd, "%s\n", name);
-        }
-
-        dir_cluster = fat::NextCluster(dir_cluster);
-    }
-}
-
 /**
  * @brief タスクのページング構造を設定し、LOADセグメントをメモリにコピーする
  *
@@ -220,8 +195,16 @@ WithError<AppLoadInfo> LoadApp(fat::DirectoryEntry &file_entry, Task &task) {
 }
 }  // namespace
 
-WithError<int> ExecuteFile(fat::DirectoryEntry &file_entry, char *command,
-                           char *first_arg) {
+/**
+ * @brief サーバーを実行する
+ *
+ * @param file_entry
+ * @param command
+ * @param first_arg
+ * @return WithError<int>
+ */
+WithError<int> ExecuteServer(fat::DirectoryEntry &file_entry, char *command,
+                             char *first_arg) {
     __asm__("cli");
     auto &task = task_manager->CurrentTask();
     __asm__("sti");
@@ -278,6 +261,12 @@ WithError<int> ExecuteFile(fat::DirectoryEntry &file_entry, char *command,
     return {ret, FreePML4(task)};
 }
 
+/**
+ * @brief サーバーを実行するタスク
+ *
+ * @param task_id
+ * @param data DataOfServerのポインタ
+ */
 void TaskServer(uint64_t task_id, int64_t data) {
     const auto task_of_server_data = reinterpret_cast<DataOfServer *>(data);
 
@@ -291,7 +280,7 @@ void TaskServer(uint64_t task_id, int64_t data) {
         // printk("no such server\n");
     } else {
         auto [ec, err] =
-            ExecuteFile(*file_entry, task_of_server_data->file_name, "");
+            ExecuteServer(*file_entry, task_of_server_data->file_name, "");
         if (err) {
             // printk("cannnot execute server\n");
         }
@@ -306,6 +295,11 @@ size_t klog_head;
 size_t klog_tail;
 bool klog_changed;
 
+/**
+ * @brief いくつかのサーバをあらかじめ起動しておく
+ *
+ *
+ */
 void InitializeSystemTask(void *volume_image) {
     v_image = reinterpret_cast<uint8_t *>(volume_image);
 
@@ -358,6 +352,13 @@ void InitializeSystemTask(void *volume_image) {
         .Wakeup();
 }
 
+/**
+ * @brief ブートローダによってボリュームされたイメージをbufにコピーする
+ *
+ * @param buf
+ * @param offset
+ * @param len
+ */
 void ReadImage(void *buf, size_t offset, size_t len) {
     uint8_t *src_buf = reinterpret_cast<uint8_t *>(buf);
     size_t sector = offset * SECTOR_SIZE;
@@ -366,6 +367,11 @@ void ReadImage(void *buf, size_t offset, size_t len) {
     memcpy(src_buf, v_image_start, num_sector);
 }
 
+/**
+ * @brief kernel logに書き込む
+ *
+ * @param s
+ */
 void klog_write(char *s) {
     int i = klog_head;
     if (klog_changed) {
@@ -382,6 +388,13 @@ void klog_write(char *s) {
     klog_changed = true;
 }
 
+/**
+ * @brief kernel logを読む 返り値が0ならまだ読み込めていない部分がある
+ *
+ * @param buf
+ * @param len
+ * @return size_t
+ */
 size_t klog_read(char *buf, size_t len) {
     size_t remaining = len;
     if (klog_head > klog_tail) {

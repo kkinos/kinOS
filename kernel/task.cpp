@@ -88,8 +88,6 @@ void Task::SetFileMapEnd(uint64_t v) { file_map_end_ = v; }
 
 std::vector<FileMapping> &Task::FileMaps() { return file_maps_; }
 
-void Task::ExpandBuffer(uint32_t bytes) { buf_.resize(bytes); }
-
 /**
  * @brief タスクの持つバッファにコピーする エラーは-1
  *
@@ -279,7 +277,7 @@ Task *TaskManager::FindTask(uint64_t id) {
 
 void TaskManager::ExpandTaskBuffer(uint64_t id, uint32_t bytes) {
     auto task = task_manager->FindTask(id);
-    task->ExpandBuffer(bytes);
+    task->buf_.resize(bytes);
 }
 
 int TaskManager::CopyToTaskBuffer(uint64_t id, void *buf, size_t offset,

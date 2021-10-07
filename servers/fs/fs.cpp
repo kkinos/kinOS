@@ -270,12 +270,12 @@ extern "C" void main() {
 
     InitializeFat();
 
-    SyscallWriteKernelLog("fs: Start\n");
+    SyscallWriteKernelLog("[ fs ] Start\n");
 
     auto [am_id, err] = SyscallFindServer("servers/am");
     if (err) {
         SyscallWriteKernelLog(
-            "fs: cannot find file application management server\n");
+            "[ fs ] cannot find file application management server\n");
     }
 
     // auto [file_entry, post_slash] = FindFile("app/cube");
@@ -362,7 +362,7 @@ extern "C" void main() {
                     if (rmsg[0].type == Message::Error) {
                         if (rmsg[0].arg.error.retry) {
                             SyscallSendMessage(smsg, am_id);
-                            SyscallWriteKernelLog("fs: retry\n");
+                            SyscallWriteKernelLog("[ fs ] retry\n");
                         } else {
                             SyscallWriteKernelLog(
                                 "fs: Error at other server\n");
@@ -407,7 +407,10 @@ extern "C" void main() {
                                                                     offset, 1);
                                         if (err) {
                                             SyscallWriteKernelLog(
-                                                "fs: Syscall Error\n");
+                                                "[ fs ] Syscall Error\n");
+                                            smsg[0].type = Message::Error;
+                                            smsg[0].arg.error.retry = false;
+                                            SyscallSendMessage(smsg, am_id);
                                             break;
                                         }
                                         ++p;
@@ -416,10 +419,13 @@ extern "C" void main() {
                                     remain_bytes -= i;
                                     cluster = NextCluster(cluster);
                                 }
-                                PrintToTerminal(layer_id, "copy total %d bytes",
-                                                offset);
+                                // amサーバにコピーが完了したことを伝える
+                                smsg[0].type = Message::Ready;
+                                SyscallSendMessage(smsg, am_id);
+                                break;
                             }
                         }
+                        break;
                     }
                 }
             }

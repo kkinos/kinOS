@@ -76,14 +76,16 @@ class Task {
     void SetCommandLine(char* command_line) { command_line_ = command_line; }
     std::string GetCommandLine() { return command_line_; }
 
-    void ExpandBuffer(uint32_t bytes);
     int CopyToBuffer(void* buf, size_t offset, size_t len);
+
+    std::vector<uint8_t> buf_;  // タスクバッファ
+    char arg_[32];
 
    private:
     uint64_t id_;               // タスクのID
     uint64_t pid_{0};           // 親タスクのID 親は0
     std::string command_line_;  // 実行しているコマンド
-    std::vector<uint8_t> buf_;
+
     std::vector<uint64_t> stack_;
     alignas(16) TaskContext context_;
     uint64_t os_stack_ptr_;

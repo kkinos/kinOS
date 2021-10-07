@@ -7,6 +7,7 @@ enum class LayerOperation { Move, MoveRelative, Draw, DrawArea };
 struct Message {
     enum Type {
         Error,
+        Ready,
         kInterruptXHCI,
         kTimerTimeout,
         kKeyPush,
@@ -130,6 +131,7 @@ struct Message {
 
         struct {
             char filename[16];
+            char arg[32];
             uint64_t id;
             bool exist;
             bool directory;

@@ -3,18 +3,22 @@
 #include <cstdio>
 
 extern "C" void main() {
-    SyscallWriteKernelLog("am: Start\n");
+    SyscallWriteKernelLog("[ am ] Start\n");
 
     while (true) {
         SyscallOpenReceiveMessage(rmsg, 1);
 
         if (rmsg[0].type == Message::aExecuteFile) {
             uint64_t task_id = rmsg[0].src_task;
+            char arg[32];
+            strcpy(arg, rmsg[0].arg.executefile.arg);
+
             auto [fs_id, err] = SyscallFindServer("servers/fs");
             if (err) {
                 smsg[0].type = Message::Error;
                 smsg[0].arg.error.retry = false;
-                SyscallWriteKernelLog("am: cannnot find file system server\n");
+                SyscallWriteKernelLog(
+                    "[ am ] cannnot find file system server\n");
                 SyscallSendMessage(smsg, task_id);
             }
 
@@ -28,7 +32,7 @@ extern "C" void main() {
                     if (rmsg[0].arg.error.retry) {
                         SyscallSendMessage(smsg, fs_id);
                     } else {
-                        SyscallWriteKernelLog("am: Error at other server\n");
+                        SyscallWriteKernelLog("[ am ] Error at other server\n");
                         smsg[0].type = Message::Error;
                         smsg[0].arg.error.retry = false;
                         SyscallSendMessage(smsg, task_id);
@@ -44,11 +48,11 @@ extern "C" void main() {
                     }
                     // 指定されたファイルが実行可能であるとき
                     else {
-                        SyscallWriteKernelLog("am: CreateTask\n");
+                        SyscallWriteKernelLog("[ am ] CreateTask\n");
                         // 新しいタスクを生成
                         auto [id, err] = SyscallNewTask();
                         if (err) {
-                            SyscallWriteKernelLog("am: Syscall Error\n");
+                            SyscallWriteKernelLog("[ am ] Syscall Error\n");
                             smsg[0].type = Message::Error;
                             smsg[0].arg.error.retry = false;
                             SyscallSendMessage(smsg, task_id);
@@ -59,6 +63,35 @@ extern "C" void main() {
                         smsg[0] = rmsg[0];
                         smsg[0].arg.executefile.id = id;
                         SyscallSendMessage(smsg, fs_id);
+                        while (true) {
+                            SyscallClosedReceiveMessage(rmsg, 1, fs_id);
+
+                            if (rmsg[0].type == Message::Error) {
+                                if (rmsg[0].arg.error.retry) {
+                                    SyscallSendMessage(smsg, fs_id);
+                                } else {
+                                    SyscallWriteKernelLog(
+                                        "[ am ] Error at other server\n");
+                                    smsg[0].type = Message::Error;
+                                    smsg[0].arg.error.retry = false;
+                                    SyscallSendMessage(smsg, task_id);
+                                    break;
+                                }
+                            }
+                            if (rmsg[0].type == Message::Ready) {
+                                SyscallWriteKernelLog("[ am ] Ready\n");
+                                auto [res, err] = SyscallSetArgument(id, arg);
+                                if (err) {
+                                    SyscallWriteKernelLog(
+                                        "[ am ] Syscall Error\n");
+                                    smsg[0].type = Message::Error;
+                                    smsg[0].arg.error.retry = false;
+                                    SyscallSendMessage(smsg, task_id);
+                                }
+                                break;
+                            }
+                        }
+
                         break;
                     }
                 }
