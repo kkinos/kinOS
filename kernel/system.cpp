@@ -4,9 +4,9 @@
 #include <limits>
 
 #include "asmfunc.h"
-#include "elf.hpp"
 #include "memory_manager.hpp"
 #include "paging.hpp"
+#include "shell.hpp"
 
 /*--------------------------------------------------------------------------
  * 実行ファイルを実行するための関数群
@@ -153,10 +153,10 @@ Error FreePML4(Task &current_task) {
  * @brief タスクのページング構造を設定し、LOADセグメントをメモリにコピーする
  *
  * @param file_entry
- * @param task アプリを実行しようとしているタスク
+ * @param task サーバを実行しようとしているタスク
  * @return WithError<AppLoadInfo>
  */
-WithError<AppLoadInfo> LoadApp(fat::DirectoryEntry &file_entry, Task &task) {
+WithError<AppLoadInfo> LoadServer(fat::DirectoryEntry &file_entry, Task &task) {
     PageMapEntry *temp_pml4;
 
     /*今のタスクのPML4を新たに設定する 前半はOS用 後半をアプリ用*/
@@ -170,6 +170,46 @@ WithError<AppLoadInfo> LoadApp(fat::DirectoryEntry &file_entry, Task &task) {
     fat::LoadFile(&file_buf[0], file_buf.size(), file_entry);
 
     auto elf_header = reinterpret_cast<Elf64_Ehdr *>(&file_buf[0]);
+    if (memcmp(elf_header->e_ident,
+               "\x7f"
+               "ELF",
+               4) != 0) {
+        return {{}, MAKE_ERROR(Error::kInvalidFile)};
+    }
+
+    /*なければページ構造の後半を設定しLOADセグメントをそこへ配置する*/
+    auto [last_addr, err_load] = LoadELF(elf_header);
+    if (err_load) {
+        return {{}, err_load};
+    }
+
+    AppLoadInfo app_load{last_addr, elf_header->e_entry, temp_pml4};
+
+    if (auto [pml4, err] = SetupPML4(task); err) {
+        return {app_load, err};
+    } else {
+        app_load.pml4 = pml4;
+    }
+    auto err = CopyPageMaps(app_load.pml4, temp_pml4, 4, 256);
+    return {app_load, err};
+}
+
+/**
+ * @brief LoadSererのアプリケーション版
+ *
+ * @param elf_header
+ * @param task アプリを実行したいタスク
+ * @return WithError<AppLoadInfo>
+ */
+WithError<AppLoadInfo> LoadApp(Elf64_Ehdr *elf_header, Task &task) {
+    PageMapEntry *temp_pml4;
+
+    if (auto [pml4, err] = SetupPML4(task); err) {
+        return {{}, err};
+    } else {
+        temp_pml4 = pml4;
+    }
+
     if (memcmp(elf_header->e_ident,
                "\x7f"
                "ELF",
@@ -209,7 +249,7 @@ WithError<int> ExecuteServer(fat::DirectoryEntry &file_entry, char *command,
     auto &task = task_manager->CurrentTask();
     __asm__("sti");
 
-    auto [app_load, err] = LoadApp(file_entry, task);
+    auto [app_load, err] = LoadServer(file_entry, task);
     if (err) {
         return {0, err};
     }
@@ -262,7 +302,7 @@ WithError<int> ExecuteServer(fat::DirectoryEntry &file_entry, char *command,
 }
 
 /**
- * @brief サーバーを実行するタスク
+ * @brief サーバー用タスク
  *
  * @param task_id
  * @param data DataOfServerのポインタ
@@ -277,13 +317,95 @@ void TaskServer(uint64_t task_id, int64_t data) {
     auto [file_entry, post_slash] =
         fat::FindFile(task_of_server_data->file_name);
     if (!file_entry) {
-        // printk("no such server\n");
+        printk("[ kinOS ] no such server %s\n", task_of_server_data->file_name);
     } else {
         auto [ec, err] =
             ExecuteServer(*file_entry, task_of_server_data->file_name, "");
         if (err) {
-            // printk("cannnot execute server\n");
+            printk("[ kinOS ] cannnot execute server\n");
         }
+    }
+    while (true) __asm__("hlt");
+}
+
+WithError<int> ExecuteApp(Elf64_Ehdr *elf_header, char *first_arg) {
+    __asm__("cli");
+    auto &task = task_manager->CurrentTask();
+    __asm__("sti");
+
+    auto [app_load, err] = LoadApp(elf_header, task);
+    if (err) {
+        return {0, err};
+    }
+
+    /*サーバに渡す引数を予めメモリ上に確保しておきアプリからアクセスできるようにしておく*/
+    LinearAddress4Level args_frame_addr{0xffff'ffff'ffff'f000};
+    if (auto err = SetupPageMaps(args_frame_addr, 1)) {
+        return {0, err};
+    }
+    auto argv = reinterpret_cast<char **>(args_frame_addr.value);
+    int argv_len = 32;  // argv = 8x32 = 256 bytes
+    auto argbuf = reinterpret_cast<char *>(args_frame_addr.value +
+                                           sizeof(char **) * argv_len);
+    int argbuf_len = 4096 - sizeof(char **) * argv_len;
+    auto argc = MakeArgVector("application", first_arg, argv, argv_len, argbuf,
+                              argbuf_len);
+    if (argc.error) {
+        return {0, argc.error};
+    }
+
+    /* アプリ用のスタック領域の確保 */
+    const int stack_size = 16 * 4096;
+    LinearAddress4Level stack_frame_addr{0xffff'ffff'ffff'f000 - stack_size};
+    if (auto err = SetupPageMaps(stack_frame_addr, stack_size / 4096)) {
+        return {0, err};
+    }
+
+    /* デマンドページング用のアドレスを設定 */
+    const uint64_t elf_next_page =
+        (app_load.vaddr_end + 4095) & 0xffff'ffff'ffff'f000;
+    task.SetDPagingBegin(elf_next_page);
+    task.SetDPagingEnd(elf_next_page);
+
+    task.SetFileMapEnd(stack_frame_addr.value);
+
+    int ret =
+        CallApp(argc.value, argv, 3 << 3 | 3, app_load.entry,
+                stack_frame_addr.value + 4096 - 8, &task.OSStackPointer());
+
+    // task.Files().clear();
+    task.FileMaps().clear();
+
+    if (auto err = CleanPageMaps(LinearAddress4Level{0xffff'8000'0000'0000})) {
+        return {ret, err};
+    }
+
+    return {ret, FreePML4(task)};
+};
+
+/**
+ * @brief アプリケーション用タスク
+ * タスクのバッファから実行ファイルを読み取り実行する
+ *
+ * @param am_id Application Management サーバのid
+ */
+void TaskApp(uint64_t task_id, int64_t am_id) {
+    __asm__("cli");
+    auto &task = task_manager->CurrentTask();
+    __asm__("sti");
+
+    auto elf_header = reinterpret_cast<Elf64_Ehdr *>(&task.buf_[0]);
+
+    auto [ec, err] = ExecuteApp(elf_header, task.arg_);
+    if (err) {
+        printk("[ kinOS ] cannnot execute application of task %d\n", task.ID());
+
+        Message msg;
+        msg.type = Message::kExcute;
+        msg.arg.execute.success = false;
+        msg.src_task = 1;
+        msg.arg.execute.id = task.ID();
+        task_manager->SendMessage(am_id, msg);
     }
     while (true) __asm__("hlt");
 }

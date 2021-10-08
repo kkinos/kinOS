@@ -76,8 +76,6 @@ class Task {
     void SetCommandLine(char* command_line) { command_line_ = command_line; }
     std::string GetCommandLine() { return command_line_; }
 
-    int CopyToBuffer(void* buf, size_t offset, size_t len);
-
     std::vector<uint8_t> buf_;  // タスクバッファ
     char arg_[32];
 
@@ -131,21 +129,15 @@ class TaskManager {
     void Finish(int exit_code);
     WithError<int> WaitFinish(uint64_t task_id);
 
-    Error RestartTask(uint64_t id);
-    Error CreateAppTask(uint64_t pid, uint64_t cid);
     Task* FindTask(uint64_t id);
 
-    /**
-     * @brief taskのcommand_line_から該当するタスクを探す 存在しない場合は0
-     *
-     * @param command_line
-     * @return uint64_t
-     */
     uint64_t FindTask(const char* command_line);
     uint64_t NumOfTask() { return latest_id_; }  // タスクの数
 
-    void ExpandTaskBuffer(uint64_t id, uint32_t bytes);
+    Error ExpandTaskBuffer(uint64_t id, uint32_t bytes);
     int CopyToTaskBuffer(uint64_t id, void* buf, size_t offset, size_t len);
+
+    Error StartTaskApp(uint64_t id, uint64_t am_id);
 
    private:
     std::vector<std::unique_ptr<Task>> tasks_{};  // タスクすべての配列

@@ -88,23 +88,6 @@ void Task::SetFileMapEnd(uint64_t v) { file_map_end_ = v; }
 
 std::vector<FileMapping> &Task::FileMaps() { return file_maps_; }
 
-/**
- * @brief タスクの持つバッファにコピーする エラーは-1
- *
- * @param buf
- * @param offset
- * @param len
- * @return int
- */
-int Task::CopyToBuffer(void *buf, size_t offset, size_t len) {
-    int remain_bytes = buf_.size() - (offset + len);
-    if (remain_bytes < 0) {
-        return -1;
-    }
-    memcpy(buf, &buf_[offset], len);
-    return remain_bytes;
-}
-
 TaskManager::TaskManager() {
     Task &task = NewTask().SetLevel(current_level_).SetRunning(true);
     running_[current_level_].push_back(&task);
@@ -200,61 +183,11 @@ Error TaskManager::SendMessage(uint64_t id, const Message &msg) {
 Task &TaskManager::CurrentTask() { return *running_[current_level_].front(); }
 
 /**
- * @brief タスクをリスタートさせる
+ * @brief taskのcommand_line_から該当するタスクを探す 存在しない場合は0
  *
- * @param id リスタートさせたいタスクのid
- * @return Error
+ * @param command_line
+ * @return uint64_t
  */
-Error TaskManager::RestartTask(uint64_t id) {
-    auto it = std::find_if(tasks_.begin(), tasks_.end(),
-                           [id](const auto &t) { return t->ID() == id; });
-    if (it == tasks_.end()) {
-        return MAKE_ERROR(Error::kNoSuchTask);
-    }
-    auto sh_desc = new ShellDescriptor{
-        (*it)->GetCommandLine(),
-        true,
-        false,
-        {(*it)->Files()[0], (*it)->Files()[1], (*it)->Files()[2]}};
-
-    (*it)->InitContext(TaskShell, reinterpret_cast<uint64_t>(sh_desc)).Wakeup();
-    return MAKE_ERROR(Error::kSuccess);
-}
-
-/**
- * @brief 新しいタスクを作成しアプリを起動する forkとexecを同時に行う
- *
- * @param pid 親のid
- * @param cid 子のid
- * @return Error
- */
-Error TaskManager::CreateAppTask(uint64_t pid, uint64_t cid) {
-    auto parent = std::find_if(tasks_.begin(), tasks_.end(),
-                               [pid](const auto &t) { return t->ID() == pid; });
-    if (parent == tasks_.end()) {
-        return MAKE_ERROR(Error::kNoSuchTask);
-    }
-
-    auto child = std::find_if(tasks_.begin(), tasks_.end(),
-                              [cid](const auto &t) { return t->ID() == cid; });
-    if (child == tasks_.end()) {
-        return MAKE_ERROR(Error::kNoSuchTask);
-    }
-
-    auto sh_desc = new ShellDescriptor{
-        (*child)->GetCommandLine(),
-        true,
-        false,
-        {(*parent)->Files()[0], (*parent)->Files()[1], (*parent)->Files()[2]}};
-
-    (*child)
-        ->InitContext(TaskShell, reinterpret_cast<int64_t>(sh_desc))
-        .SetPID(pid)
-        .Wakeup();
-
-    return MAKE_ERROR(Error::kSuccess);
-}
-
 uint64_t TaskManager::FindTask(const char *command_line) {
     auto it = std::find_if(tasks_.begin(), tasks_.end(),
                            [command_line](const auto &t) {
@@ -275,15 +208,51 @@ Task *TaskManager::FindTask(uint64_t id) {
     return it->get();
 }
 
-void TaskManager::ExpandTaskBuffer(uint64_t id, uint32_t bytes) {
-    auto task = task_manager->FindTask(id);
-    task->buf_.resize(bytes);
+Error TaskManager::ExpandTaskBuffer(uint64_t id, uint32_t bytes) {
+    auto it = std::find_if(tasks_.begin(), tasks_.end(),
+                           [id](const auto &t) { return t->ID() == id; });
+    if (it == tasks_.end()) {
+        return MAKE_ERROR(Error::kNoSuchTask);
+    }
+    (*it)->buf_.resize(bytes);
+
+    return MAKE_ERROR(Error::kSuccess);
 }
 
+/**
+ * @brief タスクの持つバッファにコピーする
+ *
+ * @param id
+ * @param buf
+ * @param offset
+ * @param len
+ * @return int バッファの残りバイト数 エラーは-1
+ */
 int TaskManager::CopyToTaskBuffer(uint64_t id, void *buf, size_t offset,
                                   size_t len) {
-    auto task = task_manager->FindTask(id);
-    return task->CopyToBuffer(buf, offset, len);
+    auto it = std::find_if(tasks_.begin(), tasks_.end(),
+                           [id](const auto &t) { return t->ID() == id; });
+    if (it == tasks_.end()) {
+        return -1;
+    }
+
+    int remain_bytes = (*it)->buf_.size() - (offset + len);
+    if (remain_bytes < 0) {
+        return -1;
+    }
+    memcpy(&(*it)->buf_[offset], buf, len);
+
+    return remain_bytes;
+}
+
+Error TaskManager::StartTaskApp(uint64_t id, uint64_t am_id) {
+    auto it = std::find_if(tasks_.begin(), tasks_.end(),
+                           [id](const auto &t) { return t->ID() == id; });
+    if (it == tasks_.end()) {
+        return MAKE_ERROR(Error::kNoSuchTask);
+    }
+    (*it)->InitContext(TaskApp, am_id).Wakeup();
+    return MAKE_ERROR(Error::kSuccess);
 }
 
 void TaskManager::Finish(int exit_code) {

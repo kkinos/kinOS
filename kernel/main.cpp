@@ -82,43 +82,51 @@ extern "C" void KernelMainNewStack(
 
     InitializeSystemTask(volume_image);
 
+    Message smsg;
+    uint64_t rid;
+
     while (true) {
         __asm__("cli");
         const auto tick = timer_manager->CurrentTick();
         __asm__("sti");
 
         __asm__("cli");
-        auto msg = system_task.ReceiveMessage();
-        if (!msg) {
+        auto rmsg = system_task.ReceiveMessage();
+        if (!rmsg) {
             system_task.Sleep();
             __asm__("sti");
             continue;
         }
         __asm__("sti");
 
-        Message rmsg;
-        uint64_t rid;
-
-        switch (msg->type) {
+        /* システムタスクが処理するメッセージ */
+        switch (rmsg->type) {
             case Message::kInterruptXHCI:
                 usb::xhci::ProcessEvents();
                 break;
 
             case Message::kExpandTaskBuffer:
-                task_manager->ExpandTaskBuffer(msg->arg.expand.task_id,
-                                               msg->arg.expand.bytes);
-                rmsg.type = Message::kExpandTaskBuffer;
-                rmsg.src_task = 1;
+                task_manager->ExpandTaskBuffer(rmsg->arg.expand.id,
+                                               rmsg->arg.expand.bytes);
+                smsg.type = Message::kExpandTaskBuffer;
+                smsg.src_task = 1;
                 __asm__("cli");
-                task_manager->SendMessage(msg->src_task, rmsg);
+                task_manager->SendMessage(rmsg->src_task, smsg);
                 __asm__("sti");
 
-                printk("[ kinOS ] Expand task %d buffer\n",
-                       msg->arg.expand.task_id);
+                printk("[ kinOS ] expand buffer of task %d\n",
+                       rmsg->arg.expand.id);
+                break;
+
+            case Message::kExcute:
+                task_manager->StartTaskApp(rmsg->arg.execute.id,
+                                           rmsg->src_task);
+                printk("[ kinOS ] execute task %d\n", rmsg->arg.execute.id);
+
                 break;
 
             default:
-                printk("[ kinOS ] Unknown message type: %d\n", msg->type);
+                printk("[ kinOS ] Unknown message type: %d\n", rmsg->type);
         }
     }
 }

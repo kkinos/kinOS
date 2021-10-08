@@ -11,8 +11,8 @@
 #include <memory>
 #include <optional>
 
+#include "elf.hpp"
 #include "fat.hpp"
-#include "shell.hpp"
 #include "task.hpp"
 
 #define SECTOR_SIZE 512
@@ -29,6 +29,10 @@ void TaskServer(uint64_t task_id, int64_t data);
 
 WithError<int> ExecuteServer(fat::DirectoryEntry &file_entry, char *command,
                              char *first_arg);
+
+void TaskApp(uint64_t task_id, int64_t am_id);
+
+WithError<int> ExecuteApp(Elf64_Ehdr *elf_header, char *first_arg);
 
 extern uint8_t *v_image;
 

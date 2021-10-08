@@ -37,6 +37,8 @@ run:
 clean:
 		find kernel -name *.d | xargs rm
 		find kernel -name *.o | xargs rm
+		find libs -name *.d | xargs rm
+		find libs -name *.o | xargs rm
 		find servers -name *.d | xargs rm
 		find servers -name *.o | xargs rm
 		find apps -name *.o | xargs rm

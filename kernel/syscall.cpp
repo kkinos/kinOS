@@ -196,12 +196,11 @@ SYSCALL(MapFile) {
 SYSCALL(NewTask) { return {task_manager->NewTask().ID(), 0}; }
 
 SYSCALL(CopyToTaskBuffer) {
-    uint64_t target_task_id = arg1;
+    uint64_t id = arg1;
     void *buf = reinterpret_cast<void *>(arg2);
     size_t offset = arg3;
     size_t len = arg4;
-    int remain_bytes =
-        task_manager->CopyToTaskBuffer(target_task_id, buf, offset, len);
+    int remain_bytes = task_manager->CopyToTaskBuffer(id, buf, offset, len);
     if (remain_bytes == -1) {
         return {0, EFBIG};
     }
@@ -210,10 +209,10 @@ SYSCALL(CopyToTaskBuffer) {
 }
 
 SYSCALL(SetArgument) {
-    uint64_t target_task_id = arg1;
+    uint64_t id = arg1;
     char *arg = reinterpret_cast<char *>(arg2);
 
-    auto task = task_manager->FindTask(target_task_id);
+    auto task = task_manager->FindTask(id);
 
     if (task == nullptr) {
         return {0, ESRCH};
@@ -265,7 +264,7 @@ SYSCALL(OpenReceiveMessage) {
 SYSCALL(ClosedReceiveMessage) {
     const auto receive_message = reinterpret_cast<Message *>(arg1);
     const size_t len = arg2;
-    uint64_t target_task_id = arg3;
+    uint64_t target_id = arg3;
 
     __asm__("cli");
     auto &task = task_manager->CurrentTask();
@@ -285,7 +284,7 @@ SYSCALL(ClosedReceiveMessage) {
             break;
         }
 
-        if (msg->src_task != target_task_id) {
+        if (msg->src_task != target_id) {
             Message emsg;
             emsg.type = Message::Error;
             emsg.arg.error.retry = true;
@@ -307,7 +306,7 @@ SYSCALL(ClosedReceiveMessage) {
 
 SYSCALL(SendMessage) {
     const auto send_message = reinterpret_cast<Message *>(arg1);
-    uint64_t task_id = arg2;
+    uint64_t id = arg2;
 
     __asm__("cli");
     auto &task = task_manager->CurrentTask();
@@ -318,7 +317,7 @@ SYSCALL(SendMessage) {
     msg.src_task = task.ID();
 
     __asm__("cli");
-    task_manager->SendMessage(task_id, msg);
+    task_manager->SendMessage(id, msg);
     __asm__("sti");
 
     return {0, 0};

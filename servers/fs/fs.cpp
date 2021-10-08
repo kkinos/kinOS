@@ -270,7 +270,7 @@ extern "C" void main() {
 
     InitializeFat();
 
-    SyscallWriteKernelLog("[ fs ] Start\n");
+    SyscallWriteKernelLog("[ fs ] ready\n");
 
     auto [am_id, err] = SyscallFindServer("servers/am");
     if (err) {
@@ -377,7 +377,7 @@ extern "C" void main() {
 
                         uint64_t id = rmsg[0].arg.executefile.id;
                         smsg[0].type = Message::kExpandTaskBuffer;
-                        smsg[0].arg.expand.task_id = id;
+                        smsg[0].arg.expand.id = id;
                         smsg[0].arg.expand.bytes = file_entry->file_size;
 
                         SyscallSendMessage(smsg, 1);
@@ -413,6 +413,7 @@ extern "C" void main() {
                                             SyscallSendMessage(smsg, am_id);
                                             break;
                                         }
+
                                         ++p;
                                         ++offset;
                                     }

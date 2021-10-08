@@ -265,7 +265,7 @@ extern "C" void main() {
     PrintUserName(layer_id, "user@KinOS:\n");
     PrintUserName(layer_id, "$");
 
-    SyscallWriteKernelLog("[ terminal ] Start\n");
+    SyscallWriteKernelLog("[ terminal ] ready\n");
 
     while (true) {
         SyscallOpenReceiveMessage(rmsg, 1);

@@ -6,8 +6,16 @@ enum class LayerOperation { Move, MoveRelative, Draw, DrawArea };
 
 struct Message {
     enum Type {
+        /*--------------------------------------------------------------------------
+         * 共通したメッセージタイプ
+         *--------------------------------------------------------------------------
+         */
         Error,
         Ready,
+        /*--------------------------------------------------------------------------
+         * カーネルの機能を用いるために使われるメッセージタイプ
+         *--------------------------------------------------------------------------
+         */
         kInterruptXHCI,
         kTimerTimeout,
         kKeyPush,
@@ -18,6 +26,11 @@ struct Message {
         kWindowActive,
         kPipe,
         kExpandTaskBuffer,
+        kExcute,
+        /*--------------------------------------------------------------------------
+         * サーバ、アプリケーションに関するメッセージタイプ
+         *--------------------------------------------------------------------------
+         */
         aMouseMove,
         aKeyPush,
         aOpenWindow,
@@ -87,7 +100,13 @@ struct Message {
         } create;
 
         struct {
-            uint64_t task_id;
+            uint64_t id;
+            uint64_t p_id;
+            bool success;
+        } execute;
+
+        struct {
+            uint64_t id;
             uint32_t bytes;
         } expand;
 

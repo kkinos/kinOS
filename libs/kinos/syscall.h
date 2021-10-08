@@ -32,9 +32,9 @@ struct SyscallResult SyscallMapFile(int fd, size_t *file_size, int flags);
 
 struct SyscallResult SyscallNewTask();
 
-struct SyscallResult SyscallCopyToTaskBuffer(uint64_t target_task_id, void *buf,
+struct SyscallResult SyscallCopyToTaskBuffer(uint64_t id, void *buf,
                                              size_t offset, size_t len);
-struct SyscallResult SyscallSetArgument(uint64_t target_task_id, char *buf);
+struct SyscallResult SyscallSetArgument(uint64_t id, char *buf);
 /*--------------------------------------------------------------------------
  * プロセス間通信用システムコール
  *--------------------------------------------------------------------------
@@ -59,8 +59,8 @@ struct SyscallResult SyscallOpenReceiveMessage(struct Message *msg, size_t len);
  */
 struct SyscallResult SyscallClosedReceiveMessage(struct Message *msg,
                                                  size_t len,
-                                                 uint64_t target_task_id);
-struct SyscallResult SyscallSendMessage(struct Message *msg, uint64_t task_id);
+                                                 uint64_t target_id);
+struct SyscallResult SyscallSendMessage(struct Message *msg, uint64_t id);
 
 /*--------------------------------------------------------------------------
  * GUIサーバ用システムコール
