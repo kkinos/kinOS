@@ -193,7 +193,7 @@ SYSCALL(MapFile) {
     return {vaddr_begin, 0};
 }
 
-SYSCALL(NewTask) { return {task_manager->NewTask().ID(), 0}; }
+SYSCALL(CreateNewTask) { return {task_manager->NewTask().ID(), 0}; }
 
 SYSCALL(CopyToTaskBuffer) {
     uint64_t id = arg1;
@@ -223,8 +223,8 @@ SYSCALL(SetArgument) {
 }
 
 SYSCALL(FindServer) {
-    const char *command_line = reinterpret_cast<const char *>(arg1);
-    uint64_t task_id = task_manager->FindTask(command_line);
+    const char *name = reinterpret_cast<const char *>(arg1);
+    uint64_t task_id = task_manager->FindTask(name);
     if (task_id == 0) {
         return {0, ESRCH};
     }
@@ -333,12 +333,12 @@ SYSCALL(WritePixel) {
     return {0, 0};
 }
 
-SYSCALL(FrameBufferWitdth) {
+SYSCALL(GetFrameBufferWitdth) {
     uint64_t w = screen_writer->Width();
     return {w, 0};
 }
 
-SYSCALL(FrameBufferHeight) {
+SYSCALL(GetFrameBufferHeight) {
     uint64_t h = screen_writer->Height();
     return {h, 0};
 }
@@ -400,7 +400,7 @@ extern "C" std::array<SyscallFuncType *, 0x17> syscall_table{
     /* 0x06 */ syscall::ReadFile,
     /* 0x07 */ syscall::DemandPages,
     /* 0x08 */ syscall::MapFile,
-    /* 0x09 */ syscall::NewTask,
+    /* 0x09 */ syscall::CreateNewTask,
     /* 0x0a */ syscall::CopyToTaskBuffer,
     /* 0x0b */ syscall::SetArgument,
     /* 0x0c */ syscall::FindServer,
@@ -408,8 +408,8 @@ extern "C" std::array<SyscallFuncType *, 0x17> syscall_table{
     /* 0x0e */ syscall::ClosedReceiveMessage,
     /* 0x0f */ syscall::SendMessage,
     /* 0x10 */ syscall::WritePixel,
-    /* 0x11 */ syscall::FrameBufferWitdth,
-    /* 0x12 */ syscall::FrameBufferHeight,
+    /* 0x11 */ syscall::GetFrameBufferWitdth,
+    /* 0x12 */ syscall::GetFrameBufferHeight,
     /* 0x13 */ syscall::CopyToFrameBuffer,
     /* 0x14 */ syscall::ReadVolumeImage,
     /* 0x15 */ syscall::ReadKernelLog,

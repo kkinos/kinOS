@@ -1,7 +1,7 @@
 /**
  * @file system.hpp
  *
- * システムタスクの関数群
+ * functions of system task(kernel task)
  */
 
 #pragma once
@@ -17,12 +17,8 @@
 
 #define SECTOR_SIZE 512
 
-/**
- * @brief サーバーにわたす情報
- *
- */
 struct DataOfServer {
-    char *file_name;  // 実行するサーバーのファイル
+    char *file_name;
 };
 
 void TaskServer(uint64_t task_id, int64_t data);
@@ -41,9 +37,9 @@ void InitializeSystemTask(void *volume_image);
 void ReadImage(void *buf, size_t offset, size_t len);
 
 extern char klog_buf[1024];  // kernel log
-extern size_t klog_head;     // kernel logの読み込み始め
-extern size_t klog_tail;     // kernel logの読み込みおわり
-extern bool klog_changed;    // kernel logが変化したかどうか
+extern size_t klog_head;
+extern size_t klog_tail;
+extern bool klog_changed;
 
 void klog_write(char *s);
 

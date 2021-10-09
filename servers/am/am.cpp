@@ -10,7 +10,7 @@ extern "C" void main() {
     while (true) {
         SyscallOpenReceiveMessage(rmsg, 1);
 
-        /* カーネルからのメッセージ */
+        // message from kernel
         if (rmsg[0].src_task == 1) {
             if (rmsg[0].type == Message::kExcute) {
                 if (!rmsg[0].arg.execute.success) {
@@ -24,7 +24,7 @@ extern "C" void main() {
             }
         }
 
-        /* それ以外 */
+        // message from others
         else if (rmsg[0].type == Message::aExecuteFile) {
             uint64_t p_id = rmsg[0].src_task;
             char arg[32];
@@ -56,18 +56,15 @@ extern "C" void main() {
                         break;
                     }
                 } else if (rmsg[0].type == Message::aExecuteFile) {
-                    /* 指定されたファイルが存在しないかディレクトリであるとき */
                     if (!rmsg[0].arg.executefile.exist ||
                         rmsg[0].arg.executefile.directory) {
                         smsg[0] = rmsg[0];
                         SyscallSendMessage(smsg, p_id);
                         break;
                     }
-                    /* 指定されたファイルが実行可能であるとき */
+                    // the file exists, not a directory
                     else {
-                        SyscallWriteKernelLog("[ am ] create task\n");
-                        auto [id, err] =
-                            SyscallNewTask();  // 新しいタスクを生成
+                        auto [id, err] = SyscallCreateNewTask();
                         if (err) {
                             SyscallWriteKernelLog("[ am ] syscall Error\n");
                             smsg[0].type = Message::Error;
@@ -76,7 +73,9 @@ extern "C" void main() {
                             SyscallSendMessage(smsg, fs_id);
                             break;
                         }
-                        /* 新しいタスクのidをfsサーバに伝える */
+
+                        SyscallWriteKernelLog("[ am ] create task\n");
+
                         smsg[0] = rmsg[0];
                         smsg[0].arg.executefile.id = id;
                         SyscallSendMessage(smsg, fs_id);

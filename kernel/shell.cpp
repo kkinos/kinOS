@@ -436,8 +436,7 @@ WithError<int> Shell::ExecuteFile(fat::DirectoryEntry& file_entry, char* command
     if (err) {
         return { 0, err };
     }
-    
-    task.SetCommandLine(command);
+
     
     
 

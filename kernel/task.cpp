@@ -182,17 +182,10 @@ Error TaskManager::SendMessage(uint64_t id, const Message &msg) {
 
 Task &TaskManager::CurrentTask() { return *running_[current_level_].front(); }
 
-/**
- * @brief taskのcommand_line_から該当するタスクを探す 存在しない場合は0
- *
- * @param command_line
- * @return uint64_t
- */
-uint64_t TaskManager::FindTask(const char *command_line) {
-    auto it = std::find_if(tasks_.begin(), tasks_.end(),
-                           [command_line](const auto &t) {
-                               return t->GetCommandLine() == command_line;
-                           });
+uint64_t TaskManager::FindTask(const char *name) {
+    auto it = std::find_if(tasks_.begin(), tasks_.end(), [name](const auto &t) {
+        return t->GetName() == name;
+    });
 
     if (it == tasks_.end()) {
         return 0;
@@ -219,15 +212,6 @@ Error TaskManager::ExpandTaskBuffer(uint64_t id, uint32_t bytes) {
     return MAKE_ERROR(Error::kSuccess);
 }
 
-/**
- * @brief タスクの持つバッファにコピーする
- *
- * @param id
- * @param buf
- * @param offset
- * @param len
- * @return int バッファの残りバイト数 エラーは-1
- */
 int TaskManager::CopyToTaskBuffer(uint64_t id, void *buf, size_t offset,
                                   size_t len) {
     auto it = std::find_if(tasks_.begin(), tasks_.end(),

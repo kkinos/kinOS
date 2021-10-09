@@ -37,14 +37,13 @@ struct FileMapping {
     uint64_t vaddr_begin, vaddr_end;
 };
 
-/**
- * @brief タスク(プロセス)のクラス
- *
- */
 class Task {
    public:
     static const int kDefaultLevel = 1;
     static const size_t kDefaultStackBytes = 8 * 4096;
+
+    std::vector<uint8_t> buf_;
+    char arg_[32];
 
     Task(uint64_t id);
     Task& InitContext(TaskFunc* f, int64_t data);
@@ -68,21 +67,13 @@ class Task {
     int Level() const { return level_; }
     bool Running() const { return running_; }
 
-    Task& SetPID(uint64_t pid) {
-        pid_ = pid;
-        return *this;
-    }
-
-    void SetCommandLine(char* command_line) { command_line_ = command_line; }
-    std::string GetCommandLine() { return command_line_; }
-
-    std::vector<uint8_t> buf_;  // タスクバッファ
-    char arg_[32];
+    void SetName(char* name) { name_ = name; }
+    std::string GetName() { return name_; }
 
    private:
-    uint64_t id_;               // タスクのID
-    uint64_t pid_{0};           // 親タスクのID 親は0
-    std::string command_line_;  // 実行しているコマンド
+    uint64_t id_;
+    uint64_t pid_{0};
+    std::string name_;
 
     std::vector<uint64_t> stack_;
     alignas(16) TaskContext context_;
@@ -107,10 +98,6 @@ class Task {
     friend TaskManager;
 };
 
-/**
- * @brief タスクを管理するクラス
- *
- */
 class TaskManager {
    public:
     static const int kMaxLevel = 3;
@@ -131,8 +118,7 @@ class TaskManager {
 
     Task* FindTask(uint64_t id);
 
-    uint64_t FindTask(const char* command_line);
-    uint64_t NumOfTask() { return latest_id_; }  // タスクの数
+    uint64_t FindTask(const char* name);
 
     Error ExpandTaskBuffer(uint64_t id, uint32_t bytes);
     int CopyToTaskBuffer(uint64_t id, void* buf, size_t offset, size_t len);
@@ -140,7 +126,7 @@ class TaskManager {
     Error StartTaskApp(uint64_t id, uint64_t am_id);
 
    private:
-    std::vector<std::unique_ptr<Task>> tasks_{};  // タスクすべての配列
+    std::vector<std::unique_ptr<Task>> tasks_{};
     uint64_t latest_id_{0};
     std::array<std::deque<Task*>, kMaxLevel + 1> running_{};
     int current_level_{kMaxLevel};

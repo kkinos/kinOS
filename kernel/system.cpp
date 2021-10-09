@@ -9,7 +9,7 @@
 #include "shell.hpp"
 
 /*--------------------------------------------------------------------------
- * 実行ファイルを実行するための関数群
+ * functions to execute file
  *--------------------------------------------------------------------------
  */
 namespace {
@@ -82,11 +82,6 @@ uintptr_t GetFirstLoadAddress(Elf64_Ehdr *ehdr) {
 
 static_assert(kBytesPerFrame >= 4096);
 
-/**
- * @brief LOADセグメントを最終目的地にコピー
- * @param ehder ELFファイルのヘッダを指すポインタ
- *
- */
 WithError<uint64_t> CopyLoadSegments(Elf64_Ehdr *ehdr) {
     auto phdr = GetProgramHeader(ehdr);
     uint64_t last_addr = 0;
@@ -98,12 +93,10 @@ WithError<uint64_t> CopyLoadSegments(Elf64_Ehdr *ehdr) {
         last_addr = std::max(last_addr, phdr[i].p_vaddr + phdr[i].p_memsz);
         const auto num_4kpages = (phdr[i].p_memsz + 4095) / 4096;
 
-        /*後半のページマップを設定しておく*/
         if (auto err = SetupPageMaps(dest_addr, num_4kpages, false)) {
             return {last_addr, err};
         }
 
-        /*設定したページマップをもとにコピー*/
         const auto src = reinterpret_cast<uint8_t *>(ehdr) + phdr[i].p_offset;
         const auto dst = reinterpret_cast<uint8_t *>(phdr[i].p_vaddr);
         memcpy(dst, src, phdr[i].p_filesz);
@@ -150,16 +143,18 @@ Error FreePML4(Task &current_task) {
 }
 
 /**
- * @brief タスクのページング構造を設定し、LOADセグメントをメモリにコピーする
+ * @brief set up a paging structure for the task and copy the LOAD segment into
+ * memory
  *
  * @param file_entry
- * @param task サーバを実行しようとしているタスク
+ * @param task task for server
  * @return WithError<AppLoadInfo>
  */
 WithError<AppLoadInfo> LoadServer(fat::DirectoryEntry &file_entry, Task &task) {
     PageMapEntry *temp_pml4;
 
-    /*今のタスクのPML4を新たに設定する 前半はOS用 後半をアプリ用*/
+    // set up a new PML4. the first half is for OS the second half is for
+    // application
     if (auto [pml4, err] = SetupPML4(task); err) {
         return {{}, err};
     } else {
@@ -177,7 +172,6 @@ WithError<AppLoadInfo> LoadServer(fat::DirectoryEntry &file_entry, Task &task) {
         return {{}, MAKE_ERROR(Error::kInvalidFile)};
     }
 
-    /*なければページ構造の後半を設定しLOADセグメントをそこへ配置する*/
     auto [last_addr, err_load] = LoadELF(elf_header);
     if (err_load) {
         return {{}, err_load};
@@ -195,10 +189,10 @@ WithError<AppLoadInfo> LoadServer(fat::DirectoryEntry &file_entry, Task &task) {
 }
 
 /**
- * @brief LoadSererのアプリケーション版
+ * @brief
  *
  * @param elf_header
- * @param task アプリを実行したいタスク
+ * @param task task for application
  * @return WithError<AppLoadInfo>
  */
 WithError<AppLoadInfo> LoadApp(Elf64_Ehdr *elf_header, Task &task) {
@@ -217,7 +211,6 @@ WithError<AppLoadInfo> LoadApp(Elf64_Ehdr *elf_header, Task &task) {
         return {{}, MAKE_ERROR(Error::kInvalidFile)};
     }
 
-    /*なければページ構造の後半を設定しLOADセグメントをそこへ配置する*/
     auto [last_addr, err_load] = LoadELF(elf_header);
     if (err_load) {
         return {{}, err_load};
@@ -235,14 +228,6 @@ WithError<AppLoadInfo> LoadApp(Elf64_Ehdr *elf_header, Task &task) {
 }
 }  // namespace
 
-/**
- * @brief サーバーを実行する
- *
- * @param file_entry
- * @param command
- * @param first_arg
- * @return WithError<int>
- */
 WithError<int> ExecuteServer(fat::DirectoryEntry &file_entry, char *command,
                              char *first_arg) {
     __asm__("cli");
@@ -254,9 +239,8 @@ WithError<int> ExecuteServer(fat::DirectoryEntry &file_entry, char *command,
         return {0, err};
     }
 
-    task.SetCommandLine(command);
+    task.SetName(command);
 
-    /*サーバに渡す引数を予めメモリ上に確保しておきアプリからアクセスできるようにしておく*/
     LinearAddress4Level args_frame_addr{0xffff'ffff'ffff'f000};
     if (auto err = SetupPageMaps(args_frame_addr, 1)) {
         return {0, err};
@@ -272,14 +256,12 @@ WithError<int> ExecuteServer(fat::DirectoryEntry &file_entry, char *command,
         return {0, argc.error};
     }
 
-    /* サーバー用のスタック領域の確保 */
     const int stack_size = 16 * 4096;
     LinearAddress4Level stack_frame_addr{0xffff'ffff'ffff'f000 - stack_size};
     if (auto err = SetupPageMaps(stack_frame_addr, stack_size / 4096)) {
         return {0, err};
     }
 
-    /* デマンドページング用のアドレスを設定 */
     const uint64_t elf_next_page =
         (app_load.vaddr_end + 4095) & 0xffff'ffff'ffff'f000;
     task.SetDPagingBegin(elf_next_page);
@@ -301,12 +283,6 @@ WithError<int> ExecuteServer(fat::DirectoryEntry &file_entry, char *command,
     return {ret, FreePML4(task)};
 }
 
-/**
- * @brief サーバー用タスク
- *
- * @param task_id
- * @param data DataOfServerのポインタ
- */
 void TaskServer(uint64_t task_id, int64_t data) {
     const auto task_of_server_data = reinterpret_cast<DataOfServer *>(data);
 
@@ -338,7 +314,6 @@ WithError<int> ExecuteApp(Elf64_Ehdr *elf_header, char *first_arg) {
         return {0, err};
     }
 
-    /*サーバに渡す引数を予めメモリ上に確保しておきアプリからアクセスできるようにしておく*/
     LinearAddress4Level args_frame_addr{0xffff'ffff'ffff'f000};
     if (auto err = SetupPageMaps(args_frame_addr, 1)) {
         return {0, err};
@@ -354,14 +329,12 @@ WithError<int> ExecuteApp(Elf64_Ehdr *elf_header, char *first_arg) {
         return {0, argc.error};
     }
 
-    /* アプリ用のスタック領域の確保 */
     const int stack_size = 16 * 4096;
     LinearAddress4Level stack_frame_addr{0xffff'ffff'ffff'f000 - stack_size};
     if (auto err = SetupPageMaps(stack_frame_addr, stack_size / 4096)) {
         return {0, err};
     }
 
-    /* デマンドページング用のアドレスを設定 */
     const uint64_t elf_next_page =
         (app_load.vaddr_end + 4095) & 0xffff'ffff'ffff'f000;
     task.SetDPagingBegin(elf_next_page);
@@ -383,12 +356,6 @@ WithError<int> ExecuteApp(Elf64_Ehdr *elf_header, char *first_arg) {
     return {ret, FreePML4(task)};
 };
 
-/**
- * @brief アプリケーション用タスク
- * タスクのバッファから実行ファイルを読み取り実行する
- *
- * @param am_id Application Management サーバのid
- */
 void TaskApp(uint64_t task_id, int64_t am_id) {
     __asm__("cli");
     auto &task = task_manager->CurrentTask();
@@ -417,11 +384,6 @@ size_t klog_head;
 size_t klog_tail;
 bool klog_changed;
 
-/**
- * @brief いくつかのサーバをあらかじめ起動しておく
- *
- *
- */
 void InitializeSystemTask(void *volume_image) {
     v_image = reinterpret_cast<uint8_t *>(volume_image);
 
@@ -429,16 +391,14 @@ void InitializeSystemTask(void *volume_image) {
     klog_tail = 0;
     klog_changed = false;
 
-    /* OSサーバ */
     Task &os_task = task_manager->NewTask();
 
     auto os_server_data = new DataOfServer{
-        "servers/mikanos",  // ファイル
+        "servers/mikanos",
     };
     os_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(os_server_data))
-        .Wakeup();  // 起動
+        .Wakeup();
 
-    /* ターミナルサーバ */
     Task &terminal_task = task_manager->NewTask();
     auto terminal_server_data = new DataOfServer{
         "servers/terminal",
@@ -448,7 +408,6 @@ void InitializeSystemTask(void *volume_image) {
                      reinterpret_cast<uint64_t>(terminal_server_data))
         .Wakeup();
 
-    /* ファイルシステムサーバ */
     Task &fs_task = task_manager->NewTask();
     auto fs_server_data = new DataOfServer{
         "servers/fs",
@@ -456,7 +415,6 @@ void InitializeSystemTask(void *volume_image) {
     fs_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(fs_server_data))
         .Wakeup();
 
-    /* アプリケーションマネジメントサーバ */
     Task &am_task = task_manager->NewTask();
     auto am_server_data = new DataOfServer{
         "servers/am",
@@ -464,7 +422,6 @@ void InitializeSystemTask(void *volume_image) {
     am_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(am_server_data))
         .Wakeup();
 
-    /* ログサーバ */
     Task &log_task = task_manager->NewTask();
     auto log_server_data = new DataOfServer{
         "servers/log",
@@ -475,11 +432,11 @@ void InitializeSystemTask(void *volume_image) {
 }
 
 /**
- * @brief ブートローダによってボリュームされたイメージをbufにコピーする
+ * @brief Copy the image volumed by the bootloader to buf
  *
  * @param buf
- * @param offset
- * @param len
+ * @param offset 512bytes uint
+ * @param len 512bytes uint
  */
 void ReadImage(void *buf, size_t offset, size_t len) {
     uint8_t *src_buf = reinterpret_cast<uint8_t *>(buf);
@@ -489,11 +446,6 @@ void ReadImage(void *buf, size_t offset, size_t len) {
     memcpy(src_buf, v_image_start, num_sector);
 }
 
-/**
- * @brief kernel logに書き込む
- *
- * @param s
- */
 void klog_write(char *s) {
     int i = klog_head;
     if (klog_changed) {
@@ -510,13 +462,6 @@ void klog_write(char *s) {
     klog_changed = true;
 }
 
-/**
- * @brief kernel logを読む 返り値が0ならまだ読み込めていない部分がある
- *
- * @param buf
- * @param len
- * @return size_t
- */
 size_t klog_read(char *buf, size_t len) {
     size_t remaining = len;
     if (klog_head > klog_tail) {

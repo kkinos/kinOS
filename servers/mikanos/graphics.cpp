@@ -12,7 +12,7 @@ void FrameBufferWriter::Write(Vector2D<int> pos, const PixelColor& c) {
 }
 
 int FrameBufferWriter::Width() const {
-    auto [w, err] = SyscallFrameBufferWidth();
+    auto [w, err] = SyscallGetFrameBufferWidth();
     if (err) {
         return 0;
     }
@@ -21,7 +21,7 @@ int FrameBufferWriter::Width() const {
 }
 
 int FrameBufferWriter::Height() const {
-    auto [h, err] = SyscallFrameBufferHeight();
+    auto [h, err] = SyscallGetFrameBufferHeight();
     if (err) {
         return 0;
     }
@@ -87,13 +87,13 @@ void DrawDesktop(PixelWriter& writer) {
 }
 
 Vector2D<int> ScreenSize() {
-    auto [w, errw] = SyscallFrameBufferWidth();
+    auto [w, errw] = SyscallGetFrameBufferWidth();
     if (errw) {
         return {0, 0};
     }
     int width = static_cast<int>(w);
 
-    auto [h, errh] = SyscallFrameBufferHeight();
+    auto [h, errh] = SyscallGetFrameBufferHeight();
     if (errh) {
         return {0, 0};
     }

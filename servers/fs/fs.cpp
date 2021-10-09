@@ -122,8 +122,7 @@ Error InitializeFat() {
         return MAKE_ERROR(Error::sSyscallError);
     }
 
-    // FAT32のみ対応 TODO:他のFATへの対応
-    // ファイル操作に必要な容量を確保しておく
+    // supports only FAT32 TODO:supports other fat
     if (boot_volume_image.total_sectors_16 == 0) {
         fat = reinterpret_cast<uint32_t *>(fat_buf);
         fat_file = reinterpret_cast<uint32_t *>(
@@ -136,24 +135,22 @@ Error InitializeFat() {
 }
 
 unsigned long NextCluster(unsigned long cluster) {
-    // クラスタ番号がFATの何ブロック目にあるか
     unsigned long sector_offset =
         cluster / (boot_volume_image.bytes_per_sector / sizeof(uint32_t));
 
-    // 1ブロックだけ取得
+    // copy 1 block
     auto [ret, err] = SyscallReadVolumeImage(
         fat, boot_volume_image.reserved_sector_count + sector_offset, 1);
     if (err) {
         return 0;
     }
 
-    // ブロックの先頭から何番目にあるか
     cluster =
         cluster - ((boot_volume_image.bytes_per_sector / sizeof(uint32_t)) *
                    sector_offset);
     uint32_t next = fat[cluster];
 
-    // クラスタチェーンの終わり
+    // end of cluster chain
     if (next >= 0x0ffffff8ul) {
         return 0x0ffffffflu;
     }
@@ -322,14 +319,13 @@ extern "C" void main() {
             }
         }
 
-        // amサーバからファイル実行のメッセージが来たとき
+        // message from am server
         if (rmsg[0].type == Message::aExecuteFile &&
             rmsg[0].src_task == am_id) {
             const char *path = rmsg[0].arg.executefile.filename;
 
             auto [file_entry, post_slash] = FindFile(path);
 
-            // 指定されたファイルが無いとき
             if (!file_entry) {
                 PrintToTerminal(layer_id, "no such file or directory\n");
                 smsg[0] = rmsg[0];
@@ -338,7 +334,6 @@ extern "C" void main() {
                 SyscallSendMessage(smsg, rmsg[0].src_task);
             }
 
-            // 指定されたファイルがディレクトリのとき
             else if (file_entry->attr == Attribute::kDirectory) {
                 PrintToTerminal(layer_id, "this is directory\n");
                 smsg[0] = rmsg[0];
@@ -347,9 +342,8 @@ extern "C" void main() {
                 SyscallSendMessage(smsg, rmsg[0].src_task);
             }
 
-            // 指定されたファイルがあるとき
+            // the file exists and not a directory
             else {
-                // amサーバに新しいタスクを作成させる
                 PrintToTerminal(layer_id, "%s exists\n", path);
                 smsg[0] = rmsg[0];
                 smsg[0].arg.executefile.exist = true;
@@ -369,9 +363,8 @@ extern "C" void main() {
                             break;
                         }
                     }
-
-                    // 新しいタスクのidを用いてタスクバッファを拡大する
-                    else if (rmsg[0].type == Message::aExecuteFile) {
+                    // message to kernel to expand task buffer
+                    if (rmsg[0].type == Message::aExecuteFile) {
                         PrintToTerminal(layer_id, "New Task ID is %d\n",
                                         rmsg[0].arg.executefile.id);
 
@@ -385,7 +378,7 @@ extern "C" void main() {
                         while (true) {
                             SyscallClosedReceiveMessage(rmsg, 1, 1);
 
-                            // タスクバッファに実行ファイルの内容をコピー
+                            // copy file to task buffer
                             if (rmsg[0].type == Message::kExpandTaskBuffer) {
                                 auto cluster = file_entry->FirstCluster();
                                 auto remain_bytes = file_entry->file_size;
@@ -420,7 +413,7 @@ extern "C" void main() {
                                     remain_bytes -= i;
                                     cluster = NextCluster(cluster);
                                 }
-                                // amサーバにコピーが完了したことを伝える
+
                                 smsg[0].type = Message::Ready;
                                 SyscallSendMessage(smsg, am_id);
                                 break;

@@ -1,7 +1,7 @@
 /**
  * @file mikanos.cpp
  *
- * MikanOS版のOSサーバー
+ *
  */
 
 #include <cmath>

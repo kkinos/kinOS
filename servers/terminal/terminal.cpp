@@ -66,7 +66,7 @@ void Print(uint64_t layer_id, const char *s, std::optional<size_t> len) {
     DrawCursor(layer_id, true);
 }
 
-void PrintUserName(uint64_t layer_id, char c) {
+void PrintInGreen(uint64_t layer_id, char c) {
     auto newline = [layer_id]() {
         cursorx = 0;
         if (cursory < kRows - 1) {
@@ -90,24 +90,23 @@ void PrintUserName(uint64_t layer_id, char c) {
     }
 }
 
-void PrintUserName(uint64_t layer_id, const char *s,
-                   std::optional<size_t> len) {
+void PrintInGreen(uint64_t layer_id, const char *s, std::optional<size_t> len) {
     DrawCursor(layer_id, false);
     if (len) {
         for (size_t i = 0; i < *len; ++i) {
-            PrintUserName(layer_id, *s);
+            PrintInGreen(layer_id, *s);
             ++s;
         }
     } else {
         while (*s) {
-            PrintUserName(layer_id, *s);
+            PrintInGreen(layer_id, *s);
             ++s;
         }
     }
     DrawCursor(layer_id, true);
 }
 
-int PrintToTerminal(uint64_t layer_id, const char *format, ...) {
+int PrintT(uint64_t layer_id, const char *format, ...) {
     va_list ap;
     int result;
     char s[128];
@@ -137,8 +136,8 @@ Rectangle<int> InputKey(uint64_t layer_id, uint8_t modifier, uint8_t keycode,
         }
 
         ExecuteLine(layer_id);
-        PrintUserName(layer_id, "user@KinOS:\n");
-        PrintUserName(layer_id, "$");
+        PrintInGreen(layer_id, "user@KinOS:\n");
+        PrintInGreen(layer_id, "$");
     } else if (ascii == '\b') {
         if (cursorx > 0) {
             --cursorx;
@@ -168,18 +167,12 @@ void ExecuteLine(uint64_t layer_id) {
     char *command = &linebuf_[0];
 
     if (strcmp(command, "help") == 0) {
-        PrintToTerminal(layer_id, "help!\n");
+        PrintT(layer_id, "help!\n");
     } else {
         ExecuteFile(layer_id);
     }
-    // kexec(command);
 }
 
-/**
- * @brief ファイルを実行する
- *
- * @param layer_id
- */
 void ExecuteFile(uint64_t layer_id) {
     char *command = &linebuf_[0];
     char *first_arg = strchr(&linebuf_[0], ' ');
@@ -188,11 +181,9 @@ void ExecuteFile(uint64_t layer_id) {
         ++first_arg;
     }
 
-    // amサーバを探す
     auto [am_id, err] = SyscallFindServer("servers/am");
     if (err) {
-        PrintToTerminal(layer_id,
-                        "cannot find application management server\n");
+        PrintT(layer_id, "cannot find application management server\n");
         return;
     }
 
@@ -203,7 +194,7 @@ void ExecuteFile(uint64_t layer_id) {
     int i = 0;
     while (*command) {
         if (i > 14) {
-            PrintToTerminal(layer_id, "too long file name\n");
+            PrintT(layer_id, "too long file name\n");
             return;
         }
         smsg[0].arg.executefile.filename[i] = *command;
@@ -216,7 +207,7 @@ void ExecuteFile(uint64_t layer_id) {
         i = 0;
         while (*first_arg) {
             if (i > 30) {
-                PrintToTerminal(layer_id, "too long argument\n");
+                PrintT(layer_id, "too long argument\n");
                 return;
             }
             smsg[0].arg.executefile.arg[i] = *first_arg;
@@ -234,19 +225,18 @@ void ExecuteFile(uint64_t layer_id) {
             if (rmsg[0].arg.error.retry) {
                 SyscallSendMessage(smsg, am_id);
             } else {
-                PrintToTerminal(layer_id, "Error at other server\n");
+                PrintT(layer_id, "Error at other server\n");
                 return;
             }
         }
         if (rmsg[0].type == Message::aExecuteFile) {
-            // 指定されたファイルが存在しない
             if (!rmsg[0].arg.executefile.exist) {
-                PrintToTerminal(layer_id, "no such file\n");
+                PrintT(layer_id, "no such file\n");
                 return;
             }
-            // 指定されたファイルがディレクトリ
+
             if (rmsg[0].arg.executefile.directory) {
-                PrintToTerminal(layer_id, "this is directory\n");
+                PrintT(layer_id, "this is directory\n");
                 return;
             }
         }
@@ -262,8 +252,8 @@ extern "C" void main() {
 
     WinFillRectangle(layer_id, true, Marginx, Marginy, kCanvasWidth,
                      kCanvasHeight, 0);
-    PrintUserName(layer_id, "user@KinOS:\n");
-    PrintUserName(layer_id, "$");
+    PrintInGreen(layer_id, "user@KinOS:\n");
+    PrintInGreen(layer_id, "$");
 
     SyscallWriteKernelLog("[ terminal ] ready\n");
 

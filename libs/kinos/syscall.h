@@ -30,94 +30,50 @@ struct SyscallResult SyscallReadFile(int fd, void *buf, size_t count);
 struct SyscallResult SyscallDemandPages(size_t num_pages, int flags);
 struct SyscallResult SyscallMapFile(int fd, size_t *file_size, int flags);
 
-struct SyscallResult SyscallNewTask();
+struct SyscallResult SyscallCreateNewTask();
 
 struct SyscallResult SyscallCopyToTaskBuffer(uint64_t id, void *buf,
                                              size_t offset, size_t len);
 struct SyscallResult SyscallSetArgument(uint64_t id, char *buf);
+
 /*--------------------------------------------------------------------------
- * プロセス間通信用システムコール
+ * system calls for ipc
  *--------------------------------------------------------------------------
  */
 
-/**
- * @brief オープン受信 どこからのメッセージも受け取る
- *
- * @param msg
- * @param len
- * @return struct SyscallResult
- */
 struct SyscallResult SyscallOpenReceiveMessage(struct Message *msg, size_t len);
-
-/**
- * @brief クローズド受信 指定されたタスク以外のメッセージにはType Errorを返す
- *
- * @param msg
- * @param len
- * @param target_task_id
- * @return struct SyscallResult
- */
 struct SyscallResult SyscallClosedReceiveMessage(struct Message *msg,
                                                  size_t len,
                                                  uint64_t target_id);
 struct SyscallResult SyscallSendMessage(struct Message *msg, uint64_t id);
 
 /*--------------------------------------------------------------------------
- * GUIサーバ用システムコール
+ * system calls for GUI
  *--------------------------------------------------------------------------
  */
+
 struct SyscallResult SyscallWritePixel(int x, int y, int r, int g, int b);
-struct SyscallResult SyscallFrameBufferWidth();
-struct SyscallResult SyscallFrameBufferHeight();
+struct SyscallResult SyscallGetFrameBufferWidth();
+struct SyscallResult SyscallGetFrameBufferHeight();
 struct SyscallResult SyscallCopyToFrameBuffer(const uint8_t *src_buf,
                                               int start_x, int start_y,
                                               int bytes_per_copy_line);
 
 /*--------------------------------------------------------------------------
- * ファイルシステムサーバ用システムコール
+ * system calls for file system server
  *--------------------------------------------------------------------------
  */
 
-/**
- * @brief
- * ブートローダによってボリュームされたイメージを指定されたものにコピーする
- *
- * @param buf コピーさせたいもののアドレス
- * @param offset 512バイトを単位とする
- * @param len 512バイトを単位とする
- * @return struct SyscallResult
- */
 struct SyscallResult SyscallReadVolumeImage(void *buf, size_t offset,
                                             size_t len);
 
 /*--------------------------------------------------------------------------
- * すべてのサーバ用システムコール
+ * common system calls for servers
  *--------------------------------------------------------------------------
  */
 
-/**
- * @brief command_lineで指定された名前のサーバを探す
- *
- * @param command_line
- * @return struct SyscallResult
- */
-struct SyscallResult SyscallFindServer(const char *command_line);
-
-/**
- * @brief kernel logを読み込む
- *
- * @param buf
- * @param len
- * @return struct SyscallResult
- */
+struct SyscallResult SyscallFindServer(const char *name);
 struct SyscallResult SyscallReadKernelLog(char *buf, size_t len);
-
-/**
- * @brief kernel logに書き込む
- *
- * @param buf
- * @return struct SyscallResult
- */
 struct SyscallResult SyscallWriteKernelLog(char *buf);
 
 #ifdef __cplusplus

@@ -60,8 +60,7 @@ extern "C" void KernelMainNewStack(
     acpi::Initialize(acpi_table);
     InitializeLAPICTimer();
 
-    /* 画面領域の設定 */
-    InitializeGraphics(frame_buffer_config_ref);
+        InitializeGraphics(frame_buffer_config_ref);
     screen = new FrameBuffer;
     screen->Initialize(screen_config);
 
@@ -70,7 +69,7 @@ extern "C" void KernelMainNewStack(
     InitializeTask();
 
     Task& system_task = task_manager->CurrentTask();
-    system_task.SetCommandLine("systemtask");
+    system_task.SetName("systemtask");
 
     usb::xhci::Initialize();
     InitializeKeyboard();
@@ -99,7 +98,6 @@ extern "C" void KernelMainNewStack(
         }
         __asm__("sti");
 
-        /* システムタスクが処理するメッセージ */
         switch (rmsg->type) {
             case Message::kInterruptXHCI:
                 usb::xhci::ProcessEvents();
