@@ -1,18 +1,22 @@
 # kinOS
 
-## ビルド方法
+kinOS is a microkernel-like operating system based on [MikanOS](https://github.com/uchan-nos/mikanos).
 
-### EDK2 をクローンする
+## Build
 
-`tools/`ディレクトリ内で
+The tools required for building are the same as for [MikanOS](https://github.com/uchan-nos/mikanos)
+
+### Clone EDK2
+
+In `tools/`
 
 ```bash
 git clone https://github.com/tianocore/edk2.git -b edk2-stable202102
 ```
 
-### 環境変数設定
+### Setting
 
-`edk2/`ディレクトリ内で
+In `edk2/`
 
 ```bash
 git submodule update --init
@@ -26,50 +30,34 @@ make -C BaseTools/Source/C
 source edksetup.sh
 ```
 
-### Conf/target.txt を編集
+### Edit Conf/target.txt
 
-| 設定項目        | 設定値                        |
+| item            | value                         |
 | --------------- | ----------------------------- |
 | ACTIVE_PLATFORM | kinLoaderPkg/kinLoaderPkg.dsc |
 | TARGET          | DEBUG                         |
 | TARGET_ARCH     | X64                           |
 | TOOL_CHAIN_TAG  | CLANG38                       |
 
-### ブートローダーのリンクを貼る
+### Make a symbolic link
 
-`edk2/`ディレクトリで
+In `edk2/`
 
 ```bash
 ln -s /path/to/kinos/kinLoaderPkg ./
 
 ```
 
-### カーネルとブートローダーをビルドする
-
-ルートディレクトリ内で
-
-```bash
-make build
-```
-
-## QEMU で起動
-
-ルートディレクトリ内で
-
-```bash
-make run
-```
-
-## ビルドして起動
-
-ルートディレクトリ内で
+### Build and run
 
 ```bash
 make
 ```
 
-## 参考
+## Reference
+
+- 『ゼロからの OS 自作入門』マイナビ出版 内田公太 (2021)
 - [MikanOS](https://github.com/uchan-nos/mikanos)
 - [SaintOS](https://github.com/rkarsnk/SaintOS)
-- [フルスクラッチで作る!x86_64自作OS](http://yuma.ohgami.jp/x86_64-Jisaku-OS/index.html)
+- [フルスクラッチで作る!x86_64 自作 OS](http://yuma.ohgami.jp/x86_64-Jisaku-OS/index.html)
 - [EDK2](https://github.com/tianocore/edk2)
