@@ -179,7 +179,7 @@ bool Sleep(unsigned long ms) {
         SyscallOpenReceiveMessage(msg, 1);
         if (msg[0].type == Message::kTimerTimeout) {
             return false;
-        } else if (msg[0].type == Message::aQuit) {
+        } else if (msg[0].type == Message::kQuit) {
             return true;
         }
     }

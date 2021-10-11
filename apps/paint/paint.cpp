@@ -20,16 +20,16 @@ extern "C" void main(int argc, char** argv) {
     bool press = false;
     while (true) {
         SyscallOpenReceiveMessage(msg, 1);
-        if (msg[0].type == Message::aQuit) {
+        if (msg[0].type == Message::kQuit) {
             break;
-        } else if (msg[0].type == Message::aMouseMove) {
+        } else if (msg[0].type == Message::kMouseMove) {
             auto& arg = msg[0].arg.mouse_move;
             const auto prev_x = arg.x - arg.dx, prev_y = arg.y - arg.dy;
             if (press && IsInside(prev_x, prev_y) && IsInside(arg.x, arg.y)) {
                 WinDrawLine(layer_id, true, prev_x, prev_y, arg.x, arg.y,
                             0x000000);
             }
-        } else if (msg[0].type == Message::aMouseButton) {
+        } else if (msg[0].type == Message::kMouseButton) {
             auto& arg = msg[0].arg.mouse_button;
             if (arg.button == 0) {
                 press = arg.press;

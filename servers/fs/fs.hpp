@@ -25,8 +25,8 @@ const int kLineMax = 128;
 int linebuf_index_{0};
 Vector2D<int> kTopLeftMargin = {4, 24};
 
-Message smsg[1];
-Message rmsg[1];
+Message sent_message[1];
+Message received_message[1];
 
 Vector2D<int> CalcCursorPos();
 void DrawCursor(uint64_t layer_id, bool visible);
@@ -105,51 +105,24 @@ char fat_buf[SECTOR_SIZE];
 uint32_t *fat;
 uint32_t *fat_file;
 
-/**
- * @brief ファイルサーバの最初の処理
- * BPBを読み取りファイル操作に必要な容量を確保する
- *
- * @return Error
- */
 Error InitializeFat();
 
-/**
- * @brief クラスタ番号を受け取りFATを読んで次のクラスタ番号を取得 エラーは0
- *
- * @param cluster
- * @return unsigned long
- */
 unsigned long NextCluster(unsigned long cluster);
 
-/**
- * @brief クラスタ番号から該当するクラスタを読む エラーはnullptr
- *
- * @param cluster
- * @return uint32_t*
- */
 uint32_t *ReadCluster(unsigned long cluster);
 
-/**
- * @brief path文字列を先頭から/で区切ってpath_elemにコピー
- *
- * @param path
- * @param path_elem
- * @return std::pair<const char *, bool>
- */
 std::pair<const char *, bool> NextPathElement(const char *path,
                                               char *path_elem);
 
-/**
- * @brief 名前と一致するファイルを探し、なければnullptrを返す
- *
- * @param path
- * @param directory_cluster
- * デフォルトで0になっていて0の場合はルートディレクトリを探す
- * @return std::pair<DirectoryEntry *, bool>
- */
 std::pair<DirectoryEntry *, bool> FindFile(const char *path,
                                            unsigned long directory_cluster = 0);
 
 bool NameIsEqual(const DirectoryEntry &entry, const char *name);
 
 void ReadName(DirectoryEntry &root_dir, char *base, char *ext);
+
+void ProcessAccordingToMessage(Message *msg, uint64_t am_id);
+
+void ExpandTaskBuffer(uint64_t am_id, DirectoryEntry *file_entry);
+
+void CopyToTaskBuffer(uint64_t id, uint64_t am_id, DirectoryEntry *file_entry);

@@ -109,9 +109,9 @@ extern "C" void main(int argc, char** argv) {
             SyscallOpenReceiveMessage(msg, 1);
             if (msg[0].type == Message::kTimerTimeout) {
                 break;
-            } else if (msg[0].type == Message::aQuit) {
+            } else if (msg[0].type == Message::kQuit) {
                 goto fin;
-            } else if (msg[0].type == Message::aKeyPush) {
+            } else if (msg[0].type == Message::kKeyPush) {
                 if (!msg[0].arg.keyboard.press) {  // release
                     move_dir = 0;
                 } else {

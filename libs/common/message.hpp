@@ -10,19 +10,16 @@ struct Message {
          * common message types
          *--------------------------------------------------------------------------
          */
-        Error,
-        Ready,
+        kError,
+        kReady,
         /*--------------------------------------------------------------------------
          * message types to use kernel functions
          *--------------------------------------------------------------------------
          */
         kInterruptXHCI,
         kTimerTimeout,
-        kKeyPush,
         kLayer,
         kLayerFinish,
-        kMouseMove,
-        kMouseButton,
         kWindowActive,
         kPipe,
         kExpandTaskBuffer,
@@ -31,21 +28,21 @@ struct Message {
          * message types for servers and applications
          *--------------------------------------------------------------------------
          */
-        aMouseMove,
-        aKeyPush,
-        aOpenWindow,
-        aLayerId,
-        aWinFillRectangle,
-        aWinWriteChar,
-        aWinRedraw,
-        aQuit,
-        aCloseWindow,
-        aMouseButton,
-        aWinDrawLine,
-        aWinMoveRec,
-        aFindFile,
-        aCreateTask,
-        aExecuteFile,
+        kMouseMove,
+        kKeyPush,
+        kOpenWindow,
+        kLayerId,
+        kWinFillRectangle,
+        kWinWriteChar,
+        kWinRedraw,
+        kQuit,
+        kCloseWindow,
+        kMouseButton,
+        kWinDrawLine,
+        kWinMoveRec,
+        kFindFile,
+        kCreateTask,
+        kExecuteFile,
     } type;
 
     uint64_t src_task;

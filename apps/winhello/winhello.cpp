@@ -17,7 +17,7 @@ extern "C" void main(int argc, char** argv) {
     Message msg[1];
     while (true) {
         SyscallOpenReceiveMessage(msg, 1);
-        if (msg[0].type == Message::aQuit) {
+        if (msg[0].type == Message::kQuit) {
             break;
         } else {
             printf("unknown event: type = %d\n", msg[0].type);

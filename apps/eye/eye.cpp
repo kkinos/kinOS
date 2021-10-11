@@ -36,9 +36,9 @@ extern "C" void main(int argc, char** argv) {
     Message msg[1];
     while (true) {
         SyscallOpenReceiveMessage(msg, 1);
-        if (msg[0].type == Message::aQuit) {
+        if (msg[0].type == Message::kQuit) {
             break;
-        } else if (msg[0].type == Message::aMouseMove) {
+        } else if (msg[0].type == Message::kMouseMove) {
             auto& arg = msg[0].arg.mouse_move;
             WinFillRectangle(layer_id, false, 4, 24, kCanvasSize, kCanvasSize,
                              0xffffff);

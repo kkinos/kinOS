@@ -38,7 +38,7 @@ void SendMouseMessage(Vector2D<int> newpos, Vector2D<int> posdiff,
     }
     const auto relpos = newpos - layer->GetPosition();
     if (posdiff.x != 0 || posdiff.y != 0) {
-        Message msg{Message::aMouseMove};
+        Message msg{Message::kMouseMove};
         msg.arg.mouse_move.x = relpos.x;
         msg.arg.mouse_move.y = relpos.y;
         msg.arg.mouse_move.dx = posdiff.x;
@@ -51,7 +51,7 @@ void SendMouseMessage(Vector2D<int> newpos, Vector2D<int> posdiff,
         const auto diff = previous_buttons ^ buttons;
         for (int i = 0; i < 8; ++i) {
             if ((diff >> i) & 1) {
-                Message msg{Message::aMouseButton};
+                Message msg{Message::kMouseButton};
                 msg.arg.mouse_button.x = relpos.x;
                 msg.arg.mouse_button.y = relpos.y;
                 msg.arg.mouse_button.press = (buttons >> i) & 1;

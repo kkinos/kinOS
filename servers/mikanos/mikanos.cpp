@@ -29,7 +29,7 @@ void InitializeMainWindow() {
                                .Move({300, 100})
                                .ID();
     WriteString(*main_window->InnerWriter(), {0, 0}, "Welcome to", {0, 0, 0});
-    WriteString(*main_window->InnerWriter(), {16, 16}, "MikanOS world!",
+    WriteString(*main_window->InnerWriter(), {16, 16}, "kinOS world!",
                 {0, 0, 0});
 
     window_layer_id.push_back(main_window_layer_id);
@@ -47,8 +47,8 @@ void PrintMessage() {
     printk("###   ###      ###     ###    ###   ###     ###  ###     ### \n");
     printk("###    ###     ###     ###    ###     #######      #######   \n");
     printk("\n");
-    printk("Ver.M\n");
-    printk("@ 2021 kinpoko\n");
+    printk("\n");
+    printk("\n");
     printk("\n");
 }
 
@@ -71,10 +71,10 @@ extern "C" int main() {
             printk("Receive message failed: %s\n", strerror(err));
         }
 
-        if (msg[0].type == Message::aMouseMove) {
+        if (msg[0].type == Message::kMouseMove) {
             auto& arg = msg[0].arg.mouse_move;
             mouse->OnInterrupt(arg.buttons, arg.dx, arg.dy);
-        } else if (msg[0].type == Message::aKeyPush) {
+        } else if (msg[0].type == Message::kKeyPush) {
             if (msg[0].arg.keyboard.ascii == '\t') {
                 if (msg[0].arg.keyboard.press) {
                     auto act_id = active_layer->GetActive();
@@ -100,7 +100,7 @@ extern "C" int main() {
                 if (task_it != layer_task_map->end()) {
                     if (msg[0].arg.keyboard.keycode == 20 /* Q key */ &&
                         msg[0].arg.keyboard.modifier & (1 | 16)) {
-                        Message rmsg{Message::aQuit};
+                        Message rmsg{Message::kQuit};
                         SyscallSendMessage(&rmsg, task_it->second);
                     } else {
                         SyscallSendMessage(&msg[0], task_it->second);
@@ -112,7 +112,7 @@ extern "C" int main() {
                 }
             }
 
-        } else if (msg[0].type == Message::aOpenWindow) {
+        } else if (msg[0].type == Message::kOpenWindow) {
             auto& arg = msg[0].arg.openwindow;
             const auto task_id = msg[0].src_task;
             const auto win = std::make_shared<ToplevelWindow>(arg.w, arg.h, "");
@@ -125,13 +125,13 @@ extern "C" int main() {
             active_layer->Activate(layer_id);
             window_layer_id.push_back(layer_id);
 
-            Message rmsg{Message::aLayerId};
+            Message rmsg{Message::kLayerId};
             rmsg.arg.layerid.layerid = layer_id;
             SyscallSendMessage(&rmsg, task_id);
 
             layer_task_map->insert(std::make_pair(layer_id, task_id));
 
-        } else if (msg[0].type == Message::aWinFillRectangle) {
+        } else if (msg[0].type == Message::kWinFillRectangle) {
             auto& arg = msg[0].arg.winfillrectangle;
             auto layer = layer_manager->FindLayer(arg.layer_id);
             if (layer == nullptr) {
@@ -142,7 +142,7 @@ extern "C" int main() {
             if (msg[0].arg.winfillrectangle.draw) {
                 layer_manager->Draw(arg.layer_id);
             }
-        } else if (msg[0].type == Message::aWinWriteChar) {
+        } else if (msg[0].type == Message::kWinWriteChar) {
             auto& arg = msg[0].arg.winwritechar;
             auto layer = layer_manager->FindLayer(arg.layer_id);
             if (layer == nullptr) {
@@ -153,7 +153,7 @@ extern "C" int main() {
             if (arg.draw) {
                 layer_manager->Draw(arg.layer_id);
             }
-        } else if (msg[0].type == Message::aWinDrawLine) {
+        } else if (msg[0].type == Message::kWinDrawLine) {
             auto sign = [](int x) { return (x > 0) ? 1 : (x < 0) ? -1 : 0; };
             auto& arg = msg[0].arg.windrawline;
             auto layer = layer_manager->FindLayer(arg.layer_id);
@@ -200,7 +200,7 @@ extern "C" int main() {
                 layer_manager->Draw(arg.layer_id);
             }
 
-        } else if (msg[0].type == Message::aWinMoveRec) {
+        } else if (msg[0].type == Message::kWinMoveRec) {
             auto& arg = msg[0].arg.winmoverec;
             auto layer = layer_manager->FindLayer(arg.layer_id);
             if (layer == nullptr) {
@@ -214,10 +214,10 @@ extern "C" int main() {
                 layer_manager->Draw(arg.layer_id);
             }
 
-        } else if (msg[0].type == Message::aWinRedraw) {
+        } else if (msg[0].type == Message::kWinRedraw) {
             auto& arg = msg[0].arg.layerid;
             layer_manager->Draw(arg.layerid);
-        } else if (msg[0].type == Message::aCloseWindow) {
+        } else if (msg[0].type == Message::kCloseWindow) {
             auto& arg = msg[0].arg.layerid;
             auto layer = layer_manager->FindLayer(arg.layerid);
             if (layer == nullptr) {
@@ -231,6 +231,4 @@ extern "C" int main() {
             layer_task_map->erase(arg.layerid);
         }
     }
-
-    exit(0);
 }

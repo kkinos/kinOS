@@ -187,7 +187,7 @@ void ExecuteFile(uint64_t layer_id) {
         return;
     }
 
-    smsg[0].type = Message::aExecuteFile;
+    smsg[0].type = Message::kExecuteFile;
     smsg[0].arg.executefile.exist = false;
     smsg[0].arg.executefile.directory = false;
 
@@ -221,24 +221,28 @@ void ExecuteFile(uint64_t layer_id) {
     while (true) {
         SyscallClosedReceiveMessage(rmsg, 1, am_id);
 
-        if (rmsg[0].type == Message::Error) {
-            if (rmsg[0].arg.error.retry) {
-                SyscallSendMessage(smsg, am_id);
-            } else {
-                PrintT(layer_id, "Error at other server\n");
-                return;
-            }
-        }
-        if (rmsg[0].type == Message::aExecuteFile) {
-            if (!rmsg[0].arg.executefile.exist) {
-                PrintT(layer_id, "no such file\n");
-                return;
-            }
+        switch (rmsg[0].type) {
+            case Message::kError:
+                if (rmsg[0].arg.error.retry) {
+                    SyscallSendMessage(smsg, am_id);
+                    break;
+                } else {
+                    PrintT(layer_id, "error at other server\n");
+                    return;
+                }
 
-            if (rmsg[0].arg.executefile.directory) {
-                PrintT(layer_id, "this is directory\n");
-                return;
-            }
+            case Message::kExecuteFile:
+                if (!rmsg[0].arg.executefile.exist) {
+                    PrintT(layer_id, "no such file\n");
+                    return;
+                }
+                if (rmsg[0].arg.executefile.directory) {
+                    PrintT(layer_id, "this is directory\n");
+                    return;
+                }
+            default:
+                PrintT(layer_id, "Unknown message type: %d\n", rmsg[0].type);
+                break;
         }
     }
 }
@@ -260,7 +264,7 @@ extern "C" void main() {
     while (true) {
         SyscallOpenReceiveMessage(rmsg, 1);
 
-        if (rmsg[0].type == Message::aKeyPush) {
+        if (rmsg[0].type == Message::kKeyPush) {
             if (rmsg[0].arg.keyboard.press) {
                 const auto area = InputKey(
                     layer_id, rmsg[0].arg.keyboard.modifier,

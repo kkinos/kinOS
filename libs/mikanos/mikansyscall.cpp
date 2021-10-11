@@ -5,7 +5,7 @@ int OpenWindow(int w, int h, int x, int y) {
     if (err) {
         return -1;
     } else {
-        Message msg{Message::aOpenWindow};
+        Message msg{Message::kOpenWindow};
         msg.arg.openwindow.w = w;
         msg.arg.openwindow.h = h;
         msg.arg.openwindow.x = x;
@@ -18,7 +18,7 @@ int OpenWindow(int w, int h, int x, int y) {
             layer_id = -1;
             return layer_id;
 
-        } else if (rmsg[0].type == Message::aLayerId) {
+        } else if (rmsg[0].type == Message::kLayerId) {
             layer_id = rmsg[0].arg.layerid.layerid;
             return layer_id;
         }
@@ -30,7 +30,7 @@ void WinFillRectangle(int layer_id, bool draw, int x, int y, int w, int h,
     auto [id, err] = SyscallFindServer("servers/mikanos");
     if (err) {
     } else {
-        Message msg{Message::aWinFillRectangle};
+        Message msg{Message::kWinFillRectangle};
         msg.arg.winfillrectangle.layer_id = layer_id;
         msg.arg.winfillrectangle.draw = draw;
         msg.arg.winfillrectangle.x = x;
@@ -47,7 +47,7 @@ void WinWriteChar(int layer_id, bool draw, int x, int y, uint32_t color,
     auto [id, err] = SyscallFindServer("servers/mikanos");
     if (err) {
     } else {
-        Message msg{Message::aWinWriteChar};
+        Message msg{Message::kWinWriteChar};
         msg.arg.winwritechar.layer_id = layer_id;
         msg.arg.winwritechar.draw = draw;
         msg.arg.winwritechar.x = x;
@@ -73,7 +73,7 @@ void WinDrawLine(int layer_id, bool draw, int x0, int y0, int x1, int y1,
     auto [id, err] = SyscallFindServer("servers/mikanos");
     if (err) {
     } else {
-        Message msg{Message::aWinDrawLine};
+        Message msg{Message::kWinDrawLine};
         msg.arg.windrawline.layer_id = layer_id;
         msg.arg.windrawline.draw = draw;
         msg.arg.windrawline.x0 = x0;
@@ -90,7 +90,7 @@ void WinMoveRec(int layer_id, bool draw, int x0, int y0, int rx0, int ry0,
     auto [id, err] = SyscallFindServer("servers/mikanos");
     if (err) {
     } else {
-        Message msg{Message::aWinMoveRec};
+        Message msg{Message::kWinMoveRec};
         msg.arg.winmoverec.layer_id = layer_id;
         msg.arg.winmoverec.draw = draw;
         msg.arg.winmoverec.x0 = x0;
@@ -107,7 +107,7 @@ void WinRedraw(int layer_id) {
     auto [id, err] = SyscallFindServer("servers/mikanos");
     if (err) {
     } else {
-        Message msg{Message::aWinRedraw};
+        Message msg{Message::kWinRedraw};
         msg.arg.layerid.layerid = layer_id;
         SyscallSendMessage(&msg, id);
     }
@@ -117,7 +117,7 @@ void CloseWindow(int layer_id) {
     auto [id, err] = SyscallFindServer("servers/mikanos");
     if (err) {
     } else {
-        Message msg{Message::aCloseWindow};
+        Message msg{Message::kCloseWindow};
         msg.arg.layerid.layerid = layer_id;
         SyscallSendMessage(&msg, id);
     }

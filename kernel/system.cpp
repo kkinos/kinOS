@@ -379,17 +379,17 @@ void TaskApp(uint64_t task_id, int64_t am_id) {
 
 uint8_t *v_image;
 
-char klog_buf[1024];
-size_t klog_head;
-size_t klog_tail;
-bool klog_changed;
+char kernel_log_buf[1024];
+size_t kernel_log_head;
+size_t kernel_log_tail;
+bool kernel_log_changed;
 
 void InitializeSystemTask(void *volume_image) {
     v_image = reinterpret_cast<uint8_t *>(volume_image);
 
-    klog_head = 0;
-    klog_tail = 0;
-    klog_changed = false;
+    kernel_log_head = 0;
+    kernel_log_tail = 0;
+    kernel_log_changed = false;
 
     Task &os_task = task_manager->NewTask();
 
@@ -446,37 +446,37 @@ void ReadImage(void *buf, size_t offset, size_t len) {
     memcpy(src_buf, v_image_start, num_sector);
 }
 
-void klog_write(char *s) {
-    int i = klog_head;
-    if (klog_changed) {
-        klog_head = klog_tail;
+void KernelLogWrite(char *s) {
+    int i = kernel_log_head;
+    if (kernel_log_changed) {
+        kernel_log_head = kernel_log_tail;
     }
 
     while (*s) {
-        klog_buf[klog_head] = *s;
-        klog_head = (klog_head + 1) % sizeof(klog_buf);
+        kernel_log_buf[kernel_log_head] = *s;
+        kernel_log_head = (kernel_log_head + 1) % sizeof(kernel_log_buf);
         ++s;
     }
-    klog_tail = klog_head;
-    klog_head = i;
-    klog_changed = true;
+    kernel_log_tail = kernel_log_head;
+    kernel_log_head = i;
+    kernel_log_changed = true;
 }
 
-size_t klog_read(char *buf, size_t len) {
+size_t KernelLogRead(char *buf, size_t len) {
     size_t remaining = len;
-    if (klog_head > klog_tail) {
-        int copy_len = std::min(remaining, sizeof(klog_buf) - klog_head);
-        memcpy(buf, &klog_buf[klog_head], copy_len);
+    if (kernel_log_head > kernel_log_tail) {
+        int copy_len = std::min(remaining, sizeof(kernel_log_buf) - kernel_log_head);
+        memcpy(buf, &kernel_log_buf[kernel_log_head], copy_len);
         buf += copy_len;
         remaining -= copy_len;
-        klog_head = 0;
+        kernel_log_head = 0;
     }
 
-    int copy_len = std::min(remaining, klog_tail - klog_head);
-    memcpy(buf, &klog_buf[klog_head], copy_len);
+    int copy_len = std::min(remaining, kernel_log_tail - kernel_log_head);
+    memcpy(buf, &kernel_log_buf[kernel_log_head], copy_len);
     remaining -= copy_len;
-    klog_head = (klog_head + copy_len) % sizeof(klog_buf);
-    klog_changed = false;
+    kernel_log_head = (kernel_log_head + copy_len) % sizeof(kernel_log_buf);
+    kernel_log_changed = false;
     return remaining;
 }
 
@@ -489,6 +489,6 @@ int printk(const char *format, ...) {
     result = vsprintf(s, format, ap);
     va_end(ap);
 
-    klog_write(s);
+    KernelLogWrite(s);
     return result;
 }

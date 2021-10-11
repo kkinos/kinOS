@@ -286,7 +286,7 @@ SYSCALL(ClosedReceiveMessage) {
 
         if (msg->src_task != target_id) {
             Message emsg;
-            emsg.type = Message::Error;
+            emsg.type = Message::kError;
             emsg.arg.error.retry = true;
             emsg.src_task = task.ID();
 
@@ -370,8 +370,8 @@ SYSCALL(ReadVolumeImage) {
 SYSCALL(ReadKernelLog) {
     char *buf = reinterpret_cast<char *>(arg1);
     size_t len = arg2;
-    if (klog_changed) {
-        size_t remaining = klog_read(buf, len);
+    if (kernel_log_changed) {
+        size_t remaining = KernelLogRead(buf, len);
         return {remaining, 0};
     } else {
         return {0, EAGAIN};

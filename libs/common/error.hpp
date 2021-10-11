@@ -34,8 +34,8 @@ class Error {
         kInvalidFile,
         kIsDirectory,
         kNoSuchEntry,
-        sNotAcceptable,
-        sSyscallError,
+        kNotAcceptable,
+        kSyscallError,
         kLastOfCode,
     };
 
@@ -69,8 +69,8 @@ class Error {
         "kInvalidFile",
         "kIsDirectory",
         "kNoSuchEntry",
-        "sNotAcceptable",
-        "sSyscallError",
+        "kNotAcceptable",
+        "kSyscallError",
     };
     static_assert(Error::Code::kLastOfCode == code_names_.size());
 
