@@ -1,7 +1,7 @@
-#include "mikansyscall.hpp"
+#include "guisyscall.hpp"
 
 int OpenWindow(int w, int h, int x, int y) {
-    auto [id, err] = SyscallFindServer("servers/mikanos");
+    auto [id, err] = SyscallFindServer("servers/gui");
     if (err) {
         return -1;
     } else {
@@ -27,7 +27,7 @@ int OpenWindow(int w, int h, int x, int y) {
 
 void WinFillRectangle(int layer_id, bool draw, int x, int y, int w, int h,
                       uint32_t color) {
-    auto [id, err] = SyscallFindServer("servers/mikanos");
+    auto [id, err] = SyscallFindServer("servers/gui");
     if (err) {
     } else {
         Message msg{Message::kWinFillRectangle};
@@ -44,7 +44,7 @@ void WinFillRectangle(int layer_id, bool draw, int x, int y, int w, int h,
 
 void WinWriteChar(int layer_id, bool draw, int x, int y, uint32_t color,
                   char c) {
-    auto [id, err] = SyscallFindServer("servers/mikanos");
+    auto [id, err] = SyscallFindServer("servers/gui");
     if (err) {
     } else {
         Message msg{Message::kWinWriteChar};
@@ -70,7 +70,7 @@ void WinWriteString(int layer_id, bool draw, int x, int y, uint32_t color,
 
 void WinDrawLine(int layer_id, bool draw, int x0, int y0, int x1, int y1,
                  uint32_t color) {
-    auto [id, err] = SyscallFindServer("servers/mikanos");
+    auto [id, err] = SyscallFindServer("servers/gui");
     if (err) {
     } else {
         Message msg{Message::kWinDrawLine};
@@ -87,7 +87,7 @@ void WinDrawLine(int layer_id, bool draw, int x0, int y0, int x1, int y1,
 
 void WinMoveRec(int layer_id, bool draw, int x0, int y0, int rx0, int ry0,
                 int rx1, int ry1) {
-    auto [id, err] = SyscallFindServer("servers/mikanos");
+    auto [id, err] = SyscallFindServer("servers/gui");
     if (err) {
     } else {
         Message msg{Message::kWinMoveRec};
@@ -104,7 +104,7 @@ void WinMoveRec(int layer_id, bool draw, int x0, int y0, int rx0, int ry0,
 }
 
 void WinRedraw(int layer_id) {
-    auto [id, err] = SyscallFindServer("servers/mikanos");
+    auto [id, err] = SyscallFindServer("servers/gui");
     if (err) {
     } else {
         Message msg{Message::kWinRedraw};
@@ -114,7 +114,7 @@ void WinRedraw(int layer_id) {
 }
 
 void CloseWindow(int layer_id) {
-    auto [id, err] = SyscallFindServer("servers/mikanos");
+    auto [id, err] = SyscallFindServer("servers/gui");
     if (err) {
     } else {
         Message msg{Message::kCloseWindow};

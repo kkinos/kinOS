@@ -60,7 +60,7 @@ extern "C" void KernelMainNewStack(
     acpi::Initialize(acpi_table);
     InitializeLAPICTimer();
 
-        InitializeGraphics(frame_buffer_config_ref);
+    InitializeGraphics(frame_buffer_config_ref);
     screen = new FrameBuffer;
     screen->Initialize(screen_config);
 

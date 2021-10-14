@@ -8,7 +8,7 @@
 #include <optional>
 
 #include "../../libs/common/template.hpp"
-#include "../../libs/mikanos/mikansyscall.hpp"
+#include "../../libs/gui/guisyscall.hpp"
 
 Message sent_message[1];
 Message received_message[1];

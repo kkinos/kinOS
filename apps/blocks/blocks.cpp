@@ -3,7 +3,7 @@
 #include <cmath>
 #include <cstdlib>
 
-#include "../../libs/mikanos/mikansyscall.hpp"
+#include "../../libs/gui/guisyscall.hpp"
 
 using namespace std;
 

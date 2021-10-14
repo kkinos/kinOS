@@ -394,7 +394,7 @@ void InitializeSystemTask(void *volume_image) {
     Task &os_task = task_manager->NewTask();
 
     auto os_server_data = new DataOfServer{
-        "servers/mikanos",
+        "servers/gui",
     };
     os_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(os_server_data))
         .Wakeup();
@@ -465,7 +465,8 @@ void KernelLogWrite(char *s) {
 size_t KernelLogRead(char *buf, size_t len) {
     size_t remaining = len;
     if (kernel_log_head > kernel_log_tail) {
-        int copy_len = std::min(remaining, sizeof(kernel_log_buf) - kernel_log_head);
+        int copy_len =
+            std::min(remaining, sizeof(kernel_log_buf) - kernel_log_head);
         memcpy(buf, &kernel_log_buf[kernel_log_head], copy_len);
         buf += copy_len;
         remaining -= copy_len;

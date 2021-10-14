@@ -8,7 +8,7 @@
 
 #include "../../libs/common/error.hpp"
 #include "../../libs/common/template.hpp"
-#include "../../libs/mikanos/mikansyscall.hpp"
+#include "../../libs/gui/guisyscall.hpp"
 
 #define SECTOR_SIZE 512
 

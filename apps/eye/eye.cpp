@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "../../libs/mikanos/mikansyscall.hpp"
+#include "../../libs/gui/guisyscall.hpp"
 
 static const int kCanvasSize = 100, kEyeSize = 10;
 
