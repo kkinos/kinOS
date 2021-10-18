@@ -240,6 +240,10 @@ void ExecuteFile(uint64_t layer_id) {
                     PrintT(layer_id, "this is directory\n");
                     return;
                 }
+
+            case Message::kExit:
+                return;
+
             default:
                 PrintT(layer_id, "Unknown message type: %d\n", rmsg[0].type);
                 break;

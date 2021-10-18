@@ -24,6 +24,7 @@ struct Message {
         kPipe,
         kExpandTaskBuffer,
         kExcute,
+        kExit,
         /*--------------------------------------------------------------------------
          * message types for servers and applications
          *--------------------------------------------------------------------------
@@ -157,5 +158,9 @@ struct Message {
             uint64_t id;
         } createtask;
 
+        struct {
+            uint64_t id;
+            uint64_t result;
+        } exit;
     } arg;
 };

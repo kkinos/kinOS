@@ -373,7 +373,19 @@ void TaskApp(uint64_t task_id, int64_t am_id) {
         msg.src_task = 1;
         msg.arg.execute.id = task.ID();
         task_manager->SendMessage(am_id, msg);
+        goto end;
     }
+
+    printk("[ kinOS ] close the task %d\n", task.ID());
+    Message msg;
+    msg.type = Message::kExit;
+    msg.src_task = 1;
+    msg.arg.exit.id = task.ID();
+    msg.arg.exit.result = ec;
+    task_manager->SendMessage(am_id, msg);
+    goto end;
+
+end:
     while (true) __asm__("hlt");
 }
 

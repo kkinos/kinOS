@@ -18,6 +18,15 @@ void ProcessAccordingToMessage(Message* msg) {
                 goto end;
             }
 
+            case Message::kExit: {
+                if (auto it = am_table->find(msg->arg.exit.id);
+                    it != am_table->end()) {
+                    sent_message[0] = received_message[0];
+                    SyscallSendMessage(sent_message, it->second);
+                }
+                goto end;
+            }
+
             default:
                 SyscallWriteKernelLog(
                     "[ am ] Unknown message type from kernel \n");
