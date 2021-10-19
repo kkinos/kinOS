@@ -1,6 +1,8 @@
 #include "guisyscall.hpp"
 
-int OpenWindow(int w, int h, int x, int y) {
+#include "string.h"
+
+int OpenWindow(int w, int h, int x, int y, char* title) {
     auto [id, err] = SyscallFindServer("servers/gui");
     if (err) {
         return -1;
@@ -10,6 +12,8 @@ int OpenWindow(int w, int h, int x, int y) {
         msg.arg.openwindow.h = h;
         msg.arg.openwindow.x = x;
         msg.arg.openwindow.y = y;
+        strncpy(msg.arg.openwindow.title, title,
+                16 - 1);  // to allocate the null terminator
         SyscallSendMessage(&msg, id);
         Message rmsg[1];
         int layer_id;
@@ -59,7 +63,7 @@ void WinWriteChar(int layer_id, bool draw, int x, int y, uint32_t color,
 }
 
 void WinWriteString(int layer_id, bool draw, int x, int y, uint32_t color,
-                    char *s) {
+                    char* s) {
     int x_c = 0;
     while (*s) {
         WinWriteChar(layer_id, draw, x + x_c, y, color, *s);

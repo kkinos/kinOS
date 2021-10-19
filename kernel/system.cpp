@@ -376,7 +376,6 @@ void TaskApp(uint64_t task_id, int64_t am_id) {
         goto end;
     }
 
-    printk("[ kinOS ] close the task %d\n", task.ID());
     Message msg;
     msg.type = Message::kExit;
     msg.src_task = 1;

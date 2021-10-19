@@ -5,7 +5,7 @@
 #include "../../libs/gui/guisyscall.hpp"
 
 extern "C" void main(int argc, char** argv) {
-    int layer_id = OpenWindow(200, 100, 10, 10);
+    int layer_id = OpenWindow(200, 100, 10, 10, "winhello");
     if (layer_id == -1) {
         exit(1);
     }

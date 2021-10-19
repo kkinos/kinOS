@@ -105,7 +105,7 @@ int PrintToTerminal(uint64_t layer_id, const char *format, ...) {
 
 extern "C" void main() {
     int layer_id = OpenWindow(kColumns * 8 + 12 + Marginx,
-                              kRows * 16 + 12 + Marginy, 20, 20);
+                              kRows * 16 + 12 + Marginy, 20, 20, "log");
     if (layer_id == -1) {
         exit(1);
     }

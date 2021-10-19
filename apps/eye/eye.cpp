@@ -26,7 +26,7 @@ void DrawEye(uint64_t layer_id_flags, int mouse_x, int mouse_y,
 }
 
 extern "C" void main(int argc, char** argv) {
-    int layer_id = OpenWindow(kCanvasSize + 8, kCanvasSize + 28, 10, 10);
+    int layer_id = OpenWindow(kCanvasSize + 8, kCanvasSize + 28, 10, 10, "eye");
     if (layer_id == -1) {
         exit(1);
     }

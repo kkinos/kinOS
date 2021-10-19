@@ -23,6 +23,7 @@ void ProcessAccordingToMessage(Message* msg) {
                     it != am_table->end()) {
                     sent_message[0] = received_message[0];
                     SyscallSendMessage(sent_message, it->second);
+                    SyscallWriteKernelLog("[ am ] close application\n");
                 }
                 goto end;
             }

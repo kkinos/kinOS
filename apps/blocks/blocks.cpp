@@ -63,7 +63,8 @@ T LimitRange(const T& x, const T& min, const T& max) {
 }
 
 extern "C" void main(int argc, char** argv) {
-    int layer_id = OpenWindow(kCanvasWidth + 8, kCanvasHeight + 28, 10, 10);
+    int layer_id =
+        OpenWindow(kCanvasWidth + 8, kCanvasHeight + 28, 10, 10, "blocks");
     if (layer_id == -1) {
         exit(1);
     }

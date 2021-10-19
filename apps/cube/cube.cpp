@@ -44,7 +44,8 @@ array<double, kSurface.size()> centerz4;
 array<Vector2D<int>, kCube.size()> scr;
 
 extern "C" void main(int argc, char** argv) {
-    int layer_id = OpenWindow(kCanvasSize + 8, kCanvasSize + 28, 10, 10);
+    int layer_id =
+        OpenWindow(kCanvasSize + 8, kCanvasSize + 28, 10, 10, "cube");
     if (layer_id == -1) {
         exit(1);
     }

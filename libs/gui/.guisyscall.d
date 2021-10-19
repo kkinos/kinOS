@@ -6,4 +6,5 @@
   ../../tools/x86_64-elf/include/c++/v1/cstddef \
   ../../tools/x86_64-elf/include/c++/v1/version \
   ../../tools/x86_64-elf/include/c++/v1/cstdint \
-  ../../libs/gui/../kinos/logger.hpp
+  ../../libs/gui/../kinos/logger.hpp \
+  ../../tools/x86_64-elf/include/c++/v1/string.h

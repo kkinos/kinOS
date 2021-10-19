@@ -115,7 +115,8 @@ extern "C" int main() {
         } else if (msg[0].type == Message::kOpenWindow) {
             auto& arg = msg[0].arg.openwindow;
             const auto task_id = msg[0].src_task;
-            const auto win = std::make_shared<ToplevelWindow>(arg.w, arg.h, "");
+            const auto win = std::make_shared<ToplevelWindow>(
+                arg.w, arg.h, msg[0].arg.openwindow.title);
             const auto layer_id = layer_manager->NewLayer()
                                       .SetWindow(win)
                                       .SetDraggable(true)

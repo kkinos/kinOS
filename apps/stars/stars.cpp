@@ -6,7 +6,7 @@
 static constexpr int kWidth = 100, kHeight = 100;
 
 extern "C" void main(int argc, char** argv) {
-    int layer_id = OpenWindow(kWidth + 8, kHeight + 28, 10, 10);
+    int layer_id = OpenWindow(kWidth + 8, kHeight + 28, 10, 10, "stars");
     if (layer_id == -1) {
         exit(1);
     }

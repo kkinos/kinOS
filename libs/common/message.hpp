@@ -110,6 +110,7 @@ struct Message {
 
         struct {
             int w, h, x, y;
+            char title[16];
         } openwindow;
 
         struct {

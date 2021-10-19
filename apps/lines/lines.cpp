@@ -23,7 +23,8 @@ constexpr uint32_t Color(int deg) {
 };
 
 extern "C" void main(int argc, char** argv) {
-    int layer_id = OpenWindow(kRadius * 2 + 10 + 8, kRadius + 28, 10, 10);
+    int layer_id =
+        OpenWindow(kRadius * 2 + 10 + 8, kRadius + 28, 10, 10, "lines");
     if (layer_id == -1) {
         exit(1);
     }

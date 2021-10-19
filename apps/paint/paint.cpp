@@ -11,7 +11,7 @@ bool IsInside(int x, int y) {
 }
 
 extern "C" void main(int argc, char** argv) {
-    int layer_id = OpenWindow(kWidth + 8, kHeight + 28, 10, 10);
+    int layer_id = OpenWindow(kWidth + 8, kHeight + 28, 10, 10, "paint");
     if (layer_id == -1) {
         exit(1);
     }
