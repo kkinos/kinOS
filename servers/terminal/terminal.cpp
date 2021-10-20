@@ -41,7 +41,7 @@ void Print(uint64_t layer_id, char c) {
     } else {
         WinWriteChar(layer_id, true, CalcCursorPos().x, CalcCursorPos().y,
                      0xffffff, c);
-        buffer[cursory][cursorx] = c;
+
         if (cursorx == kColumns - 1) {
             newline();
         } else {
@@ -81,7 +81,7 @@ void PrintInGreen(uint64_t layer_id, char c) {
     } else {
         WinWriteChar(layer_id, true, CalcCursorPos().x, CalcCursorPos().y,
                      0x29ff86, c);
-        buffer[cursory][cursorx] = c;
+
         if (cursorx == kColumns - 1) {
             newline();
         } else {
@@ -119,6 +119,30 @@ int PrintT(uint64_t layer_id, const char *format, ...) {
     return result;
 }
 
+Rectangle<int> HistoryUpDown(int direction, uint64_t layer_id) {
+    if (direction == -1 && cmd_history_index_ >= 0) {
+        --cmd_history_index_;
+    } else if (direction == 1 && cmd_history_index_ + 1 < cmd_history_.size()) {
+        ++cmd_history_index_;
+    }
+
+    cursorx = 1;
+    const auto first_pos = CalcCursorPos();
+    Rectangle<int> draw_area{first_pos, {8 * (kColumns - 1), 16}};
+    WinFillRectangle(layer_id, true, draw_area.pos.x, draw_area.pos.y,
+                     draw_area.size.x, draw_area.size.y, 0);
+
+    char *history = "";
+    if (cmd_history_index_ >= 0) {
+        history = &cmd_history_[cmd_history_index_][0];
+    }
+    strcpy(&linebuf_[0], history);
+    linebuf_index_ = strlen(history);
+    WinWriteString(layer_id, true, first_pos.x, first_pos.y, 0xffffff, history);
+    cursorx = linebuf_index_ + 1;
+    return draw_area;
+}
+
 Rectangle<int> InputKey(uint64_t layer_id, uint8_t modifier, uint8_t keycode,
                         char ascii) {
     DrawCursor(layer_id, false);
@@ -126,7 +150,12 @@ Rectangle<int> InputKey(uint64_t layer_id, uint8_t modifier, uint8_t keycode,
 
     if (ascii == '\n') {
         linebuf_[linebuf_index_] = 0;
+        if (linebuf_index_ > 0) {
+            cmd_history_.pop_back();
+            cmd_history_.push_front(linebuf_);
+        }
         linebuf_index_ = 0;
+        cmd_history_index_ = -1;
         cursorx = 0;
 
         if (cursory < kRows - 1) {
@@ -141,7 +170,7 @@ Rectangle<int> InputKey(uint64_t layer_id, uint8_t modifier, uint8_t keycode,
     } else if (ascii == '\b') {
         if (cursorx > 0) {
             --cursorx;
-            buffer[cursory][cursorx] = '\0';
+
             WinFillRectangle(layer_id, true, CalcCursorPos().x,
                              CalcCursorPos().y, 8, 16, 0);
             draw_area.pos = CalcCursorPos();
@@ -153,11 +182,15 @@ Rectangle<int> InputKey(uint64_t layer_id, uint8_t modifier, uint8_t keycode,
         if (cursorx < kColumns - 1 && linebuf_index_ < kLineMax - 1) {
             linebuf_[linebuf_index_] = ascii;
             ++linebuf_index_;
-            buffer[cursory][cursorx] = ascii;
+
             WinWriteChar(layer_id, true, CalcCursorPos().x, CalcCursorPos().y,
                          0xffffff, ascii);
             ++cursorx;
         }
+    } else if (keycode == 0x51) {  // down arrow
+        draw_area = HistoryUpDown(-1, layer_id);
+    } else if (keycode == 0x52) {  // up arrow
+        draw_area = HistoryUpDown(1, layer_id);
     }
     DrawCursor(layer_id, true);
     return draw_area;
@@ -228,6 +261,7 @@ void ExecuteFile(uint64_t layer_id) {
                     break;
                 } else {
                     PrintT(layer_id, "error at other server\n");
+                    last_exit_code_ = 1;
                     return;
                 }
 
@@ -246,6 +280,7 @@ void ExecuteFile(uint64_t layer_id) {
                 break;
 
             case Message::kExit:
+                last_exit_code_ = received_message[0].arg.exit.result;
                 return;
 
             default:
@@ -267,6 +302,8 @@ extern "C" void main() {
                      kCanvasHeight, 0);
     PrintInGreen(layer_id, "user@KinOS:\n");
     PrintInGreen(layer_id, "$");
+
+    cmd_history_.resize(8);
 
     SyscallWriteKernelLog("[ terminal ] ready\n");
 
