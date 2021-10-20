@@ -165,7 +165,7 @@ Rectangle<int> InputKey(uint64_t layer_id, uint8_t modifier, uint8_t keycode,
         }
 
         ExecuteLine(layer_id);
-        PrintInGreen(layer_id, "user@KinOS:\n");
+        PrintInGreen(layer_id, "kinOS:>\n");
         PrintInGreen(layer_id, "$");
     } else if (ascii == '\b') {
         if (cursorx > 0) {
@@ -200,7 +200,11 @@ void ExecuteLine(uint64_t layer_id) {
     char *command = &linebuf_[0];
 
     if (strcmp(command, "help") == 0) {
-        PrintT(layer_id, "help!\n");
+        Print(layer_id, "help!\n");
+    } else if (strcmp(command, "clear") == 0) {
+        WinFillRectangle(layer_id, true, Marginx, Marginy, kCanvasWidth,
+                         kCanvasHeight, 0);
+        cursory = 0;
     } else {
         ExecuteFile(layer_id);
     }
@@ -300,7 +304,7 @@ extern "C" void main() {
 
     WinFillRectangle(layer_id, true, Marginx, Marginy, kCanvasWidth,
                      kCanvasHeight, 0);
-    PrintInGreen(layer_id, "user@KinOS:\n");
+    PrintInGreen(layer_id, "kinOS:>\n");
     PrintInGreen(layer_id, "$");
 
     cmd_history_.resize(8);
