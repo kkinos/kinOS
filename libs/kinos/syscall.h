@@ -8,6 +8,7 @@ extern "C" {
 #include <stdint.h>
 #endif
 
+#include "../common/message.hpp"
 #include "logger.hpp"
 
 struct SyscallResult {

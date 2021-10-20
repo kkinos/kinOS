@@ -2,8 +2,6 @@
 
 #include <stdint.h>
 
-enum class LayerOperation { Move, MoveRelative, Draw, DrawArea };
-
 struct Message {
     enum Type {
         /*--------------------------------------------------------------------------
@@ -25,6 +23,7 @@ struct Message {
         kExpandTaskBuffer,
         kExcute,
         kExit,
+        kWrite,
         /*--------------------------------------------------------------------------
          * message types for servers and applications
          *--------------------------------------------------------------------------
@@ -50,7 +49,7 @@ struct Message {
 
     union {
         struct {
-            bool retry;
+            int retry;  // 1: true, 0: false
         } error;
 
         struct {
@@ -64,13 +63,6 @@ struct Message {
             char ascii;
             int press;
         } keyboard;
-
-        struct {
-            LayerOperation op;
-            unsigned int layer_id;
-            int x, y;
-            int w, h;
-        } layer;
 
         struct {
             int x, y;
@@ -100,13 +92,24 @@ struct Message {
         struct {
             uint64_t id;
             uint64_t p_id;
-            bool success;
+            int success;  // 1: success, 0: fail
         } execute;
 
         struct {
             uint64_t id;
             uint32_t bytes;
         } expand;
+
+        struct {
+            uint64_t id;
+            uint64_t result;
+        } exit;
+
+        struct {
+            int fd;
+            char data[16];
+            uint8_t len;
+        } write;
 
         struct {
             int w, h, x, y;
@@ -119,49 +122,45 @@ struct Message {
 
         struct {
             int layer_id, x, y, w, h;
-            bool draw;
+            int draw;  // 1: true, 0: false
             uint32_t color;
         } winfillrectangle;
 
         struct {
             int layer_id, x, y;
-            bool draw;
+            int draw;  // 1: true, 0: false
             uint32_t color;
             char c;
         } winwritechar;
 
         struct {
             int layer_id, x0, y0, x1, y1;
-            bool draw;
+            int draw;  // 1: true, 0: false
             uint32_t color;
         } windrawline;
 
         struct {
             int layer_id, x0, y0, rx0, ry0, rx1, ry1;
-            bool draw;
+            int draw;  // 1: true, 0: false
         } winmoverec;
 
         struct {
             char filename[16];
-            bool exist;
-            bool directory;
+            int exist;      // 1: true, 0: false
+            int directory;  // 1: true, 0: false
         } findfile;
 
         struct {
             char filename[16];
             char arg[32];
             uint64_t id;
-            bool exist;
-            bool directory;
+            int exist;      // 1: true, 0: false
+            int directory;  // 1: true, 0: false
         } executefile;
 
         struct {
             uint64_t id;
         } createtask;
 
-        struct {
-            uint64_t id;
-            uint64_t result;
-        } exit;
     } arg;
 };

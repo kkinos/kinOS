@@ -57,6 +57,17 @@ void ProcessAccordingToMessage(Message* msg) {
                 goto end;
             }
 
+            case Message::kWrite: {
+                if (auto it = am_table->find(msg->src_task);
+                    it != am_table->end()) {
+                    if (msg->arg.write.fd == 1) {
+                        sent_message[0] = *msg;
+                        SyscallSendMessage(sent_message, it->second);
+                    }
+                }
+                goto end;
+            }
+
             default:
                 SyscallWriteKernelLog("[ am ] Unknown message type\n");
                 goto end;

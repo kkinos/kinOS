@@ -187,9 +187,9 @@ void ExecuteFile(uint64_t layer_id) {
         return;
     }
 
-    smsg[0].type = Message::kExecuteFile;
-    smsg[0].arg.executefile.exist = false;
-    smsg[0].arg.executefile.directory = false;
+    sent_messsage[0].type = Message::kExecuteFile;
+    sent_messsage[0].arg.executefile.exist = false;
+    sent_messsage[0].arg.executefile.directory = false;
 
     int i = 0;
     while (*command) {
@@ -197,11 +197,11 @@ void ExecuteFile(uint64_t layer_id) {
             PrintT(layer_id, "too long file name\n");
             return;
         }
-        smsg[0].arg.executefile.filename[i] = *command;
+        sent_messsage[0].arg.executefile.filename[i] = *command;
         ++i;
         ++command;
     }
-    smsg[0].arg.executefile.filename[i] = '\0';
+    sent_messsage[0].arg.executefile.filename[i] = '\0';
 
     if (first_arg) {
         i = 0;
@@ -210,21 +210,21 @@ void ExecuteFile(uint64_t layer_id) {
                 PrintT(layer_id, "too long argument\n");
                 return;
             }
-            smsg[0].arg.executefile.arg[i] = *first_arg;
+            sent_messsage[0].arg.executefile.arg[i] = *first_arg;
             ++i;
             ++first_arg;
         }
-        smsg[0].arg.executefile.arg[i] = '\0';
+        sent_messsage[0].arg.executefile.arg[i] = '\0';
     }
-    SyscallSendMessage(smsg, am_id);
+    SyscallSendMessage(sent_messsage, am_id);
 
     while (true) {
-        SyscallClosedReceiveMessage(rmsg, 1, am_id);
+        SyscallClosedReceiveMessage(received_message, 1, am_id);
 
-        switch (rmsg[0].type) {
+        switch (received_message[0].type) {
             case Message::kError:
-                if (rmsg[0].arg.error.retry) {
-                    SyscallSendMessage(smsg, am_id);
+                if (received_message[0].arg.error.retry) {
+                    SyscallSendMessage(sent_messsage, am_id);
                     break;
                 } else {
                     PrintT(layer_id, "error at other server\n");
@@ -232,20 +232,25 @@ void ExecuteFile(uint64_t layer_id) {
                 }
 
             case Message::kExecuteFile:
-                if (!rmsg[0].arg.executefile.exist) {
+                if (!received_message[0].arg.executefile.exist) {
                     PrintT(layer_id, "no such file\n");
                     return;
                 }
-                if (rmsg[0].arg.executefile.directory) {
+                if (received_message[0].arg.executefile.directory) {
                     PrintT(layer_id, "this is directory\n");
                     return;
                 }
+            case Message::kWrite:
+                Print(layer_id, received_message[0].arg.write.data,
+                      received_message[0].arg.write.len);
+                break;
 
             case Message::kExit:
                 return;
 
             default:
-                PrintT(layer_id, "Unknown message type: %d\n", rmsg[0].type);
+                PrintT(layer_id, "Unknown message type: %d\n",
+                       received_message[0].type);
                 break;
         }
     }
@@ -266,13 +271,14 @@ extern "C" void main() {
     SyscallWriteKernelLog("[ terminal ] ready\n");
 
     while (true) {
-        SyscallOpenReceiveMessage(rmsg, 1);
+        SyscallOpenReceiveMessage(received_message, 1);
 
-        if (rmsg[0].type == Message::kKeyPush) {
-            if (rmsg[0].arg.keyboard.press) {
+        if (received_message[0].type == Message::kKeyPush) {
+            if (received_message[0].arg.keyboard.press) {
                 const auto area = InputKey(
-                    layer_id, rmsg[0].arg.keyboard.modifier,
-                    rmsg[0].arg.keyboard.keycode, rmsg[0].arg.keyboard.ascii);
+                    layer_id, received_message[0].arg.keyboard.modifier,
+                    received_message[0].arg.keyboard.keycode,
+                    received_message[0].arg.keyboard.ascii);
             }
         }
     }

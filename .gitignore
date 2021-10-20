@@ -1,7 +1,5 @@
 *.img
 *.efi
-*.o
 *.elf
 mnt
-hankaku.bin
 settings.json

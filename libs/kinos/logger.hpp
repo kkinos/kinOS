@@ -1,10 +1,9 @@
 #pragma once
 
 enum LogLevel {
-  kError = 3,
-  kWarn  = 4,
-  kInfo  = 6,
-  kDebug = 7,
+    kWarn = 4,
+    kInfo = 6,
+    kDebug = 7,
 };
 
 /** @brief グローバルなログ優先度のしきい値を変更する．
