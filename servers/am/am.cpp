@@ -2,6 +2,25 @@
 
 #include <cstdio>
 
+AppInfo::AppInfo(uint64_t task_id, uint64_t p_task_id)
+    : task_id_{task_id}, p_task_id_{p_task_id} {}
+
+AppManager::AppManager() {}
+
+void AppManager::NewApp(uint64_t task_id, uint64_t p_task_id) {
+    apps_.emplace_back(new AppInfo{task_id, p_task_id});
+}
+
+uint64_t AppManager::GetPID(uint64_t id) {
+    auto it = std::find_if(apps_.begin(), apps_.end(),
+                           [id](const auto& t) { return t->ID() == id; });
+    if (it == apps_.end()) {
+        return 0;
+    }
+
+    return (*it)->PID();
+}
+
 void ProcessAccordingToMessage(Message* msg) {
     // message from kernel
     if (msg->src_task == 1) {
@@ -10,19 +29,19 @@ void ProcessAccordingToMessage(Message* msg) {
                 if (!msg->arg.execute.success) {
                     sent_message[0].type = Message::kError;
                     sent_message[0].arg.error.retry = false;
-                    if (auto it = am_table->find(msg->arg.execute.id);
-                        it != am_table->end()) {
-                        SyscallSendMessage(sent_message, it->second);
+                    uint64_t pid = app_manager->GetPID(msg->arg.execute.id);
+                    if (pid != 0) {
+                        SyscallSendMessage(sent_message, pid);
                     }
                 }
                 goto end;
             }
 
             case Message::kExit: {
-                if (auto it = am_table->find(msg->arg.exit.id);
-                    it != am_table->end()) {
+                uint64_t pid = app_manager->GetPID(msg->arg.execute.id);
+                if (pid != 0) {
                     sent_message[0] = received_message[0];
-                    SyscallSendMessage(sent_message, it->second);
+                    SyscallSendMessage(sent_message, pid);
                     SyscallWriteKernelLog("[ am ] close application\n");
                 }
                 goto end;
@@ -58,11 +77,11 @@ void ProcessAccordingToMessage(Message* msg) {
             }
 
             case Message::kWrite: {
-                if (auto it = am_table->find(msg->src_task);
-                    it != am_table->end()) {
+                uint64_t pid = app_manager->GetPID(msg->src_task);
+                if (pid != 0) {
                     if (msg->arg.write.fd == 1) {
                         sent_message[0] = *msg;
-                        SyscallSendMessage(sent_message, it->second);
+                        SyscallSendMessage(sent_message, pid);
                     }
                 }
                 goto end;
@@ -155,7 +174,8 @@ void ExecuteAppTask(uint64_t p_id, uint64_t id, char* arg, uint64_t fs_id) {
                     SyscallSendMessage(sent_message, p_id);
                     goto end;
                 }
-                am_table->insert(std::make_pair(id, p_id));
+                app_manager->NewApp(id, p_id);
+
                 sent_message[0].type = Message::kExcute;
                 sent_message[0].arg.execute.id = id;
                 sent_message[0].arg.execute.p_id = p_id;
@@ -175,7 +195,8 @@ end:
 }
 
 extern "C" void main() {
-    am_table = new std::map<uint64_t, uint64_t>;
+    app_manager = new AppManager;
+
     SyscallWriteKernelLog("[ am ] ready\n");
 
     while (true) {

@@ -5,7 +5,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <map>
+#include <memory>
 #include <optional>
+#include <vector>
 
 #include "../../libs/common/template.hpp"
 #include "../../libs/gui/guisyscall.hpp"
@@ -13,7 +15,28 @@
 Message sent_message[1];
 Message received_message[1];
 
-std::map<uint64_t, uint64_t>* am_table;  // first:id second:p_id
+class AppInfo {
+   public:
+    AppInfo(uint64_t task_id, uint64_t p_task_id);
+    uint64_t ID() { return task_id_; }
+    uint64_t PID() { return p_task_id_; }
+
+   private:
+    uint64_t task_id_;
+    uint64_t p_task_id_;
+};
+
+class AppManager {
+   public:
+    AppManager();
+    void NewApp(uint64_t task_id, uint64_t p_task_id);
+    uint64_t GetPID(uint64_t task_id);
+
+   private:
+    std::vector<std::unique_ptr<AppInfo>> apps_{};
+};
+
+AppManager* app_manager;
 
 void ProcessAccordingToMessage(Message* msg);
 
