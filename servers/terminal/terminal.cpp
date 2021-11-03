@@ -240,8 +240,8 @@ void ExecuteFile(uint64_t layer_id) {
     }
     sent_messsage[0].arg.executefile.filename[i] = '\0';
 
+    i = 0;
     if (first_arg) {
-        i = 0;
         while (*first_arg) {
             if (i >= 31) {
                 PrintT(layer_id, "too long argument\n");
@@ -251,11 +251,10 @@ void ExecuteFile(uint64_t layer_id) {
             ++i;
             ++first_arg;
         }
-        sent_messsage[0].arg.executefile.arg[i] = '\0';
     }
+    sent_messsage[0].arg.executefile.arg[i] = '\0';
 
     SyscallSendMessage(sent_messsage, am_id);
-
     while (true) {
         SyscallClosedReceiveMessage(received_message, 1, am_id);
 

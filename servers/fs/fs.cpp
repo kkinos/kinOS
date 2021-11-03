@@ -287,6 +287,36 @@ void ProcessAccordingToMessage(uint64_t am_id) {
                 goto end;
             }
         }
+
+        case Message::kOpen: {
+            const char *path = received_message[0].arg.open.filename;
+
+            auto [file_entry, post_slash] = FindFile(path);
+            // the file doesn't exist
+            if (!file_entry) {
+                sent_message[0].type = Message::kOpen;
+                sent_message[0].arg.open.exist = false;
+                sent_message[0].arg.open.directory = false;
+                SyscallSendMessage(sent_message, am_id);
+                goto end;
+            }
+            // the file is a directory
+            else if (file_entry->attr == Attribute::kDirectory) {
+                sent_message[0].type = Message::kOpen;
+                sent_message[0].arg.open.exist = true;
+                sent_message[0].arg.open.directory = true;
+                SyscallSendMessage(sent_message, am_id);
+                goto end;
+            }
+            // the file exists and not a directory
+            else {
+                sent_message[0].type = Message::kOpen;
+                sent_message[0].arg.open.exist = true;
+                sent_message[0].arg.open.directory = false;
+                SyscallSendMessage(sent_message, am_id);
+                goto end;
+            }
+        }
         default:
             SyscallWriteKernelLog("[ fs ] Unknown message type \n");
             goto end;

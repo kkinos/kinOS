@@ -40,6 +40,15 @@ AppManager* app_manager;
 
 void ProcessAccordingToMessage();
 
-void CreateNewTask(uint64_t p_id, uint64_t fs_id, char* arg);
-
+/*--------------------------------------------------------------------------
+ * functions to execute application
+ *--------------------------------------------------------------------------
+ */
+void CreateNewTask(uint64_t p_id, char* arg, uint64_t fs_id);
 void ExecuteAppTask(uint64_t p_id, uint64_t id, char* arg, uint64_t fs_id);
+
+/*--------------------------------------------------------------------------
+ * functions for files
+ *--------------------------------------------------------------------------
+ */
+void CreateFileDescriptor(uint64_t id, const char* path, uint64_t fs_id);

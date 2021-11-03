@@ -2,7 +2,7 @@
 #include <cstdlib>
 
 extern "C" void main(int argc, char** argv) {
-    const char* path = "/memmap";
+    const char* path = "/test";
     if (argc >= 2) {
         path = argv[1];
     }

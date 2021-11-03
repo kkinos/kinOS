@@ -36,27 +36,45 @@ off_t lseek(int fd, off_t offset, int whence) {
 int open(const char* path, int flags) {
     struct SyscallResult id = SyscallFindServer("servers/am");
     if (id.error == 0) {
-        struct Message msg;
-        msg.type = kOpen;
+        struct Message smsg;
+        struct Message rmsg;
+
+        smsg.type = kOpen;
         int i = 0;
         while (*path) {
             if (i >= 31) {
                 errno = EINVAL;
                 return -1;
             }
-            msg.arg.open.filename[i] = *path;
+            smsg.arg.open.filename[i] = *path;
             ++i;
             ++path;
         }
-        msg.arg.open.filename[i] = '\0';
-        msg.arg.open.flags = flags;
-        SyscallSendMessage(&msg, id.value);
-        SyscallClosedReceiveMessage(&msg, 1, id.value);
-        if (!msg.arg.open.exist) {
+        smsg.arg.open.filename[i] = '\0';
+        smsg.arg.open.flags = flags;
+
+        SyscallSendMessage(&smsg, id.value);
+
+        while (1) {
+            SyscallClosedReceiveMessage(&rmsg, 1, id.value);
+            if (rmsg.type == kError) {
+                if (rmsg.arg.error.retry) {
+                    SyscallSendMessage(&smsg, id.value);
+                    continue;
+                } else {
+                    errno = EAGAIN;
+                    return -1;
+                }
+            } else if (rmsg.type == kOpen) {
+                break;
+            }
+        }
+
+        if (!rmsg.arg.open.exist) {
             errno = ENOENT;
             return -1;
         }
-        return msg.arg.open.fd;
+        return rmsg.arg.open.fd;
     }
 
     errno = id.error;
@@ -105,20 +123,34 @@ caddr_t sbrk(int incr) {
 ssize_t write(int fd, const void* buf, size_t count) {
     struct SyscallResult id = SyscallFindServer("servers/am");
     if (id.error == 0) {
-        struct Message msg;
-        msg.type = kWrite;
-        msg.arg.write.fd = fd;
+        struct Message smsg;
+        struct Message rmsg;
+
+        smsg.type = kWrite;
+        smsg.arg.write.fd = fd;
         const char* bufc = (const char*)buf;
         size_t sent_bytes = 0;
         while (sent_bytes < count) {
-            if (count - sent_bytes > sizeof(msg.arg.write.data)) {
-                msg.arg.write.len = sizeof(msg.arg.write.data);
+            if (count - sent_bytes > sizeof(smsg.arg.write.data)) {
+                smsg.arg.write.len = sizeof(smsg.arg.write.data);
             } else {
-                msg.arg.write.len = count - sent_bytes;
+                smsg.arg.write.len = count - sent_bytes;
             }
-            memcpy(msg.arg.write.data, &bufc[sent_bytes], msg.arg.write.len);
-            sent_bytes += msg.arg.write.len;
-            SyscallSendMessage(&msg, id.value);
+            memcpy(smsg.arg.write.data, &bufc[sent_bytes], smsg.arg.write.len);
+            sent_bytes += smsg.arg.write.len;
+            SyscallSendMessage(&smsg, id.value);
+
+            while (1) {
+                SyscallClosedReceiveMessage(&rmsg, 1, id.value);
+                if (rmsg.type == kError) {
+                    if (rmsg.arg.error.retry) {
+                        SyscallSendMessage(&smsg, id.value);
+                        continue;
+                    }
+                } else if (rmsg.type == kReceived) {
+                    break;
+                }
+            }
         }
         return count;
     }

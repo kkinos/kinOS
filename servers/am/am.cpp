@@ -35,6 +35,10 @@ void ProcessAccordingToMessage() {
                         SyscallSendMessage(sent_message, pid);
                     }
                 }
+                sent_message[0].type = Message::kReceived;
+                SyscallSendMessage(sent_message,
+                                   received_message[0].arg.execute.id);
+                SyscallWriteKernelLog("[ am ] cannnot execute application\n");
                 goto end;
             }
 
@@ -46,6 +50,11 @@ void ProcessAccordingToMessage() {
                     sent_message[0].arg.exit.result =
                         received_message[0].arg.exit.result;
                     SyscallSendMessage(sent_message, pid);
+
+                    sent_message[0].type = Message::kReceived;
+                    SyscallSendMessage(sent_message,
+                                       received_message[0].arg.exit.id);
+
                     SyscallWriteKernelLog("[ am ] close application\n");
                 }
                 goto end;
@@ -79,7 +88,7 @@ void ProcessAccordingToMessage() {
                        received_message[0].arg.executefile.filename);
 
                 SyscallSendMessage(sent_message, fs_id);
-                CreateNewTask(p_id, fs_id, arg);
+                CreateNewTask(p_id, arg, fs_id);
                 goto end;
             }
 
@@ -92,6 +101,30 @@ void ProcessAccordingToMessage() {
                         SyscallSendMessage(sent_message, pid);
                     }
                 }
+                sent_message[0].type = Message::kReceived;
+                SyscallSendMessage(sent_message, received_message[0].src_task);
+                goto end;
+            }
+
+            case Message::kOpen: {
+                // 1.flagの処理
+                auto [fs_id, err] = SyscallFindServer("servers/fs");
+                if (err) {
+                    sent_message[0].type = Message::kError;
+                    sent_message[0].arg.error.retry = false;
+                    SyscallWriteKernelLog(
+                        "[ am ] cannnot find file system server\n");
+                    SyscallSendMessage(sent_message,
+                                       received_message[0].src_task);
+                }
+                sent_message[0].type = Message::kOpen;
+                strcpy(sent_message[0].arg.open.filename,
+                       received_message[0].arg.open.filename);
+                SyscallSendMessage(sent_message, fs_id);
+                CreateFileDescriptor(received_message[0].src_task,
+                                     received_message[0].arg.open.filename,
+                                     fs_id);
+
                 goto end;
             }
 
@@ -105,7 +138,7 @@ end:
     return;
 }
 
-void CreateNewTask(uint64_t p_id, uint64_t fs_id, char* arg) {
+void CreateNewTask(uint64_t p_id, char* arg, uint64_t fs_id) {
     while (true) {
         SyscallClosedReceiveMessage(received_message, 1, fs_id);
         switch (received_message[0].type) {
@@ -200,6 +233,51 @@ void ExecuteAppTask(uint64_t p_id, uint64_t id, char* arg, uint64_t fs_id) {
                 SyscallWriteKernelLog(
                     "[ am ] Unknown message type from fs server\n");
                 goto end;
+        }
+    }
+end:
+    return;
+}
+
+void CreateFileDescriptor(uint64_t id, const char* path, uint64_t fs_id) {
+    while (true) {
+        SyscallClosedReceiveMessage(received_message, 1, fs_id);
+        switch (received_message[0].type) {
+            case Message::kError:
+                if (received_message[0].arg.error.retry) {
+                    SyscallSendMessage(sent_message, fs_id);
+                    break;
+                } else {
+                    SyscallWriteKernelLog("[ am ] error at other server\n");
+                    sent_message[0].type = Message::kError;
+                    sent_message[0].arg.error.retry = false;
+                    SyscallSendMessage(sent_message, id);
+                    goto end;
+                }
+                // 2. ファイル検索
+            case Message::kOpen: {
+                if (!received_message[0].arg.open.exist ||
+                    received_message[0].arg.open.directory) {
+                    sent_message[0].type = Message::kOpen;
+                    sent_message[0].arg.open.exist =
+                        received_message[0].arg.open.exist;
+                    sent_message[0].arg.open.directory =
+                        received_message[0].arg.open.directory;
+                    SyscallSendMessage(sent_message, id);
+                    goto end;
+                }
+                // the file exists, and not a directory
+                else {
+                    // 3.ファイルがあればファイルディスクリプタを作成する
+                    // auto& app_info =
+                    // app_manager->GetAppInfo(received_message[0].src_task);
+                    // size_t fd = AllocateFD(app_info);
+                    // 4.ファイルディスクリプタにファイル名をセット
+                    // 5.返信
+                    // sent_message[0].arg.open.fd = fd;
+                    goto end;
+                }
+            }
         }
     }
 end:
