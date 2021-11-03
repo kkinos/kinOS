@@ -23,7 +23,6 @@ struct Message {
         kExpandTaskBuffer,
         kExcute,
         kExit,
-        kWrite,
         /*--------------------------------------------------------------------------
          * message types for servers and applications
          *--------------------------------------------------------------------------
@@ -40,7 +39,8 @@ struct Message {
         kMouseButton,
         kWinDrawLine,
         kWinMoveRec,
-        kFindFile,
+        kWrite,
+        kOpen,
         kCreateTask,
         kExecuteFile,
     } type;
@@ -112,6 +112,14 @@ struct Message {
         } write;
 
         struct {
+            char filename[32];
+            int flags;
+            int exist;      // 1: true, 0: false
+            int directory;  // 1: true, 0: false
+            int fd;
+        } open;
+
+        struct {
             int w, h, x, y;
             char title[16];
         } openwindow;
@@ -145,13 +153,7 @@ struct Message {
         } winmoverec;
 
         struct {
-            char filename[16];
-            int exist;      // 1: true, 0: false
-            int directory;  // 1: true, 0: false
-        } findfile;
-
-        struct {
-            char filename[16];
+            char filename[32];
             char arg[32];
             uint64_t id;
             int exist;      // 1: true, 0: false

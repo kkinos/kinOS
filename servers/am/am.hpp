@@ -38,7 +38,7 @@ class AppManager {
 
 AppManager* app_manager;
 
-void ProcessAccordingToMessage(Message* msg);
+void ProcessAccordingToMessage();
 
 void CreateNewTask(uint64_t p_id, uint64_t fs_id, char* arg);
 

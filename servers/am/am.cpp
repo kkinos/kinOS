@@ -21,15 +21,16 @@ uint64_t AppManager::GetPID(uint64_t id) {
     return (*it)->PID();
 }
 
-void ProcessAccordingToMessage(Message* msg) {
+void ProcessAccordingToMessage() {
     // message from kernel
-    if (msg->src_task == 1) {
-        switch (msg->type) {
+    if (received_message[0].src_task == 1) {
+        switch (received_message[0].type) {
             case Message::kExcute: {
-                if (!msg->arg.execute.success) {
+                if (!received_message[0].arg.execute.success) {
                     sent_message[0].type = Message::kError;
                     sent_message[0].arg.error.retry = false;
-                    uint64_t pid = app_manager->GetPID(msg->arg.execute.id);
+                    uint64_t pid =
+                        app_manager->GetPID(received_message[0].arg.execute.id);
                     if (pid != 0) {
                         SyscallSendMessage(sent_message, pid);
                     }
@@ -38,9 +39,12 @@ void ProcessAccordingToMessage(Message* msg) {
             }
 
             case Message::kExit: {
-                uint64_t pid = app_manager->GetPID(msg->arg.execute.id);
+                uint64_t pid =
+                    app_manager->GetPID(received_message[0].arg.exit.id);
                 if (pid != 0) {
-                    sent_message[0] = received_message[0];
+                    sent_message[0].type = Message::kExit;
+                    sent_message[0].arg.exit.result =
+                        received_message[0].arg.exit.result;
                     SyscallSendMessage(sent_message, pid);
                     SyscallWriteKernelLog("[ am ] close application\n");
                 }
@@ -55,11 +59,11 @@ void ProcessAccordingToMessage(Message* msg) {
 
         // message from others
     } else {
-        switch (msg->type) {
+        switch (received_message[0].type) {
             case Message::kExecuteFile: {
-                uint64_t p_id = msg->src_task;
+                uint64_t p_id = received_message[0].src_task;
                 char arg[32];
-                strcpy(arg, msg->arg.executefile.arg);
+                strcpy(arg, received_message[0].arg.executefile.arg);
 
                 auto [fs_id, err] = SyscallFindServer("servers/fs");
                 if (err) {
@@ -70,17 +74,21 @@ void ProcessAccordingToMessage(Message* msg) {
                     SyscallSendMessage(sent_message, p_id);
                 }
 
-                sent_message[0] = *msg;
+                sent_message[0].type = Message::kExecuteFile;
+                strcpy(sent_message[0].arg.executefile.filename,
+                       received_message[0].arg.executefile.filename);
+
                 SyscallSendMessage(sent_message, fs_id);
                 CreateNewTask(p_id, fs_id, arg);
                 goto end;
             }
 
             case Message::kWrite: {
-                uint64_t pid = app_manager->GetPID(msg->src_task);
+                uint64_t pid =
+                    app_manager->GetPID(received_message[0].src_task);
                 if (pid != 0) {
-                    if (msg->arg.write.fd == 1) {
-                        sent_message[0] = *msg;
+                    if (received_message[0].arg.write.fd == 1) {
+                        sent_message[0] = received_message[0];
                         SyscallSendMessage(sent_message, pid);
                     }
                 }
@@ -115,7 +123,11 @@ void CreateNewTask(uint64_t p_id, uint64_t fs_id, char* arg) {
             case Message::kExecuteFile: {
                 if (!received_message[0].arg.executefile.exist ||
                     received_message[0].arg.executefile.directory) {
-                    sent_message[0] = received_message[0];
+                    sent_message[0].type = Message::kExecuteFile;
+                    sent_message[0].arg.executefile.exist =
+                        received_message[0].arg.executefile.exist;
+                    sent_message[0].arg.executefile.directory =
+                        received_message[0].arg.executefile.directory;
                     SyscallSendMessage(sent_message, p_id);
                     goto end;
                 }
@@ -131,7 +143,7 @@ void CreateNewTask(uint64_t p_id, uint64_t fs_id, char* arg) {
                         goto end;
                     }
                     SyscallWriteKernelLog("[ am ] create task\n");
-                    sent_message[0] = received_message[0];
+                    sent_message[0].type = Message::kExecuteFile;
                     sent_message[0].arg.executefile.id = id;
                     SyscallSendMessage(sent_message, fs_id);
                     ExecuteAppTask(p_id, id, arg, fs_id);
@@ -201,6 +213,6 @@ extern "C" void main() {
 
     while (true) {
         SyscallOpenReceiveMessage(received_message, 1);
-        ProcessAccordingToMessage(received_message);
+        ProcessAccordingToMessage();
     }
 }

@@ -121,7 +121,7 @@ bool NameIsEqual(const DirectoryEntry &entry, const char *name);
 
 void ReadName(DirectoryEntry &root_dir, char *base, char *ext);
 
-void ProcessAccordingToMessage(Message *msg, uint64_t am_id);
+void ProcessAccordingToMessage(uint64_t am_id);
 
 void ExpandTaskBuffer(uint64_t am_id, DirectoryEntry *file_entry);
 

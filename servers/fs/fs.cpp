@@ -255,34 +255,34 @@ void ReadName(DirectoryEntry &entry, char *base, char *ext) {
     }
 }
 
-void ProcessAccordingToMessage(Message *msg, uint64_t am_id) {
-    switch (msg->type) {
+void ProcessAccordingToMessage(uint64_t am_id) {
+    switch (received_message[0].type) {
         case Message::kExecuteFile: {
             const char *path = received_message[0].arg.executefile.filename;
 
             auto [file_entry, post_slash] = FindFile(path);
             // the file doesn't exist
             if (!file_entry) {
-                sent_message[0] = *msg;
+                sent_message[0].type = Message::kExecuteFile;
                 sent_message[0].arg.executefile.exist = false;
                 sent_message[0].arg.executefile.directory = false;
-                SyscallSendMessage(sent_message, msg->src_task);
+                SyscallSendMessage(sent_message, am_id);
                 goto end;
             }
             // the file is a directory
             else if (file_entry->attr == Attribute::kDirectory) {
-                sent_message[0] = *msg;
+                sent_message[0].type = Message::kExecuteFile;
                 sent_message[0].arg.executefile.exist = true;
                 sent_message[0].arg.executefile.directory = true;
-                SyscallSendMessage(sent_message, msg->src_task);
+                SyscallSendMessage(sent_message, am_id);
                 goto end;
             }
             // the file exists and not a directory
             else {
-                sent_message[0] = *msg;
+                sent_message[0].type = Message::kExecuteFile;
                 sent_message[0].arg.executefile.exist = true;
                 sent_message[0].arg.executefile.directory = false;
-                SyscallSendMessage(sent_message, msg->src_task);
+                SyscallSendMessage(sent_message, am_id);
                 ExpandTaskBuffer(am_id, file_entry);
                 goto end;
             }
@@ -415,7 +415,7 @@ extern "C" void main() {
 
         // message from am server
         if (received_message[0].src_task == am_id) {
-            ProcessAccordingToMessage(received_message, am_id);
+            ProcessAccordingToMessage(am_id);
         }
     }
 }

@@ -34,11 +34,32 @@ off_t lseek(int fd, off_t offset, int whence) {
 }
 
 int open(const char* path, int flags) {
-    struct SyscallResult res = SyscallOpenFile(path, flags);
-    if (res.error == 0) {
-        return res.value;
+    struct SyscallResult id = SyscallFindServer("servers/am");
+    if (id.error == 0) {
+        struct Message msg;
+        msg.type = kOpen;
+        int i = 0;
+        while (*path) {
+            if (i >= 31) {
+                errno = EINVAL;
+                return -1;
+            }
+            msg.arg.open.filename[i] = *path;
+            ++i;
+            ++path;
+        }
+        msg.arg.open.filename[i] = '\0';
+        msg.arg.open.flags = flags;
+        SyscallSendMessage(&msg, id.value);
+        SyscallClosedReceiveMessage(&msg, 1, id.value);
+        if (!msg.arg.open.exist) {
+            errno = ENOENT;
+            return -1;
+        }
+        return msg.arg.open.fd;
     }
-    errno = res.error;
+
+    errno = id.error;
     return -1;
 }
 
