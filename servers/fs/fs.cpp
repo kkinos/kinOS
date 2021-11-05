@@ -37,28 +37,34 @@ void FileSystemServer::Processing() {
 
             SyscallClosedReceiveMessage(&received_message_, 1, am_id_);
 
-            if (received_message_.type == Message::kError) {
-                if (received_message_.arg.error.retry) {
-                    SyscallSendMessage(&send_message_, am_id_);
-                    SyscallWriteKernelLog("[ fs ] retry\n");
-                } else {
-                    SyscallWriteKernelLog("[ fs ] error at am server\n");
-                }
+            switch (received_message_.type) {
+                case Message::kError: {
+                    if (received_message_.arg.error.retry) {
+                        SyscallSendMessage(&send_message_, am_id_);
+                        SyscallWriteKernelLog("[ fs ] retry\n");
+                    } else {
+                        SyscallWriteKernelLog("[ fs ] error at am server\n");
+                    }
+                } break;
 
-            } else if (received_message_.type == Message::kExecuteFile) {
-                ChangeState(State::ExecutingFile);
-                SearchFile();
+                case Message::kExecuteFile: {
+                    ChangeState(State::ExecutingFile);
+                    SearchFile();
+                    ChangeState(State::WaitingForMessage);
+                } break;
 
-            } else if (received_message_.type == Message::kOpen) {
-                ChangeState(State::OpeningFile);
-                SearchFile();
+                case Message::kOpen: {
+                    ChangeState(State::OpeningFile);
+                    SearchFile();
+                    ChangeState(State::WaitingForMessage);
+                } break;
 
-            } else if (received_message_.type ==
-                       Message::kCopyFileToTaskBuffer) {
-                ChangeState(State::CopyingFileToTaskBuffer);
+                case Message::kCopyFileToTaskBuffer: {
+                } break;
 
-            } else {
-                SyscallWriteKernelLog("[ fs ] Unknown message type \n");
+                default:
+                    SyscallWriteKernelLog("[ fs ] Unknown message type \n");
+                    break;
             }
         } break;
 
@@ -99,9 +105,6 @@ void FileSystemServer::SearchFile() {
                 send_message_.arg.executefile.directory = false;
                 SyscallSendMessage(&send_message_, am_id_);
             }
-
-            ChangeState(State::WaitingForMessage);
-
         } break;
 
         case State::OpeningFile: {
@@ -130,8 +133,6 @@ void FileSystemServer::SearchFile() {
                 send_message_.arg.open.directory = false;
                 SyscallSendMessage(&send_message_, am_id_);
             }
-
-            ChangeState(State::WaitingForMessage);
         } break;
 
         default:
