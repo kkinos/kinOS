@@ -464,18 +464,18 @@ void InitializeSystemTask(void *volume_image) {
                      reinterpret_cast<uint64_t>(terminal_server_data))
         .Wakeup();
 
-    Task &fs_task = task_manager->NewTask();
-    auto fs_server_data = new DataOfServer{
-        "servers/fs",
-    };
-    fs_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(fs_server_data))
-        .Wakeup();
-
     Task &am_task = task_manager->NewTask();
     auto am_server_data = new DataOfServer{
         "servers/am",
     };
     am_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(am_server_data))
+        .Wakeup();
+
+    Task &fs_task = task_manager->NewTask();
+    auto fs_server_data = new DataOfServer{
+        "servers/fs",
+    };
+    fs_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(fs_server_data))
         .Wakeup();
 
     Task &log_task = task_manager->NewTask();

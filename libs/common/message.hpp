@@ -44,6 +44,7 @@ struct Message {
         kOpen,
         kCreateTask,
         kExecuteFile,
+        kCopyFileToTaskBuffer,
     } type;
 
     uint64_t src_task;

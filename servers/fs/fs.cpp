@@ -4,151 +4,156 @@
 #include <cctype>
 #include <utility>
 
-Vector2D<int> CalcCursorPos() {
-    return kTopLeftMargin + Vector2D<int>{4 + 8 * cursorx, 4 + 16 * cursory};
-}
+FileSystemServer::FileSystemServer() {}
 
-void DrawCursor(uint64_t layer_id, bool visible) {
-    const auto color = visible ? 0xffffff : 0;
-    WinFillRectangle(layer_id, true, CalcCursorPos().x, CalcCursorPos().y, 7,
-                     15, color);
-}
-
-Rectangle<int> BlinkCursor(uint64_t layer_id) {
-    cursor_visible_ = !cursor_visible_;
-    DrawCursor(layer_id, cursor_visible_);
-    return {CalcCursorPos(), {7, 15}};
-}
-
-void Scroll1(uint64_t layer_id) {
-    WinMoveRec(layer_id, false, Marginx + 4, Marginy + 4, Marginx + 4,
-               Marginy + 4 + 16, 8 * kColumns, 16 * (kRows - 1));
-    WinFillRectangle(layer_id, false, 4, 24 + 4 + 16 * cursory, (8 * kColumns),
-                     16, 0);
-    WinRedraw(layer_id);
-}
-
-void Print(uint64_t layer_id, char c) {
-    auto newline = [layer_id]() {
-        cursorx = 0;
-        if (cursory < kRows - 1) {
-            ++cursory;
-        } else {
-            Scroll1(layer_id);
-        }
-    };
-
-    if (c == '\n') {
-        newline();
-    } else {
-        WinWriteChar(layer_id, true, CalcCursorPos().x, CalcCursorPos().y,
-                     0xffffff, c);
-        if (cursorx == kColumns - 1) {
-            newline();
-        } else {
-            ++cursorx;
-        }
-    }
-}
-
-void Print(uint64_t layer_id, const char *s, std::optional<size_t> len) {
-    DrawCursor(layer_id, false);
-    if (len) {
-        for (size_t i = 0; i < *len; ++i) {
-            Print(layer_id, *s);
-            ++s;
-        }
-    } else {
-        while (*s) {
-            Print(layer_id, *s);
-            ++s;
-        }
-    }
-    DrawCursor(layer_id, true);
-}
-
-int PrintToTerminal(uint64_t layer_id, const char *format, ...) {
-    va_list ap;
-    int result;
-    char s[128];
-
-    va_start(ap, format);
-    result = vsprintf(s, format, ap);
-    va_end(ap);
-
-    Print(layer_id, s);
-    return result;
-}
-
-Rectangle<int> InputKey(uint64_t layer_id, uint8_t modifier, uint8_t keycode,
-                        char ascii) {
-    DrawCursor(layer_id, false);
-    Rectangle<int> draw_area{CalcCursorPos(), {8 * 2, 16}};
-
-    if (ascii == '\n') {
-        linebuf_index_ = 0;
-        cursorx = 0;
-
-        if (cursory < kRows - 1) {
-            ++cursory;
-        } else {
-            Scroll1(layer_id);
-        }
-    } else if (ascii == '\b') {
-        if (cursorx > 0) {
-            --cursorx;
-            WinFillRectangle(layer_id, true, CalcCursorPos().x,
-                             CalcCursorPos().y, 8, 16, 0);
-            draw_area.pos = CalcCursorPos();
-            if (linebuf_index_ > 0) {
-                --linebuf_index_;
-            }
-        }
-    } else if (ascii != 0) {
-        if (cursorx < kColumns - 1 && linebuf_index_ < kLineMax - 1) {
-            ++linebuf_index_;
-            WinWriteChar(layer_id, true, CalcCursorPos().x, CalcCursorPos().y,
-                         0xffffff, ascii);
-            ++cursorx;
-        }
-    }
-    DrawCursor(layer_id, true);
-    return draw_area;
-};
-
-Error InitializeFat() {
-    auto [ret, err] = SyscallReadVolumeImage(&boot_volume_image, 0, 1);
+void FileSystemServer::InitilaizeFat() {
+    auto [ret, err] = SyscallReadVolumeImage(&boot_volume_image_, 0, 1);
     if (err) {
-        return MAKE_ERROR(Error::kSyscallError);
+        SyscallWriteKernelLog("[ fs ] cannnot read volume image");
     }
 
     // supports only FAT32 TODO:supports other fat
-    if (boot_volume_image.total_sectors_16 == 0) {
-        fat = reinterpret_cast<uint32_t *>(fat_buf);
-        fat_file = reinterpret_cast<uint32_t *>(
-            malloc(boot_volume_image.sectors_per_cluster * SECTOR_SIZE));
+    if (boot_volume_image_.total_sectors_16 == 0) {
+        fat_ = reinterpret_cast<uint32_t *>(new char[SECTOR_SIZE]);
+        file_buf_ = reinterpret_cast<uint32_t *>(
+            new char[boot_volume_image_.sectors_per_cluster * SECTOR_SIZE]);
+    }
+    ChangeState(State::WaitingForMessage);
+}
 
-        return MAKE_ERROR(Error::kSuccess);
-    } else {
-        return MAKE_ERROR(Error::kNotAcceptable);
+void FileSystemServer::Processing() {
+    // TODO add case State::HavingError
+    switch (state_) {
+        case State::WaitingForMessage: {
+            auto [am_id, err] = SyscallFindServer("servers/am");
+            if (err) {
+                SyscallWriteKernelLog(
+                    "[ fs ] cannot find file application management server\n");
+                ChangeState(State::HavingError);
+                break;
+            }
+
+            am_id_ = am_id;
+
+            SyscallClosedReceiveMessage(&received_message_, 1, am_id_);
+
+            if (received_message_.type == Message::kError) {
+                if (received_message_.arg.error.retry) {
+                    SyscallSendMessage(&send_message_, am_id_);
+                    SyscallWriteKernelLog("[ fs ] retry\n");
+                } else {
+                    SyscallWriteKernelLog("[ fs ] error at am server\n");
+                }
+
+            } else if (received_message_.type == Message::kExecuteFile) {
+                ChangeState(State::ExecutingFile);
+                SearchFile();
+
+            } else if (received_message_.type == Message::kOpen) {
+                ChangeState(State::OpeningFile);
+                SearchFile();
+
+            } else if (received_message_.type ==
+                       Message::kCopyFileToTaskBuffer) {
+                ChangeState(State::CopyingFileToTaskBuffer);
+
+            } else {
+                SyscallWriteKernelLog("[ fs ] Unknown message type \n");
+            }
+        } break;
+
+        case State::CopyingFileToTaskBuffer: {
+        } break;
+
+        default:
+            break;
     }
 }
 
-unsigned long NextCluster(unsigned long cluster) {
+void FileSystemServer::SearchFile() {
+    switch (state_) {
+        case State::ExecutingFile: {
+            const char *path = received_message_.arg.executefile.filename;
+
+            auto [file_entry, post_slash] = FindFile(path);
+            // the file doesn't exist
+            if (!file_entry) {
+                send_message_.type = Message::kExecuteFile;
+                send_message_.arg.executefile.exist = false;
+                send_message_.arg.executefile.directory = false;
+                SyscallSendMessage(&send_message_, am_id_);
+            }
+
+            // the file is a directory
+            else if (file_entry->attr == Attribute::kDirectory) {
+                send_message_.type = Message::kExecuteFile;
+                send_message_.arg.executefile.exist = true;
+                send_message_.arg.executefile.directory = true;
+                SyscallSendMessage(&send_message_, am_id_);
+            }
+
+            // the file exists and not a directory
+            else {
+                send_message_.type = Message::kExecuteFile;
+                send_message_.arg.executefile.exist = true;
+                send_message_.arg.executefile.directory = false;
+                SyscallSendMessage(&send_message_, am_id_);
+            }
+
+            ChangeState(State::WaitingForMessage);
+
+        } break;
+
+        case State::OpeningFile: {
+            const char *path = received_message_.arg.open.filename;
+            auto [file_entry, post_slash] = FindFile(path);
+
+            // the file doesn't exist
+            if (!file_entry) {
+                send_message_.type = Message::kOpen;
+                send_message_.arg.open.exist = false;
+                send_message_.arg.open.directory = false;
+                SyscallSendMessage(&send_message_, am_id_);
+            }
+
+            // the file is a directory
+            else if (file_entry->attr == Attribute::kDirectory) {
+                send_message_.type = Message::kOpen;
+                send_message_.arg.open.exist = true;
+                send_message_.arg.open.directory = true;
+                SyscallSendMessage(&send_message_, am_id_);
+            }
+            // the file exists and not a directory
+            else {
+                send_message_.type = Message::kOpen;
+                send_message_.arg.open.exist = true;
+                send_message_.arg.open.directory = false;
+                SyscallSendMessage(&send_message_, am_id_);
+            }
+
+            ChangeState(State::WaitingForMessage);
+        } break;
+
+        default:
+            break;
+    }
+}
+
+unsigned long FileSystemServer::NextCluster(unsigned long cluster) {
     unsigned long sector_offset =
-        cluster / (boot_volume_image.bytes_per_sector / sizeof(uint32_t));
+        cluster / (boot_volume_image_.bytes_per_sector / sizeof(uint32_t));
 
     // copy 1 block
     auto [ret, err] = SyscallReadVolumeImage(
-        fat, boot_volume_image.reserved_sector_count + sector_offset, 1);
+        fat_, boot_volume_image_.reserved_sector_count + sector_offset, 1);
     if (err) {
         return 0;
     }
 
     cluster =
-        cluster - ((boot_volume_image.bytes_per_sector / sizeof(uint32_t)) *
+        cluster - ((boot_volume_image_.bytes_per_sector / sizeof(uint32_t)) *
                    sector_offset);
-    uint32_t next = fat[cluster];
+    uint32_t next = fat_[cluster];
 
     // end of cluster chain
     if (next >= 0x0ffffff8ul) {
@@ -158,22 +163,22 @@ unsigned long NextCluster(unsigned long cluster) {
     return next;
 }
 
-uint32_t *ReadCluster(unsigned long cluster) {
+uint32_t *FileSystemServer::ReadCluster(unsigned long cluster) {
     unsigned long sector_offset =
-        boot_volume_image.reserved_sector_count +
-        boot_volume_image.num_fats * boot_volume_image.fat_size_32 +
-        (cluster - 2) * boot_volume_image.sectors_per_cluster;
+        boot_volume_image_.reserved_sector_count +
+        boot_volume_image_.num_fats * boot_volume_image_.fat_size_32 +
+        (cluster - 2) * boot_volume_image_.sectors_per_cluster;
 
     auto [ret, err] = SyscallReadVolumeImage(
-        fat_file, sector_offset, boot_volume_image.sectors_per_cluster);
+        file_buf_, sector_offset, boot_volume_image_.sectors_per_cluster);
     if (err) {
         return nullptr;
     }
 
-    return fat_file;
+    return file_buf_;
 }
 
-bool NameIsEqual(DirectoryEntry &entry, const char *name) {
+bool FileSystemServer::NameIsEqual(DirectoryEntry &entry, const char *name) {
     unsigned char name83[11];
     memset(name83, 0x20, sizeof(name83));
 
@@ -189,8 +194,8 @@ bool NameIsEqual(DirectoryEntry &entry, const char *name) {
     return memcmp(entry.name, name83, sizeof(name83)) == 0;
 }
 
-std::pair<const char *, bool> NextPathElement(const char *path,
-                                              char *path_elem) {
+std::pair<const char *, bool> FileSystemServer::NextPathElement(
+    const char *path, char *path_elem) {
     const char *next_slash = strchr(path, '/');
     if (next_slash == nullptr) {
         strcpy(path_elem, path);
@@ -203,13 +208,13 @@ std::pair<const char *, bool> NextPathElement(const char *path,
     return {&next_slash[1], true};
 }
 
-std::pair<DirectoryEntry *, bool> FindFile(const char *path,
-                                           unsigned long directory_cluster) {
+std::pair<DirectoryEntry *, bool> FileSystemServer::FindFile(
+    const char *path, unsigned long directory_cluster) {
     if (path[0] == '/') {
-        directory_cluster = boot_volume_image.root_cluster;
+        directory_cluster = boot_volume_image_.root_cluster;
         ++path;
     } else if (directory_cluster == 0) {
-        directory_cluster = boot_volume_image.root_cluster;
+        directory_cluster = boot_volume_image_.root_cluster;
     }
 
     char path_elem[13];
@@ -220,8 +225,8 @@ std::pair<DirectoryEntry *, bool> FindFile(const char *path,
         DirectoryEntry *dir =
             reinterpret_cast<DirectoryEntry *>(ReadCluster(directory_cluster));
 
-        for (int i = 0; i < (boot_volume_image.bytes_per_sector *
-                             boot_volume_image.sectors_per_cluster) /
+        for (int i = 0; i < (boot_volume_image_.bytes_per_sector *
+                             boot_volume_image_.sectors_per_cluster) /
                                 sizeof(DirectoryEntry);
              ++i) {
             if (dir[i].name == 0x00) {
@@ -242,7 +247,7 @@ not_found:
     return {nullptr, post_slash};
 }
 
-void ReadName(DirectoryEntry &entry, char *base, char *ext) {
+void FileSystemServer::ReadName(DirectoryEntry &entry, char *base, char *ext) {
     memcpy(base, &entry.name[0], 8);
     base[8] = 0;
     for (int i = 7; i >= 0 && base[i] == 0x20; --i) {
@@ -255,197 +260,176 @@ void ReadName(DirectoryEntry &entry, char *base, char *ext) {
     }
 }
 
-void ProcessAccordingToMessage(uint64_t am_id) {
-    switch (received_message[0].type) {
-        case Message::kExecuteFile: {
-            const char *path = received_message[0].arg.executefile.filename;
+// void ProcessAccordingToMessage(uint64_t am_id) {
+//     switch (received_message[0].type) {
+//         case Message::kExecuteFile: {
+//             const char *path =
+//             received_message[0].arg.executefile.filename;
 
-            auto [file_entry, post_slash] = FindFile(path);
-            // the file doesn't exist
-            if (!file_entry) {
-                sent_message[0].type = Message::kExecuteFile;
-                sent_message[0].arg.executefile.exist = false;
-                sent_message[0].arg.executefile.directory = false;
-                SyscallSendMessage(sent_message, am_id);
-                goto end;
-            }
-            // the file is a directory
-            else if (file_entry->attr == Attribute::kDirectory) {
-                sent_message[0].type = Message::kExecuteFile;
-                sent_message[0].arg.executefile.exist = true;
-                sent_message[0].arg.executefile.directory = true;
-                SyscallSendMessage(sent_message, am_id);
-                goto end;
-            }
-            // the file exists and not a directory
-            else {
-                sent_message[0].type = Message::kExecuteFile;
-                sent_message[0].arg.executefile.exist = true;
-                sent_message[0].arg.executefile.directory = false;
-                SyscallSendMessage(sent_message, am_id);
-                ExpandTaskBuffer(am_id, file_entry);
-                goto end;
-            }
-        }
+//             auto [file_entry, post_slash] = FindFile(path);
+//             // the file doesn't exist
+//             if (!file_entry) {
+//                 sent_message[0].type = Message::kExecuteFile;
+//                 sent_message[0].arg.executefile.exist = false;
+//                 sent_message[0].arg.executefile.directory = false;
+//                 SyscallSendMessage(sent_message, am_id);
+//                 goto end;
+//             }
+//             // the file is a directory
+//             else if (file_entry->attr == Attribute::kDirectory) {
+//                 sent_message[0].type = Message::kExecuteFile;
+//                 sent_message[0].arg.executefile.exist = true;
+//                 sent_message[0].arg.executefile.directory = true;
+//                 SyscallSendMessage(sent_message, am_id);
+//                 goto end;
+//             }
+//             // the file exists and not a directory
+//             else {
+//                 sent_message[0].type = Message::kExecuteFile;
+//                 sent_message[0].arg.executefile.exist = true;
+//                 sent_message[0].arg.executefile.directory = false;
+//                 SyscallSendMessage(sent_message, am_id);
+//                 ExpandTaskBuffer(am_id, file_entry);
+//                 goto end;
+//             }
+//         }
 
-        case Message::kOpen: {
-            const char *path = received_message[0].arg.open.filename;
+//         case Message::kOpen: {
+//             const char *path = received_message[0].arg.open.filename;
 
-            auto [file_entry, post_slash] = FindFile(path);
-            // the file doesn't exist
-            if (!file_entry) {
-                sent_message[0].type = Message::kOpen;
-                sent_message[0].arg.open.exist = false;
-                sent_message[0].arg.open.directory = false;
-                SyscallSendMessage(sent_message, am_id);
-                goto end;
-            }
-            // the file is a directory
-            else if (file_entry->attr == Attribute::kDirectory) {
-                sent_message[0].type = Message::kOpen;
-                sent_message[0].arg.open.exist = true;
-                sent_message[0].arg.open.directory = true;
-                SyscallSendMessage(sent_message, am_id);
-                goto end;
-            }
-            // the file exists and not a directory
-            else {
-                sent_message[0].type = Message::kOpen;
-                sent_message[0].arg.open.exist = true;
-                sent_message[0].arg.open.directory = false;
-                SyscallSendMessage(sent_message, am_id);
-                goto end;
-            }
-        }
-        default:
-            SyscallWriteKernelLog("[ fs ] Unknown message type \n");
-            goto end;
-    }
+//             auto [file_entry, post_slash] = FindFile(path);
+//             // the file doesn't exist
+//             if (!file_entry) {
+//                 sent_message[0].type = Message::kOpen;
+//                 sent_message[0].arg.open.exist = false;
+//                 sent_message[0].arg.open.directory = false;
+//                 SyscallSendMessage(sent_message, am_id);
+//                 goto end;
+//             }
+//             // the file is a directory
+//             else if (file_entry->attr == Attribute::kDirectory) {
+//                 sent_message[0].type = Message::kOpen;
+//                 sent_message[0].arg.open.exist = true;
+//                 sent_message[0].arg.open.directory = true;
+//                 SyscallSendMessage(sent_message, am_id);
+//                 goto end;
+//             }
+//             // the file exists and not a directory
+//             else {
+//                 sent_message[0].type = Message::kOpen;
+//                 sent_message[0].arg.open.exist = true;
+//                 sent_message[0].arg.open.directory = false;
+//                 SyscallSendMessage(sent_message, am_id);
+//                 goto end;
+//             }
+//         }
+//         default:
+//             SyscallWriteKernelLog("[ fs ] Unknown message type \n");
+//             goto end;
+//     }
 
-end:
-    return;
-}
+// end:
+//     return;
+// }
 
-void ExpandTaskBuffer(uint64_t am_id, DirectoryEntry *file_entry) {
-    while (true) {
-        SyscallClosedReceiveMessage(received_message, 1, am_id);
-        switch (received_message[0].type) {
-            case Message::kError:
-                if (received_message[0].arg.error.retry) {
-                    SyscallSendMessage(sent_message, am_id);
-                    SyscallWriteKernelLog("[ fs ] retry\n");
-                    break;
-                } else {
-                    SyscallWriteKernelLog("[ fs ] error at am server\n");
-                    goto end;
-                }
-            case Message::kExecuteFile: {
-                // message to kernel to expand task buffer
-                uint64_t id = received_message[0].arg.executefile.id;
-                sent_message[0].type = Message::kExpandTaskBuffer;
-                sent_message[0].arg.expand.id = id;
-                sent_message[0].arg.expand.bytes = file_entry->file_size;
-                SyscallSendMessage(sent_message, 1);
-                CopyToTaskBuffer(id, am_id, file_entry);
-                goto end;
-            }
+// void ExpandTaskBuffer(uint64_t am_id, DirectoryEntry *file_entry) {
+//     while (true) {
+//         SyscallClosedReceiveMessage(received_message, 1, am_id);
+//         switch (received_message[0].type) {
+//             case Message::kError:
+//                 if (received_message[0].arg.error.retry) {
+//                     SyscallSendMessage(sent_message, am_id);
+//                     SyscallWriteKernelLog("[ fs ] retry\n");
+//                     break;
+//                 } else {
+//                     SyscallWriteKernelLog("[ fs ] error at am server\n");
+//                     goto end;
+//                 }
+//             case Message::kExecuteFile: {
+//                 // message to kernel to expand task buffer
+//                 uint64_t id = received_message[0].arg.executefile.id;
+//                 sent_message[0].type = Message::kExpandTaskBuffer;
+//                 sent_message[0].arg.expand.id = id;
+//                 sent_message[0].arg.expand.bytes = file_entry->file_size;
+//                 SyscallSendMessage(sent_message, 1);
+//                 CopyToTaskBuffer(id, am_id, file_entry);
+//                 goto end;
+//             }
 
-            default:
-                SyscallWriteKernelLog(
-                    "[ fs ] Unknown message type from am server\n");
-                goto end;
-        }
-    }
-end:
-    return;
-}
+//             default:
+//                 SyscallWriteKernelLog(
+//                     "[ fs ] Unknown message type from am server\n");
+//                 goto end;
+//         }
+//     }
+// end:
+//     return;
+// }
 
-void CopyToTaskBuffer(uint64_t id, uint64_t am_id, DirectoryEntry *file_entry) {
-    while (true) {
-        SyscallClosedReceiveMessage(received_message, 1, 1);
+// void CopyToTaskBuffer(uint64_t id, uint64_t am_id, DirectoryEntry
+// *file_entry) {
+//     while (true) {
+//         SyscallClosedReceiveMessage(received_message, 1, 1);
 
-        switch (received_message[0].type) {
-            case Message::kError:
-                if (received_message[0].arg.error.retry) {
-                    SyscallSendMessage(sent_message, 1);
-                    SyscallWriteKernelLog("[ fs ] retry\n");
-                    break;
-                } else {
-                    SyscallWriteKernelLog("[ fs ] error at kernel\n");
-                    goto end;
-                }
-            // copy file to task buffer
-            case Message::kExpandTaskBuffer: {
-                auto cluster = file_entry->FirstCluster();
-                auto remain_bytes = file_entry->file_size;
-                int offset = 0;
+//         switch (received_message[0].type) {
+//             case Message::kError:
+//                 if (received_message[0].arg.error.retry) {
+//                     SyscallSendMessage(sent_message, 1);
+//                     SyscallWriteKernelLog("[ fs ] retry\n");
+//                     break;
+//                 } else {
+//                     SyscallWriteKernelLog("[ fs ] error at kernel\n");
+//                     goto end;
+//                 }
+//             // copy file to task buffer
+//             case Message::kExpandTaskBuffer: {
+//                 auto cluster = file_entry->FirstCluster();
+//                 auto remain_bytes = file_entry->file_size;
+//                 int offset = 0;
 
-                while (cluster != 0 && cluster != 0x0ffffffflu) {
-                    char *p = reinterpret_cast<char *>(ReadCluster(cluster));
-                    int i = 0;
-                    for (; i < boot_volume_image.bytes_per_sector *
-                                   boot_volume_image.sectors_per_cluster &&
-                           i < remain_bytes;
-                         ++i) {
-                        auto [res, err] =
-                            SyscallCopyToTaskBuffer(id, p, offset, 1);
-                        if (err) {
-                            SyscallWriteKernelLog("[ fs ] Syscall error\n");
-                            sent_message[0].type = Message::kError;
-                            sent_message[0].arg.error.retry = false;
-                            SyscallSendMessage(sent_message, am_id);
-                            goto end;
-                        }
-                        ++p;
-                        ++offset;
-                    }
-                    remain_bytes -= i;
-                    cluster = NextCluster(cluster);
-                }
-                sent_message[0].type = Message::kReady;
-                SyscallSendMessage(sent_message, am_id);
-                goto end;
-            }
+//                 while (cluster != 0 && cluster != 0x0ffffffflu) {
+//                     char *p = reinterpret_cast<char
+//                     *>(ReadCluster(cluster)); int i = 0; for (; i <
+//                     boot_volume_image.bytes_per_sector *
+//                                    boot_volume_image.sectors_per_cluster
+//                                    &&
+//                            i < remain_bytes;
+//                          ++i) {
+//                         auto [res, err] =
+//                             SyscallCopyToTaskBuffer(id, p, offset, 1);
+//                         if (err) {
+//                             SyscallWriteKernelLog("[ fs ] Syscall
+//                             error\n"); sent_message[0].type =
+//                             Message::kError;
+//                             sent_message[0].arg.error.retry = false;
+//                             SyscallSendMessage(sent_message, am_id);
+//                             goto end;
+//                         }
+//                         ++p;
+//                         ++offset;
+//                     }
+//                     remain_bytes -= i;
+//                     cluster = NextCluster(cluster);
+//                 }
+//                 sent_message[0].type = Message::kReady;
+//                 SyscallSendMessage(sent_message, am_id);
+//                 goto end;
+//             }
 
-            default:
-                goto end;
-        }
-    }
-end:
-    return;
-}
+//             default:
+//                 goto end;
+//         }
+//     }
+// end:
+//     return;
+// }
 
 extern "C" void main() {
-    int layer_id = OpenWindow(kColumns * 8 + 12 + Marginx,
-                              kRows * 16 + 12 + Marginy, 20, 20, "fs");
-    if (layer_id == -1) {
-        exit(1);
-    }
-    WinFillRectangle(layer_id, true, Marginx, Marginy, kCanvasWidth,
-                     kCanvasHeight, 0);
-
-    InitializeFat();
+    file_system_server = new FileSystemServer;
+    file_system_server->InitilaizeFat();
     SyscallWriteKernelLog("[ fs ] ready\n");
-    auto [am_id, err] = SyscallFindServer("servers/am");
-    if (err) {
-        SyscallWriteKernelLog(
-            "[ fs ] cannot find file application management server\n");
-    }
 
     while (true) {
-        SyscallOpenReceiveMessage(received_message, 1);
-        if (received_message[0].type == Message::kKeyPush) {
-            if (received_message[0].arg.keyboard.press) {
-                const auto area = InputKey(
-                    layer_id, received_message[0].arg.keyboard.modifier,
-                    received_message[0].arg.keyboard.keycode,
-                    received_message[0].arg.keyboard.ascii);
-            }
-        }
-
-        // message from am server
-        if (received_message[0].src_task == am_id) {
-            ProcessAccordingToMessage(am_id);
-        }
+        file_system_server->Processing();
     }
 }

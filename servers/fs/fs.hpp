@@ -12,34 +12,6 @@
 
 #define SECTOR_SIZE 512
 
-const int kRows = 15;
-const int kColumns = 60;
-const int Marginx = 4;
-const int Marginy = 24;
-const int kCanvasWidth = kColumns * 8 + 8;
-const int kCanvasHeight = kRows * 16 + 8;
-int cursorx = 0;
-int cursory = 0;
-bool cursor_visible_ = true;
-const int kLineMax = 128;
-int linebuf_index_{0};
-Vector2D<int> kTopLeftMargin = {4, 24};
-
-Message sent_message[1];
-Message received_message[1];
-
-Vector2D<int> CalcCursorPos();
-void DrawCursor(uint64_t layer_id, bool visible);
-Rectangle<int> BlinkCursor(uint64_t layer_id);
-Rectangle<int> InputKey(uint64_t layer_id, uint8_t modifier, uint8_t keycode,
-                        char ascii);
-void Scroll1(uint64_t layer_id);
-void Print(uint64_t layer_id, const char *s,
-           std::optional<size_t> len = std::nullopt);
-void Print(uint64_t layer_id, char s);
-
-int PrintToTerminal(uint64_t layer_id, const char *format, ...);
-
 struct BPB {
     uint8_t jump_boot[3];
     char oem_name[8];
@@ -100,29 +72,42 @@ struct DirectoryEntry {
     }
 } __attribute__((packed));
 
-BPB boot_volume_image;
-char fat_buf[SECTOR_SIZE];
-uint32_t *fat;
-uint32_t *fat_file;
+enum State {
+    HavingError,
+    WaitingForMessage,
+    ExecutingFile,
+    OpeningFile,
+    CopyingFileToTaskBuffer
+};
 
-Error InitializeFat();
+class FileSystemServer {
+   public:
+    FileSystemServer();
+    void InitilaizeFat();
+    void Processing();
 
-unsigned long NextCluster(unsigned long cluster);
+   private:
+    Message send_message_;
+    Message received_message_;
 
-uint32_t *ReadCluster(unsigned long cluster);
+    BPB boot_volume_image_;
+    uint32_t *fat_;
+    uint32_t *file_buf_;
 
-std::pair<const char *, bool> NextPathElement(const char *path,
-                                              char *path_elem);
+    uint64_t am_id_;
+    State state_;
 
-std::pair<DirectoryEntry *, bool> FindFile(const char *path,
-                                           unsigned long directory_cluster = 0);
+    void ChangeState(State state) { state_ = state; }
+    void SearchFile();
 
-bool NameIsEqual(const DirectoryEntry &entry, const char *name);
+    unsigned long NextCluster(unsigned long cluster);
+    uint32_t *ReadCluster(unsigned long cluster);
+    std::pair<const char *, bool> NextPathElement(const char *path,
+                                                  char *path_elem);
+    std::pair<DirectoryEntry *, bool> FindFile(
+        const char *path, unsigned long directory_cluster = 0);
+    bool NameIsEqual(DirectoryEntry &entry, const char *name);
+    void ReadName(DirectoryEntry &root_dir, char *base, char *ext);
+};
 
-void ReadName(DirectoryEntry &root_dir, char *base, char *ext);
-
-void ProcessAccordingToMessage(uint64_t am_id);
-
-void ExpandTaskBuffer(uint64_t am_id, DirectoryEntry *file_entry);
-
-void CopyToTaskBuffer(uint64_t id, uint64_t am_id, DirectoryEntry *file_entry);
+FileSystemServer *file_system_server;
