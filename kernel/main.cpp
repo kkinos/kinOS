@@ -119,7 +119,7 @@ extern "C" void KernelMainNewStack(
             case Message::kExcute:
                 task_manager->StartTaskApp(rmsg->arg.execute.id,
                                            rmsg->src_task);
-                printk("[ kinOS ] execute task %d\n", rmsg->arg.execute.id);
+                printk("[ kinOS ] start task %d\n", rmsg->arg.execute.id);
 
                 break;
 

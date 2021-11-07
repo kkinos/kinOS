@@ -6,7 +6,6 @@
 #include <cstring>
 #include <optional>
 
-#include "../../libs/common/error.hpp"
 #include "../../libs/common/template.hpp"
 #include "../../libs/gui/guisyscall.hpp"
 
@@ -73,11 +72,11 @@ struct DirectoryEntry {
 } __attribute__((packed));
 
 enum State {
-    HavingError,
-    WaitingForMessage,
-    ExecutingFile,
-    OpeningFile,
-    CopyingFileToTaskBuffer
+    Error,
+    InitialState,
+    ExecuteFile,
+    CopyFileToTaskBuffer,
+    OpenFile,
 };
 
 class FileSystemServer {
@@ -91,6 +90,8 @@ class FileSystemServer {
     Message received_message_;
 
     BPB boot_volume_image_;
+    DirectoryEntry *target_file_entry_;
+    uint64_t target_task_id_;
     uint32_t *fat_;
     uint32_t *file_buf_;
 
@@ -98,6 +99,7 @@ class FileSystemServer {
     State state_;
 
     void ChangeState(State state) { state_ = state; }
+    void ReceiveMessage();
     void SearchFile();
 
     unsigned long NextCluster(unsigned long cluster);
