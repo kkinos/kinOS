@@ -1,6 +1,6 @@
 /**
  * @file task.hpp
- *
+ * @brief programs for task management and context switch
  */
 
 #pragma once
