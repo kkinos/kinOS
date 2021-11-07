@@ -1,3 +1,10 @@
+/**
+ * @file fs.hpp
+ *
+ * @brief file system server
+ *
+ */
+
 #pragma once
 
 #include <array>
@@ -100,7 +107,7 @@ class FileSystemServer {
 
     void ChangeState(State state) { state_ = state; }
     void ReceiveMessage();
-    void SearchFile();
+    void FindFile();
 
     unsigned long NextCluster(unsigned long cluster);
     uint32_t *ReadCluster(unsigned long cluster);

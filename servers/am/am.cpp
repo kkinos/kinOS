@@ -2,6 +2,8 @@
 
 #include <cstdio>
 
+#include "../../libs/kinos/print.hpp"
+
 AppInfo::AppInfo(uint64_t task_id, uint64_t p_task_id)
     : task_id_{task_id}, p_task_id_{p_task_id} {}
 
@@ -26,7 +28,7 @@ ApplicationManagementServer::ApplicationManagementServer() {}
 void ApplicationManagementServer::Initilize() {
     app_manager_ = new AppManager;
     ChangeState(State::InitialState);
-    SyscallWriteKernelLog("[ am ] ready\n");
+    Print("[ am ] ready\n");
 }
 
 void ApplicationManagementServer::Processing() {
@@ -53,8 +55,7 @@ void ApplicationManagementServer::Processing() {
                     } break;
 
                     default:
-                        SyscallWriteKernelLog(
-                            "[ am ] unknown message type from kernel\n");
+                        Print("[ am ] unknown message type from kernel\n");
                         break;
                 }
                 // message from servers
@@ -67,8 +68,7 @@ void ApplicationManagementServer::Processing() {
                         if (err) {
                             send_message_.type = Message::kError;
                             send_message_.arg.error.retry = false;
-                            SyscallWriteKernelLog(
-                                "[ am ] cannnot find file system server\n");
+                            Print("[ am ] cannnot find file system server\n");
                             SyscallSendMessage(&send_message_, target_p_id_);
 
                         } else {
@@ -76,6 +76,8 @@ void ApplicationManagementServer::Processing() {
                             send_message_.type = Message::kExecuteFile;
                             strcpy(send_message_.arg.executefile.filename,
                                    received_message_.arg.executefile.filename);
+                            Print("[ am ] execute application %s\n",
+                                  received_message_.arg.executefile.filename);
                             SyscallSendMessage(&send_message_, fs_id_);
                             ChangeState(State::ExecuteFile);
                         }
@@ -99,14 +101,12 @@ void ApplicationManagementServer::Processing() {
                     } break;
 
                     case Message::kOpen: {
-                        ChangeState(State::Open);
                         // TODO: 1.flagの処理
                         auto [fs_id, err] = SyscallFindServer("servers/fs");
                         if (err) {
                             send_message_.type = Message::kError;
                             send_message_.arg.error.retry = false;
-                            SyscallWriteKernelLog(
-                                "[ am ] cannnot find file system server\n");
+                            Print("[ am ] cannnot find file system server\n");
                             SyscallSendMessage(&send_message_,
                                                received_message_.src_task);
                         } else {
@@ -117,6 +117,7 @@ void ApplicationManagementServer::Processing() {
                             strcpy(send_message_.arg.open.filename,
                                    received_message_.arg.open.filename);
                             SyscallSendMessage(&send_message_, fs_id_);
+                            ChangeState(State::Open);
                         }
                     } break;
 
@@ -143,7 +144,7 @@ void ApplicationManagementServer::Processing() {
                         // the file exists, and not a directory
                         auto [id, err] = SyscallCreateNewTask();
                         if (err) {
-                            SyscallWriteKernelLog("[ am ] syscall error\n");
+                            Print("[ am ] syscall error\n");
                             send_message_.type = Message::kError;
                             send_message_.arg.error.retry = false;
                             SyscallSendMessage(&send_message_, target_p_id_);
@@ -160,8 +161,7 @@ void ApplicationManagementServer::Processing() {
                 } break;
 
                 default:
-                    SyscallWriteKernelLog(
-                        "[ am ] unknown message type from fs server\n");
+                    Print("[ am ] unknown message type from fs server\n");
                     break;
             }
         } break;
@@ -179,8 +179,7 @@ void ApplicationManagementServer::Processing() {
                 } break;
 
                 default:
-                    SyscallWriteKernelLog(
-                        "[ am ] unknown message type from fs server\n");
+                    Print("[ am ] unknown message type from fs server\n");
                     break;
             }
         } break;
@@ -207,8 +206,7 @@ void ApplicationManagementServer::Processing() {
                 } break;
 
                 default:
-                    SyscallWriteKernelLog(
-                        "[ am ] unknown message type from fs server\n");
+                    Print("[ am ] unknown message type from fs server\n");
                     break;
             }
         } break;
@@ -222,6 +220,7 @@ void ApplicationManagementServer::ReceiveMessage() {
     switch (state_) {
         case State::InitialState: {
             SyscallOpenReceiveMessage(&received_message_, 1);
+
         } break;
 
         case State::Open:
@@ -229,8 +228,7 @@ void ApplicationManagementServer::ReceiveMessage() {
         case State::StartAppTask: {
             auto [fs_id, err] = SyscallFindServer("servers/fs");
             if (err) {
-                SyscallWriteKernelLog(
-                    "[ am ] cannnot find file system server\n");
+                Print("[ am ] cannnot find file system server\n");
                 ChangeState(State::Error);
                 break;
             }
@@ -242,7 +240,7 @@ void ApplicationManagementServer::ReceiveMessage() {
                     SyscallSendMessage(&send_message_, fs_id_);
                     break;
                 } else {
-                    SyscallWriteKernelLog("[ am ] error at fs server\n");
+                    Print("[ am ] error at fs server\n");
                     send_message_.type = Message::kError;
                     send_message_.arg.error.retry = false;
                     SyscallSendMessage(&send_message_, target_p_id_);

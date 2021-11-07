@@ -4,12 +4,14 @@
 #include <cctype>
 #include <utility>
 
+#include "../../libs/kinos/print.hpp"
+
 FileSystemServer::FileSystemServer() {}
 
 void FileSystemServer::Initilaize() {
     auto [ret, err] = SyscallReadVolumeImage(&boot_volume_image_, 0, 1);
     if (err) {
-        SyscallWriteKernelLog("[ fs ] cannnot read volume image");
+        Print("[ fs ] cannnot read volume image");
         ChangeState(State::Error);
     }
 
@@ -20,7 +22,7 @@ void FileSystemServer::Initilaize() {
             new char[boot_volume_image_.sectors_per_cluster * SECTOR_SIZE]);
 
         ChangeState(State::InitialState);
-        SyscallWriteKernelLog("[ fs ] ready\n");
+        Print("[ fs ] ready\n");
     }
 }
 
@@ -33,24 +35,24 @@ void FileSystemServer::Processing() {
                 case Message::kError: {
                     if (received_message_.arg.error.retry) {
                         SyscallSendMessage(&send_message_, am_id_);
-                        SyscallWriteKernelLog("[ fs ] retry\n");
+                        Print("[ fs ] retry\n");
                     } else {
-                        SyscallWriteKernelLog("[ fs ] error at am server\n");
+                        Print("[ fs ] error at am server\n");
                     }
                 } break;
 
                 case Message::kExecuteFile: {
                     ChangeState(State::ExecuteFile);
-                    SearchFile();
+                    FindFile();
                 } break;
 
                 case Message::kOpen: {
                     ChangeState(State::OpenFile);
-                    SearchFile();
+                    FindFile();
                 } break;
 
                 default:
-                    SyscallWriteKernelLog("[ fs ] unknown message type \n");
+                    Print("[ fs ] unknown message type \n");
                     break;
             }
         } break;
@@ -61,9 +63,9 @@ void FileSystemServer::Processing() {
                 case Message::kError: {
                     if (received_message_.arg.error.retry) {
                         SyscallSendMessage(&send_message_, am_id_);
-                        SyscallWriteKernelLog("[ fs ] retry\n");
+                        Print("[ fs ] retry\n");
                     } else {
-                        SyscallWriteKernelLog("[ fs ] error at am server\n");
+                        Print("[ fs ] error at am server\n");
                         ChangeState(State::InitialState);
                     }
                 } break;
@@ -79,8 +81,7 @@ void FileSystemServer::Processing() {
                 } break;
 
                 default:
-                    SyscallWriteKernelLog(
-                        "[ fs ] unknown message type from am server\n");
+                    Print("[ fs ] unknown message type from am server\n");
                     ChangeState(State::InitialState);
                     break;
             }
@@ -92,9 +93,9 @@ void FileSystemServer::Processing() {
                 case Message::kError: {
                     if (received_message_.arg.error.retry) {
                         SyscallSendMessage(&send_message_, 1);
-                        SyscallWriteKernelLog("[ fs ] retry\n");
+                        Print("[ fs ] retry\n");
                     } else {
-                        SyscallWriteKernelLog("[ fs ] error at kernel\n");
+                        Print("[ fs ] error at kernel\n");
                         ChangeState(State::InitialState);
                     }
                 } break;
@@ -103,6 +104,8 @@ void FileSystemServer::Processing() {
                     auto cluster = target_file_entry_->FirstCluster();
                     auto remain_bytes = target_file_entry_->file_size;
                     int offset = 0;
+                    Print("[ fs ] copy %s to task buffer\n",
+                          target_file_entry_->name);
 
                     while (cluster != 0 && cluster != 0x0ffffffflu) {
                         char *p =
@@ -126,8 +129,7 @@ void FileSystemServer::Processing() {
                 } break;
 
                 default:
-                    SyscallWriteKernelLog(
-                        "[ fs ] Unknown message type from kernel \n");
+                    Print("[ fs ] Unknown message type from kernel \n");
                     break;
             }
         } break;
@@ -143,7 +145,7 @@ void FileSystemServer::ReceiveMessage() {
         case State::ExecuteFile: {
             auto [am_id, err] = SyscallFindServer("servers/am");
             if (err) {
-                SyscallWriteKernelLog(
+                Print(
                     "[ fs ] cannot find file application management server\n");
                 ChangeState(State::Error);
                 break;
@@ -163,10 +165,11 @@ void FileSystemServer::ReceiveMessage() {
     }
 }
 
-void FileSystemServer::SearchFile() {
+void FileSystemServer::FindFile() {
     switch (state_) {
         case State::ExecuteFile: {
             const char *path = received_message_.arg.executefile.filename;
+            Print("[ fs ] find  %s\n", path);
 
             auto [file_entry, post_slash] = FindFile(path);
             // the file doesn't exist
@@ -175,6 +178,7 @@ void FileSystemServer::SearchFile() {
                 send_message_.arg.executefile.exist = false;
                 send_message_.arg.executefile.isdirectory = false;
                 SyscallSendMessage(&send_message_, am_id_);
+                Print("[ fs ] cannnot find  %s\n", path);
                 ChangeState(State::InitialState);
             }
 
@@ -199,6 +203,7 @@ void FileSystemServer::SearchFile() {
 
         case State::OpenFile: {
             const char *path = received_message_.arg.open.filename;
+            Print("[ fs ] find  %s\n", path);
             auto [file_entry, post_slash] = FindFile(path);
 
             // the file doesn't exist
@@ -206,6 +211,7 @@ void FileSystemServer::SearchFile() {
                 send_message_.type = Message::kOpen;
                 send_message_.arg.open.exist = false;
                 send_message_.arg.open.isdirectory = false;
+                Print("[ fs ] cannnot find  %s\n", path);
                 SyscallSendMessage(&send_message_, am_id_);
             }
 

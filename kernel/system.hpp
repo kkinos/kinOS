@@ -1,7 +1,7 @@
 /**
  * @file system.hpp
  *
- * functions of system task(kernel task)
+ * @brief functions of system task(kernel task)
  */
 
 #pragma once

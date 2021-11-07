@@ -51,45 +51,6 @@ void Print(uint64_t layer_id, const char *s, std::optional<size_t> len) {
     }
 }
 
-void PrintUserName(uint64_t layer_id, char c) {
-    auto newline = [layer_id]() {
-        cursorx = 0;
-        if (cursory < kRows - 1) {
-            ++cursory;
-        } else {
-            Scroll1(layer_id);
-        }
-    };
-
-    if (c == '\n') {
-        newline();
-    } else {
-        WinWriteChar(layer_id, true, CalcCursorPos().x, CalcCursorPos().y,
-                     0x29ff86, c);
-
-        if (cursorx == kColumns - 1) {
-            newline();
-        } else {
-            ++cursorx;
-        }
-    }
-}
-
-void PrintUserName(uint64_t layer_id, const char *s,
-                   std::optional<size_t> len) {
-    if (len) {
-        for (size_t i = 0; i < *len; ++i) {
-            PrintUserName(layer_id, *s);
-            ++s;
-        }
-    } else {
-        while (*s) {
-            PrintUserName(layer_id, *s);
-            ++s;
-        }
-    }
-}
-
 int PrintToTerminal(uint64_t layer_id, const char *format, ...) {
     va_list ap;
     int result;

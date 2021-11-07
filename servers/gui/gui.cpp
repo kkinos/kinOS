@@ -1,5 +1,6 @@
 /**
- * @file mikanos.cpp
+ * @file gui.cpp
+ * @brief gui server
  *
  *
  */

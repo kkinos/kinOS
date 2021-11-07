@@ -1,7 +1,7 @@
 /**
  * @file mikansyscall.hpp
  *
- * system calls provided by MikanOS server
+ * system calls provided by gui server
  */
 
 #pragma once
