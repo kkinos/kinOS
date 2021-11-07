@@ -7,20 +7,92 @@
 AppInfo::AppInfo(uint64_t task_id, uint64_t p_task_id)
     : task_id_{task_id}, p_task_id_{p_task_id} {}
 
+std::vector<std::shared_ptr<::FileDescriptor>>& AppInfo::Files() {
+    return files_;
+}
+
 AppManager::AppManager() {}
 
 void AppManager::NewApp(uint64_t task_id, uint64_t p_task_id) {
-    apps_.emplace_back(new AppInfo{task_id, p_task_id});
+    auto it = std::find_if(
+        apps_.begin(), apps_.end(),
+        [p_task_id](const auto& t) { return t->ID() == p_task_id; });
+
+    if (it == apps_.end()) {
+        // dont have parent
+        apps_.emplace_back(new AppInfo{task_id, p_task_id});
+        InitializeFileDescriptor(task_id);
+
+    } else {
+        apps_.emplace_back(new AppInfo{task_id, p_task_id});
+        CopyFileDescriptor(task_id, p_task_id);
+    }
 }
 
-uint64_t AppManager::GetPID(uint64_t id) {
-    auto it = std::find_if(apps_.begin(), apps_.end(),
-                           [id](const auto& t) { return t->ID() == id; });
+uint64_t AppManager::GetPID(uint64_t task_id) {
+    auto it =
+        std::find_if(apps_.begin(), apps_.end(),
+                     [task_id](const auto& t) { return t->ID() == task_id; });
     if (it == apps_.end()) {
         return 0;
     }
-
     return (*it)->PID();
+}
+
+AppInfo* AppManager::GetAppInfo(uint64_t task_id) {
+    auto it =
+        std::find_if(apps_.begin(), apps_.end(),
+                     [task_id](const auto& t) { return t->ID() == task_id; });
+    if (it == apps_.end()) {
+        return nullptr;
+    }
+    return it->get();
+}
+
+void AppManager::InitializeFileDescriptor(uint64_t task_id) {
+    auto it =
+        std::find_if(apps_.begin(), apps_.end(),
+                     [task_id](const auto& t) { return t->ID() == task_id; });
+    if (it == apps_.end()) {
+        return;
+    }
+    for (int i = 0; i < 3; i++) {
+        (*it)->Files().emplace_back(new TerminalFileDescriptor(task_id));
+    }
+}
+
+void AppManager::CopyFileDescriptor(uint64_t task_id, uint64_t p_task_id) {
+    auto child =
+        std::find_if(apps_.begin(), apps_.end(),
+                     [task_id](const auto& t) { return t->ID() == task_id; });
+    auto parent = std::find_if(
+        apps_.begin(), apps_.end(),
+        [p_task_id](const auto& t) { return t->ID() == p_task_id; });
+
+    if (child == apps_.end() || parent == apps_.end()) {
+        return;
+    }
+
+    for (int i = 0; i < (*parent)->Files().size(); i++) {
+        (*child)->Files().emplace_back();
+    }
+    for (int i = 0; i < (*parent)->Files().size(); i++) {
+        (*child)->Files()[i] = (*parent)->Files()[i];
+    }
+}
+
+TerminalFileDescriptor::TerminalFileDescriptor(uint64_t id) : id_{id} {
+    auto [t_id, err] = SyscallFindServer("servers/terminal");
+    terminal_server_id_ = t_id;
+}
+
+size_t TerminalFileDescriptor::Write(Message msg) {
+    SyscallSendMessage(&msg, terminal_server_id_);
+    return 0;
+}
+size_t TerminalFileDescriptor::Read(Message msg) {
+    SyscallSendMessage(&msg, id_);
+    return 0;
 }
 
 ApplicationManagementServer::ApplicationManagementServer() {}
@@ -85,15 +157,12 @@ void ApplicationManagementServer::Processing() {
 
                     case Message::kWrite: {
                         ChangeState(State::Write);
-                        target_p_id_ =
-                            app_manager_->GetPID(received_message_.src_task);
-                        if (target_p_id_) {
-                            if (received_message_.arg.write.fd == 1) {
-                                send_message_ = received_message_;
-                                SyscallSendMessage(&send_message_,
-                                                   target_p_id_);
-                            }
-                        }
+
+                        auto app_info = app_manager_->GetAppInfo(
+                            received_message_.src_task);
+                        app_info->Files()[received_message_.arg.write.fd]
+                            ->Write(received_message_);
+
                         send_message_.type = Message::kReceived;
                         SyscallSendMessage(&send_message_,
                                            received_message_.src_task);
