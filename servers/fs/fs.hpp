@@ -82,7 +82,7 @@ enum State {
 class FileSystemServer {
    public:
     FileSystemServer();
-    void InitilaizeFat();
+    void Initilaize();
     void Processing();
 
    private:

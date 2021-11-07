@@ -364,39 +364,8 @@ void TaskApp(uint64_t task_id, int64_t am_id) {
     auto elf_header = reinterpret_cast<Elf64_Ehdr *>(&task.buf_[0]);
 
     auto [ec, err] = ExecuteApp(elf_header, task.arg_);
-    if (err) {
-        Message msg;
-        msg.type = Message::kExcute;
-        msg.arg.execute.success = false;
-        msg.src_task = 1;
-        msg.arg.execute.id = task.ID();
-        task_manager->SendMessage(am_id, msg);
 
-        while (true) {
-            __asm__("cli");
-            auto rmsg = task.ReceiveMessage();
-            if (!rmsg) {
-                task.Sleep();
-                __asm__("sti");
-                continue;
-            }
-            __asm__("sti");
-
-            switch (rmsg->type) {
-                case Message::kError:
-                    if (rmsg->arg.error.retry) {
-                        task_manager->SendMessage(am_id, msg);
-                    }
-                    break;
-                case Message::kReceived:
-                    goto end;
-
-                default:
-                    break;
-            }
-        }
-    }
-
+    // if exit application or some error at executing application return here
     Message msg;
     msg.type = Message::kExit;
     msg.src_task = 1;
@@ -421,7 +390,7 @@ void TaskApp(uint64_t task_id, int64_t am_id) {
                 }
                 break;
             case Message::kReceived:
-                printk("[ kinOS ] task %d is exited\n", task.ID());
+                printk("[ kinOS ] task %d is finished\n", task.ID());
                 goto end;
 
             default:

@@ -225,8 +225,6 @@ void ExecuteFile(uint64_t layer_id) {
     }
 
     sent_messsage[0].type = Message::kExecuteFile;
-    sent_messsage[0].arg.executefile.exist = false;
-    sent_messsage[0].arg.executefile.directory = false;
 
     int i = 0;
     while (*command) {
@@ -274,7 +272,7 @@ void ExecuteFile(uint64_t layer_id) {
                     PrintT(layer_id, "no such file\n");
                     return;
                 }
-                if (received_message[0].arg.executefile.directory) {
+                if (received_message[0].arg.executefile.isdirectory) {
                     PrintT(layer_id, "this is directory\n");
                     return;
                 }

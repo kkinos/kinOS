@@ -12,9 +12,6 @@
 #include "../../libs/common/template.hpp"
 #include "../../libs/gui/guisyscall.hpp"
 
-Message sent_message[1];
-Message received_message[1];
-
 class AppInfo {
    public:
     AppInfo(uint64_t task_id, uint64_t p_task_id);
@@ -36,19 +33,36 @@ class AppManager {
     std::vector<std::unique_ptr<AppInfo>> apps_{};
 };
 
-AppManager* app_manager;
+enum State {
+    Error,
+    InitialState,
+    ExecuteFile,
+    StartAppTask,
+    Write,
+    Open,
+};
 
-void ProcessAccordingToMessage();
+class ApplicationManagementServer {
+   public:
+    ApplicationManagementServer();
+    void Initilize();
+    void Processing();
 
-/*--------------------------------------------------------------------------
- * functions to execute application
- *--------------------------------------------------------------------------
- */
-void CreateNewTask(uint64_t p_id, char* arg, uint64_t fs_id);
-void ExecuteAppTask(uint64_t p_id, uint64_t id, char* arg, uint64_t fs_id);
+   private:
+    Message send_message_;
+    Message received_message_;
 
-/*--------------------------------------------------------------------------
- * functions for files
- *--------------------------------------------------------------------------
- */
-void CreateFileDescriptor(uint64_t id, const char* path, uint64_t fs_id);
+    AppManager* app_manager_;
+
+    State state_;
+
+    uint64_t target_p_id_;
+    uint64_t target_id_;
+    char argument[32];
+    uint64_t fs_id_;
+
+    void ChangeState(State state) { state_ = state; }
+    void ReceiveMessage();
+};
+
+ApplicationManagementServer* application_management_server;

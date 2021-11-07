@@ -6,7 +6,7 @@
 
 FileSystemServer::FileSystemServer() {}
 
-void FileSystemServer::InitilaizeFat() {
+void FileSystemServer::Initilaize() {
     auto [ret, err] = SyscallReadVolumeImage(&boot_volume_image_, 0, 1);
     if (err) {
         SyscallWriteKernelLog("[ fs ] cannnot read volume image");
@@ -50,7 +50,7 @@ void FileSystemServer::Processing() {
                 } break;
 
                 default:
-                    SyscallWriteKernelLog("[ fs ] Unknown message type \n");
+                    SyscallWriteKernelLog("[ fs ] unknown message type \n");
                     break;
             }
         } break;
@@ -79,7 +79,8 @@ void FileSystemServer::Processing() {
                 } break;
 
                 default:
-                    SyscallWriteKernelLog("[ fs ] Unknown message type \n");
+                    SyscallWriteKernelLog(
+                        "[ fs ] unknown message type from am server\n");
                     ChangeState(State::InitialState);
                     break;
             }
@@ -125,7 +126,8 @@ void FileSystemServer::Processing() {
                 } break;
 
                 default:
-                    SyscallWriteKernelLog("[ fs ] Unknown message type \n");
+                    SyscallWriteKernelLog(
+                        "[ fs ] Unknown message type from kernel \n");
                     break;
             }
         } break;
@@ -171,7 +173,7 @@ void FileSystemServer::SearchFile() {
             if (!file_entry) {
                 send_message_.type = Message::kExecuteFile;
                 send_message_.arg.executefile.exist = false;
-                send_message_.arg.executefile.directory = false;
+                send_message_.arg.executefile.isdirectory = false;
                 SyscallSendMessage(&send_message_, am_id_);
                 ChangeState(State::InitialState);
             }
@@ -180,7 +182,7 @@ void FileSystemServer::SearchFile() {
             else if (file_entry->attr == Attribute::kDirectory) {
                 send_message_.type = Message::kExecuteFile;
                 send_message_.arg.executefile.exist = true;
-                send_message_.arg.executefile.directory = true;
+                send_message_.arg.executefile.isdirectory = true;
                 SyscallSendMessage(&send_message_, am_id_);
                 ChangeState(State::InitialState);
             }
@@ -190,7 +192,7 @@ void FileSystemServer::SearchFile() {
                 target_file_entry_ = file_entry;
                 send_message_.type = Message::kExecuteFile;
                 send_message_.arg.executefile.exist = true;
-                send_message_.arg.executefile.directory = false;
+                send_message_.arg.executefile.isdirectory = false;
                 SyscallSendMessage(&send_message_, am_id_);
             }
         } break;
@@ -203,7 +205,7 @@ void FileSystemServer::SearchFile() {
             if (!file_entry) {
                 send_message_.type = Message::kOpen;
                 send_message_.arg.open.exist = false;
-                send_message_.arg.open.directory = false;
+                send_message_.arg.open.isdirectory = false;
                 SyscallSendMessage(&send_message_, am_id_);
             }
 
@@ -211,14 +213,14 @@ void FileSystemServer::SearchFile() {
             else if (file_entry->attr == Attribute::kDirectory) {
                 send_message_.type = Message::kOpen;
                 send_message_.arg.open.exist = true;
-                send_message_.arg.open.directory = true;
+                send_message_.arg.open.isdirectory = true;
                 SyscallSendMessage(&send_message_, am_id_);
             }
             // the file exists and not a directory
             else {
                 send_message_.type = Message::kOpen;
                 send_message_.arg.open.exist = true;
-                send_message_.arg.open.directory = false;
+                send_message_.arg.open.isdirectory = false;
                 SyscallSendMessage(&send_message_, am_id_);
             }
             ChangeState(State::InitialState);
@@ -352,7 +354,7 @@ void FileSystemServer::ReadName(DirectoryEntry &entry, char *base, char *ext) {
 
 extern "C" void main() {
     file_system_server = new FileSystemServer;
-    file_system_server->InitilaizeFat();
+    file_system_server->Initilaize();
 
     while (true) {
         file_system_server->Processing();

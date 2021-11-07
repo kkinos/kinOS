@@ -22,7 +22,7 @@ struct Message {
         kWindowActive,
         kPipe,
         kExpandTaskBuffer,
-        kExcute,
+        kStartTask,
         kExit,
         /*--------------------------------------------------------------------------
          * message types for servers and applications
@@ -92,9 +92,7 @@ struct Message {
 
         struct {
             uint64_t id;
-            uint64_t p_id;
-            int success;  // 1: success, 0: fail
-        } execute;
+        } starttask;
 
         struct {
             uint64_t id;
@@ -115,8 +113,8 @@ struct Message {
         struct {
             char filename[32];
             int flags;
-            int exist;      // 1: true, 0: false
-            int directory;  // 1: true, 0: false
+            int exist;        // 1: true, 0: false
+            int isdirectory;  // 1: true, 0: false
             int fd;
         } open;
 
@@ -156,9 +154,9 @@ struct Message {
         struct {
             char filename[32];
             char arg[32];
-            uint64_t id;
-            int exist;      // 1: true, 0: false
-            int directory;  // 1: true, 0: false
+            uint64_t id;      // target task id
+            int exist;        // 1: true, 0: false
+            int isdirectory;  // 1: true, 0: false
         } executefile;
 
         struct {
