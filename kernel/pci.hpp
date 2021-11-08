@@ -1,8 +1,4 @@
-/**
- * @file pci.hpp
- *
- * @brief programs to control PCI bus
- */
+
 
 #pragma once
 

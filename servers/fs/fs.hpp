@@ -1,10 +1,3 @@
-/**
- * @file fs.hpp
- *
- * @brief file system server
- *
- */
-
 #pragma once
 
 #include <array>

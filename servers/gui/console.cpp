@@ -14,11 +14,6 @@ Console::Console(const PixelColor& fg_color, const PixelColor& bg_color,
       cursor_column_{2},
       layer_id_{0} {}
 
-/**
- * @brief コンソールに文字を表示する
- *
- * @param s 文字列
- */
 void Console::PutString(const char* s) {
     while (*s) {
         if (*s == '\n') {

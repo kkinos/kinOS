@@ -1,9 +1,3 @@
-/**
- * @file system.hpp
- *
- * @brief functions of system task(kernel task)
- */
-
 #pragma once
 
 #include <deque>

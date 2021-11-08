@@ -1,9 +1,3 @@
-/**
- * @file console.hpp
- *
- * コンソール描画のプログラムを集めたファイル
- */
-
 #pragma once
 
 #include <memory>
@@ -11,10 +5,6 @@
 #include "graphics.hpp"
 #include "window.hpp"
 
-/**
- * @brief コンソールクラス
- *
- */
 class Console {
    public:
     static const int kRows = 34, kColumns = 85;
@@ -25,9 +15,7 @@ class Console {
     void PutString(const char* s);
     void SetWriter(PixelWriter* writer);
     void SetWindow(const std::shared_ptr<Window>& window);
-    /**
-    void PutTaskName(const char* task_name);
-    */
+
     void Clear();
 
     void SetLayerID(unsigned int layer_id);
@@ -46,15 +34,6 @@ class Console {
 };
 
 extern Console* console;
-
-/**
-extern int taskid;
-*/
-
-/**
-int printk(const char* format, ...);
-int printt(const char* format, ...);
-*/
 
 void InitializeConsole();
 

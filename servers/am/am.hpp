@@ -1,10 +1,3 @@
-/**
- * @file am.hpp
- *
- * @brief application management server
- *
- */
-
 #pragma once
 
 #include <array>

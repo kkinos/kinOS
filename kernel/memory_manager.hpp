@@ -1,9 +1,3 @@
-/**
- * @file memory_manager.hpp
- *
- * @brief programs for memory management
- */
-
 #pragma once
 
 #include <array>

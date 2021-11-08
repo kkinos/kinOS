@@ -1,8 +1,3 @@
-/**
- * @file font.cpp
- *
- * フォント描画のプログラムを集めたファイル.
- */
 
 #include "font.hpp"
 

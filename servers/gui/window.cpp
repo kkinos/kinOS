@@ -21,14 +21,10 @@ Window::Window(int width, int height) : width_{width}, height_{height} {
 void Window::DrawTo(PixelWriter& writer, Vector2D<int> pos,
                     const Rectangle<int>& area) {
     if (!transparent_color_) {
-        Rectangle<int> window_area{pos,
-                                   Size()}; /*layerに対応したwindowの大きさ*/
-        Rectangle<int> intersection =
-            area & window_area; /*そのwindowと再描写したい部分の重なり*/
+        Rectangle<int> window_area{pos, Size()};
+        Rectangle<int> intersection = area & window_area;
         shadow_buffer_.CopyToFrameBuffer(
-            intersection.pos,
-            {intersection.pos - pos,
-             intersection.size}); /*shadowbuffer用の座標にあわせる*/
+            intersection.pos, {intersection.pos - pos, intersection.size});
         return;
     }
     const auto tc = transparent_color_.value();

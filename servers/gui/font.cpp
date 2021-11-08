@@ -1,9 +1,3 @@
-/**
- * @file graphics.cpp
- *
- * フォントを表示するための関数を集めたファイル
- */
-
 #include "font.hpp"
 
 extern const uint8_t _binary_hankaku_bin_start;

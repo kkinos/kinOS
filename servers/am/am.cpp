@@ -313,6 +313,8 @@ void ApplicationManagementServer::Processing() {
                                 std::make_unique<FatFileDescriptor>(
                                     target_id_,
                                     received_message_.arg.open.filename);
+                            Print("[ am ] allocate file descriptor for %s\n",
+                                  received_message_.arg.open.filename);
 
                             send_message_ = received_message_;
                             send_message_.arg.open.fd = fd;
@@ -339,14 +341,13 @@ void ApplicationManagementServer::Processing() {
             } else {
                 target_id_ = received_message_.src_task;
                 size_t fd = received_message_.arg.read.fd;
-                Print("%d\n", received_message_.arg.read.count);
                 auto app_info = app_manager_->GetAppInfo(target_id_);
 
                 if (fd < 0 || app_info->Files().size() <= fd ||
                     !app_info->Files()[fd]) {
                     send_message_.type = Message::kError;
                     send_message_.arg.error.retry = false;
-                    Print("[ am ] %d fd isn't opened yet\n", fd);
+                    Print("[ am ] %d bad file number\n", fd);
                     ChangeState(State::InitialState);
                 } else {
                     app_info->Files()[fd]->Read(received_message_);

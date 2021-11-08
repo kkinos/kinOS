@@ -1,8 +1,4 @@
-/**
- * @file mouse.cpp
- *
- *
- */
+
 
 #include "mouse.hpp"
 

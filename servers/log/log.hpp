@@ -1,8 +1,3 @@
-/**
- * @file log.hpp
- * @brief log server
- */
-
 #pragma once
 
 #include <array>

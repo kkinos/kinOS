@@ -1,10 +1,3 @@
-/**
- * @file gui.cpp
- * @brief gui server
- *
- *
- */
-
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>

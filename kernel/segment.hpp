@@ -1,9 +1,3 @@
-/**
- * @file segment.hpp
- *
- * @brief programs for segmentation
- */
-
 #pragma once
 
 #include <array>

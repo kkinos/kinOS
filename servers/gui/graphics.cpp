@@ -1,9 +1,3 @@
-/**
- * @file graphics.cpp
- *
- * グラフィック周りのファイル
- */
-
 #include "graphics.hpp"
 
 #include "font.hpp"
@@ -36,13 +30,6 @@ void ShadowBufferWriter::Write(Vector2D<int> pos, const PixelColor& c) {
     p[2] = c.r;
 }
 
-/**
- * @brief 四角形を描写する
- *
- * @param pos
- * @param size
- * @param c
- */
 void DrawRectangle(PixelWriter& writer, const Vector2D<int>& pos,
                    const Vector2D<int>& size, const PixelColor& c) {
     for (int dx = 0; dx < size.x; ++dx) {
@@ -55,13 +42,6 @@ void DrawRectangle(PixelWriter& writer, const Vector2D<int>& pos,
     }
 }
 
-/**
- * @brief 四角形を中を埋めた状態で表示する
- *
- * @param pos
- * @param size
- * @param c
- */
 void FillRectangle(PixelWriter& writer, const Vector2D<int>& pos,
                    const Vector2D<int>& size, const PixelColor& c) {
     for (int dy = 0; dy < size.y; ++dy) {

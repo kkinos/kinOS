@@ -140,7 +140,6 @@ void FileSystemServer::Processing() {
 
         case State::ReadFile: {
             const char *path = received_message_.arg.read.filename;
-            Print("[ fs ] find  %s\n", path);
             auto [file_entry, post_slash] = FindFile(path);
 
             target_file_entry_ = file_entry;

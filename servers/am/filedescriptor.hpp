@@ -1,8 +1,3 @@
-/**
- * @file filedescriptor.hpp
- *
- */
-
 #pragma once
 
 #include <stdlib.h>
