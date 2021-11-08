@@ -92,11 +92,42 @@ int posix_memalign(void** memptr, size_t alignment, size_t size) {
 }
 
 ssize_t read(int fd, void* buf, size_t count) {
-    struct SyscallResult res = SyscallReadFile(fd, buf, count);
-    if (res.error == 0) {
-        return res.value;
+    struct SyscallResult id = SyscallFindServer("servers/am");
+    if (id.error == 0) {
+        struct Message smsg;
+        struct Message rmsg;
+
+        smsg.type = kRead;
+        smsg.arg.read.fd = fd;
+        smsg.arg.read.count = count;
+        SyscallSendMessage(&smsg, id.value);
+
+        const char* bufc = (const char*)buf;
+        size_t read_bytes = 0;
+        while (1) {
+            SyscallClosedReceiveMessage(&rmsg, 1, id.value);
+            if (rmsg.type == kError) {
+                if (rmsg.arg.error.retry) {
+                    SyscallSendMessage(&smsg, id.value);
+                    continue;
+                } else {
+                    errno = EAGAIN;
+                    return -1;
+                }
+            } else if (rmsg.type == kRead) {
+                if (rmsg.arg.read.len) {
+                    memcpy(&bufc[read_bytes], rmsg.arg.read.data,
+                           rmsg.arg.read.len);
+                    read_bytes += rmsg.arg.read.len;
+                } else {
+                    break;
+                }
+            }
+        }
+        return count;
     }
-    errno = res.error;
+
+    errno = id.error;
     return -1;
 }
 

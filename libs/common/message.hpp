@@ -42,6 +42,7 @@ struct Message {
         kWinMoveRec,
         kWrite,
         kOpen,
+        kRead,
         kCreateTask,
         kExecuteFile,
     } type;
@@ -117,6 +118,14 @@ struct Message {
             int isdirectory;  // 1: true, 0: false
             int fd;
         } open;
+
+        struct {
+            char filename[32];
+            int fd;
+            char data[16];
+            uint32_t count;
+            uint8_t len;
+        } read;
 
         struct {
             int w, h, x, y;

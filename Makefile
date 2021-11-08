@@ -12,7 +12,7 @@ all: build run
 build: Loader kernel.elf app server
 
 .PHONY: Loader
-Loader:	
+Loader:
 		WORKSPACE=$(EDK2_DIR) source $(EDK2_DIR)/edksetup.sh; \
 		WORKSPACE=$(EDK2_DIR) build
 
@@ -29,7 +29,7 @@ server:
 		./serverbuild.sh
 
 .PHONY: run
-run: 
+run:
 		APPS_DIR=apps  SERVS_DIR=servers KINOS_DIR=$(WORKDIR) $(WORKDIR)/tools/run_kinos.sh
 
 
@@ -42,6 +42,6 @@ clean:
 		find apps -name *.o | xargs rm
 		find libs -name *.d | xargs rm
 		find libs -name *.o | xargs rm
-		
-		
+
+
 

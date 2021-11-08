@@ -95,6 +95,36 @@ size_t TerminalFileDescriptor::Read(Message msg) {
     return 0;
 }
 
+FatFileDescriptor::FatFileDescriptor(uint64_t id, char* filename) : id_{id} {
+    strcpy(filename_, filename);
+}
+
+size_t FatFileDescriptor::Read(Message msg) {
+    size_t count = msg.arg.read.count;
+    strcpy(msg.arg.read.filename, filename_);
+    auto [fs_id, err] = SyscallFindServer("servers/fs");
+    if (err) {
+        msg.type = Message::kError;
+        msg.arg.error.retry = false;
+        Print("[ am ] cannnot find file system server\n");
+        SyscallSendMessage(&msg, id_);
+        return 0;
+    } else {
+        SyscallSendMessage(&msg, fs_id);
+        Message rmsg;
+        while (1) {
+            SyscallClosedReceiveMessage(&rmsg, 1, fs_id);
+            if (rmsg.arg.read.len) {
+                SyscallSendMessage(&rmsg, id_);
+            } else {
+                SyscallSendMessage(&rmsg, id_);
+                break;
+            }
+        }
+        return count;
+    }
+}
+
 ApplicationManagementServer::ApplicationManagementServer() {}
 
 void ApplicationManagementServer::Initilize() {
@@ -134,60 +164,19 @@ void ApplicationManagementServer::Processing() {
             } else {
                 switch (received_message_.type) {
                     case Message::kExecuteFile: {
-                        target_p_id_ = received_message_.src_task;
-                        strcpy(argument, received_message_.arg.executefile.arg);
-                        auto [fs_id, err] = SyscallFindServer("servers/fs");
-                        if (err) {
-                            send_message_.type = Message::kError;
-                            send_message_.arg.error.retry = false;
-                            Print("[ am ] cannnot find file system server\n");
-                            SyscallSendMessage(&send_message_, target_p_id_);
-
-                        } else {
-                            fs_id_ = fs_id;
-                            send_message_.type = Message::kExecuteFile;
-                            strcpy(send_message_.arg.executefile.filename,
-                                   received_message_.arg.executefile.filename);
-                            Print("[ am ] execute application %s\n",
-                                  received_message_.arg.executefile.filename);
-                            SyscallSendMessage(&send_message_, fs_id_);
-                            ChangeState(State::ExecuteFile);
-                        }
+                        ChangeState(State::ExecuteFile);
                     } break;
 
                     case Message::kWrite: {
                         ChangeState(State::Write);
-
-                        auto app_info = app_manager_->GetAppInfo(
-                            received_message_.src_task);
-                        app_info->Files()[received_message_.arg.write.fd]
-                            ->Write(received_message_);
-
-                        send_message_.type = Message::kReceived;
-                        SyscallSendMessage(&send_message_,
-                                           received_message_.src_task);
-                        ChangeState(State::InitialState);
                     } break;
 
                     case Message::kOpen: {
-                        // TODO: 1.flagの処理
-                        auto [fs_id, err] = SyscallFindServer("servers/fs");
-                        if (err) {
-                            send_message_.type = Message::kError;
-                            send_message_.arg.error.retry = false;
-                            Print("[ am ] cannnot find file system server\n");
-                            SyscallSendMessage(&send_message_,
-                                               received_message_.src_task);
-                        } else {
-                            fs_id_ = fs_id;
-                            target_id_ = received_message_.src_task;
+                        ChangeState(State::Open);
+                    } break;
 
-                            send_message_.type = Message::kOpen;
-                            strcpy(send_message_.arg.open.filename,
-                                   received_message_.arg.open.filename);
-                            SyscallSendMessage(&send_message_, fs_id_);
-                            ChangeState(State::Open);
-                        }
+                    case Message::kRead: {
+                        ChangeState(State::Read);
                     } break;
 
                     default:
@@ -197,41 +186,65 @@ void ApplicationManagementServer::Processing() {
         } break;
 
         case State::ExecuteFile: {
-            ReceiveMessage();
-            switch (received_message_.type) {
-                case Message::kExecuteFile: {
-                    if (!received_message_.arg.executefile.exist ||
-                        received_message_.arg.executefile.isdirectory) {
-                        send_message_.type = Message::kExecuteFile;
-                        send_message_.arg.executefile.exist =
-                            received_message_.arg.executefile.exist;
-                        send_message_.arg.executefile.isdirectory =
-                            received_message_.arg.executefile.isdirectory;
-                        SyscallSendMessage(&send_message_, target_p_id_);
-                        ChangeState(State::InitialState);
-                    } else {
-                        // the file exists, and not a directory
-                        auto [id, err] = SyscallCreateNewTask();
-                        if (err) {
-                            Print("[ am ] syscall error\n");
-                            send_message_.type = Message::kError;
-                            send_message_.arg.error.retry = false;
-                            SyscallSendMessage(&send_message_, target_p_id_);
-                            SyscallSendMessage(&send_message_, fs_id_);
-                            ChangeState(State::InitialState);
-                        } else {
-                            send_message_.type = Message::kExecuteFile;
-                            send_message_.arg.executefile.id = id;
-                            target_id_ = id;
-                            SyscallSendMessage(&send_message_, fs_id_);
-                            ChangeState(State::StartAppTask);
-                        }
-                    }
-                } break;
+            target_p_id_ = received_message_.src_task;
+            strcpy(argument, received_message_.arg.executefile.arg);
+            auto [fs_id, err] = SyscallFindServer("servers/fs");
+            if (err) {
+                send_message_.type = Message::kError;
+                send_message_.arg.error.retry = false;
+                Print("[ am ] cannnot find file system server\n");
+                SyscallSendMessage(&send_message_, target_p_id_);
+                ChangeState(State::InitialState);
 
-                default:
-                    Print("[ am ] unknown message type from fs server\n");
-                    break;
+            } else {
+                fs_id_ = fs_id;
+                send_message_.type = Message::kExecuteFile;
+                strcpy(send_message_.arg.executefile.filename,
+                       received_message_.arg.executefile.filename);
+                Print("[ am ] execute application %s\n",
+                      received_message_.arg.executefile.filename);
+
+                SyscallSendMessage(&send_message_, fs_id_);
+
+                ReceiveMessage();
+
+                switch (received_message_.type) {
+                    case Message::kExecuteFile: {
+                        if (!received_message_.arg.executefile.exist ||
+                            received_message_.arg.executefile.isdirectory) {
+                            send_message_.type = Message::kExecuteFile;
+                            send_message_.arg.executefile.exist =
+                                received_message_.arg.executefile.exist;
+                            send_message_.arg.executefile.isdirectory =
+                                received_message_.arg.executefile.isdirectory;
+                            SyscallSendMessage(&send_message_, target_p_id_);
+                            ChangeState(State::InitialState);
+
+                        } else {
+                            // the file exists, and not a directory
+                            auto [id, err] = SyscallCreateNewTask();
+                            if (err) {
+                                Print("[ am ] syscall error\n");
+                                send_message_.type = Message::kError;
+                                send_message_.arg.error.retry = false;
+                                SyscallSendMessage(&send_message_,
+                                                   target_p_id_);
+                                SyscallSendMessage(&send_message_, fs_id_);
+                                ChangeState(State::InitialState);
+                            } else {
+                                send_message_.type = Message::kExecuteFile;
+                                send_message_.arg.executefile.id = id;
+                                target_id_ = id;
+                                SyscallSendMessage(&send_message_, fs_id_);
+                                ChangeState(State::StartAppTask);
+                            }
+                        }
+                    } break;
+
+                    default:
+                        Print("[ am ] unknown message type from fs server\n");
+                        break;
+                }
             }
         } break;
 
@@ -253,30 +266,92 @@ void ApplicationManagementServer::Processing() {
             }
         } break;
 
-        case State::Open: {
-            ReceiveMessage();
-            switch (received_message_.type) {
-                case Message::kOpen: {
-                    if (!received_message_.arg.open.exist) {
-                        send_message_.type = Message::kOpen;
-                        send_message_.arg.open.exist =
-                            received_message_.arg.open.exist;
-                    } else {
-                        // 3.ファイルがあればファイルディスクリプタを作成する
-                        // auto& app_info =
-                        // app_manager_->GetAppInfo(received_message_.src_task);
-                        // size_t fd = app_manager_->AllocateFD(app_info);
-                        // 4.ファイルディスクリプタにファイル名をセット
-                        // 5.返信
-                        // send_message_.arg.open.fd = fd;
-                    }
-                    SyscallSendMessage(&send_message_, target_id_);
-                    ChangeState(State::InitialState);
-                } break;
+        case State::Write: {
+            auto app_info =
+                app_manager_->GetAppInfo(received_message_.src_task);
+            app_info->Files()[received_message_.arg.write.fd]->Write(
+                received_message_);
 
-                default:
-                    Print("[ am ] unknown message type from fs server\n");
-                    break;
+            send_message_.type = Message::kReceived;
+            SyscallSendMessage(&send_message_, received_message_.src_task);
+            ChangeState(State::InitialState);
+        } break;
+
+        case State::Open: {
+            // TODO: 1.flagの処理
+            auto [fs_id, err] = SyscallFindServer("servers/fs");
+            if (err) {
+                send_message_.type = Message::kError;
+                send_message_.arg.error.retry = false;
+                Print("[ am ] cannnot find file system server\n");
+                SyscallSendMessage(&send_message_, received_message_.src_task);
+                ChangeState(State::InitialState);
+
+            } else {
+                fs_id_ = fs_id;
+                target_id_ = received_message_.src_task;
+
+                send_message_.type = Message::kOpen;
+                strcpy(send_message_.arg.open.filename,
+                       received_message_.arg.open.filename);
+                SyscallSendMessage(&send_message_, fs_id_);
+
+                ReceiveMessage();
+
+                switch (received_message_.type) {
+                    case Message::kOpen: {
+                        if (!received_message_.arg.open.exist) {
+                            send_message_.type = Message::kOpen;
+                            send_message_.arg.open.exist =
+                                received_message_.arg.open.exist;
+                        } else {
+                            auto app_info =
+                                app_manager_->GetAppInfo(target_id_);
+                            size_t fd = AllocateFD(app_info);
+
+                            app_info->Files()[fd] =
+                                std::make_unique<FatFileDescriptor>(
+                                    target_id_,
+                                    received_message_.arg.open.filename);
+
+                            send_message_ = received_message_;
+                            send_message_.arg.open.fd = fd;
+                        }
+                        SyscallSendMessage(&send_message_, target_id_);
+                        ChangeState(State::InitialState);
+                    } break;
+
+                    default:
+                        Print("[ am ] unknown message type from fs server\n");
+                        break;
+                }
+            }
+        } break;
+
+        case State::Read: {
+            auto [fs_id, err] = SyscallFindServer("servers/fs");
+            if (err) {
+                send_message_.type = Message::kError;
+                send_message_.arg.error.retry = false;
+                Print("[ am ] cannnot find file system server\n");
+                SyscallSendMessage(&send_message_, received_message_.src_task);
+                ChangeState(State::InitialState);
+            } else {
+                target_id_ = received_message_.src_task;
+                size_t fd = received_message_.arg.read.fd;
+                Print("%d\n", received_message_.arg.read.count);
+                auto app_info = app_manager_->GetAppInfo(target_id_);
+
+                if (fd < 0 || app_info->Files().size() <= fd ||
+                    !app_info->Files()[fd]) {
+                    send_message_.type = Message::kError;
+                    send_message_.arg.error.retry = false;
+                    Print("[ am ] %d fd isn't opened yet\n", fd);
+                    ChangeState(State::InitialState);
+                } else {
+                    app_info->Files()[fd]->Read(received_message_);
+                    ChangeState(State::InitialState);
+                }
             }
         } break;
 
@@ -321,6 +396,17 @@ void ApplicationManagementServer::ReceiveMessage() {
         default:
             break;
     }
+}
+
+size_t ApplicationManagementServer::AllocateFD(AppInfo* app_info) {
+    const size_t num_files = app_info->Files().size();
+    for (size_t i = 0; i < num_files; ++i) {
+        if (!app_info->Files()[i]) {
+            return i;
+        }
+    }
+    app_info->Files().emplace_back();
+    return num_files;
 }
 
 extern "C" void main() {

@@ -51,6 +51,10 @@ void FileSystemServer::Processing() {
                     FindFile();
                 } break;
 
+                case Message::kRead: {
+                    ChangeState(State::ReadFile);
+                } break;
+
                 default:
                     Print("[ fs ] unknown message type \n");
                     break;
@@ -132,6 +136,56 @@ void FileSystemServer::Processing() {
                     Print("[ fs ] Unknown message type from kernel \n");
                     break;
             }
+        } break;
+
+        case State::ReadFile: {
+            const char *path = received_message_.arg.read.filename;
+            Print("[ fs ] find  %s\n", path);
+            auto [file_entry, post_slash] = FindFile(path);
+
+            target_file_entry_ = file_entry;
+
+            size_t count = received_message_.arg.read.count;
+            size_t sent_bytes = 0;
+
+            auto cluster = target_file_entry_->FirstCluster();
+            auto remain_bytes = target_file_entry_->file_size;
+            int offset = 0;
+
+            while (cluster != 0 && cluster != 0x0ffffffflu &&
+                   sent_bytes < count) {
+                char *p = reinterpret_cast<char *>(ReadCluster(cluster));
+                int i = 0;
+                for (; i < boot_volume_image_.bytes_per_sector *
+                               boot_volume_image_.sectors_per_cluster &&
+                       i < remain_bytes && sent_bytes < count;
+                     ++i) {
+                    memcpy(&send_message_.arg.read.data[offset], p, 1);
+                    ++p;
+                    ++offset;
+                    ++sent_bytes;
+
+                    if (offset == sizeof(send_message_.arg.read.data)) {
+                        send_message_.type = Message::kRead;
+                        send_message_.arg.read.len = offset;
+                        SyscallSendMessage(&send_message_, am_id_);
+                        offset = 0;
+                    }
+                }
+                remain_bytes -= i;
+                cluster = NextCluster(cluster);
+            }
+
+            if (offset) {
+                send_message_.type = Message::kRead;
+                send_message_.arg.read.len = offset;
+                SyscallSendMessage(&send_message_, am_id_);
+                offset = 0;
+            }
+            send_message_.type = Message::kRead;
+            send_message_.arg.read.len = offset;
+            SyscallSendMessage(&send_message_, am_id_);
+            ChangeState(State::InitialState);
         } break;
 
         default:
@@ -218,6 +272,8 @@ void FileSystemServer::FindFile() {
             // the file is a directory
             else if (file_entry->attr == Attribute::kDirectory) {
                 send_message_.type = Message::kOpen;
+                strcpy(send_message_.arg.open.filename,
+                       received_message_.arg.open.filename);
                 send_message_.arg.open.exist = true;
                 send_message_.arg.open.isdirectory = true;
                 SyscallSendMessage(&send_message_, am_id_);
@@ -225,6 +281,8 @@ void FileSystemServer::FindFile() {
             // the file exists and not a directory
             else {
                 send_message_.type = Message::kOpen;
+                strcpy(send_message_.arg.open.filename,
+                       received_message_.arg.open.filename);
                 send_message_.arg.open.exist = true;
                 send_message_.arg.open.isdirectory = false;
                 SyscallSendMessage(&send_message_, am_id_);

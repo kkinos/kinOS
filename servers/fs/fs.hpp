@@ -84,6 +84,7 @@ enum State {
     ExecuteFile,
     CopyFileToTaskBuffer,
     OpenFile,
+    ReadFile,
 };
 
 class FileSystemServer {
