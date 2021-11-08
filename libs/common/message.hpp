@@ -124,6 +124,7 @@ struct Message {
             int fd;
             char data[16];
             uint32_t count;
+            uint32_t offset;
             uint8_t len;
         } read;
 

@@ -146,10 +146,12 @@ void FileSystemServer::Processing() {
 
             size_t count = received_message_.arg.read.count;
             size_t sent_bytes = 0;
+            size_t read_offset = received_message_.arg.read.offset;
 
+            size_t total = 0;
             auto cluster = target_file_entry_->FirstCluster();
             auto remain_bytes = target_file_entry_->file_size;
-            int offset = 0;
+            int msg_offset = 0;
 
             while (cluster != 0 && cluster != 0x0ffffffflu &&
                    sent_bytes < count) {
@@ -159,30 +161,33 @@ void FileSystemServer::Processing() {
                                boot_volume_image_.sectors_per_cluster &&
                        i < remain_bytes && sent_bytes < count;
                      ++i) {
-                    memcpy(&send_message_.arg.read.data[offset], p, 1);
-                    ++p;
-                    ++offset;
-                    ++sent_bytes;
+                    if (total >= read_offset) {
+                        memcpy(&send_message_.arg.read.data[msg_offset], p, 1);
+                        ++p;
+                        ++msg_offset;
+                        ++sent_bytes;
 
-                    if (offset == sizeof(send_message_.arg.read.data)) {
-                        send_message_.type = Message::kRead;
-                        send_message_.arg.read.len = offset;
-                        SyscallSendMessage(&send_message_, am_id_);
-                        offset = 0;
+                        if (msg_offset == sizeof(send_message_.arg.read.data)) {
+                            send_message_.type = Message::kRead;
+                            send_message_.arg.read.len = msg_offset;
+                            SyscallSendMessage(&send_message_, am_id_);
+                            msg_offset = 0;
+                        }
                     }
+                    ++total;
                 }
                 remain_bytes -= i;
                 cluster = NextCluster(cluster);
             }
 
-            if (offset) {
+            if (msg_offset) {
                 send_message_.type = Message::kRead;
-                send_message_.arg.read.len = offset;
+                send_message_.arg.read.len = msg_offset;
                 SyscallSendMessage(&send_message_, am_id_);
-                offset = 0;
+                msg_offset = 0;
             }
             send_message_.type = Message::kRead;
-            send_message_.arg.read.len = offset;
+            send_message_.arg.read.len = msg_offset;
             SyscallSendMessage(&send_message_, am_id_);
             ChangeState(State::InitialState);
         } break;

@@ -101,6 +101,8 @@ FatFileDescriptor::FatFileDescriptor(uint64_t id, char* filename) : id_{id} {
 
 size_t FatFileDescriptor::Read(Message msg) {
     size_t count = msg.arg.read.count;
+    msg.arg.read.offset = read_offset_;
+
     strcpy(msg.arg.read.filename, filename_);
     auto [fs_id, err] = SyscallFindServer("servers/fs");
     if (err) {
@@ -116,6 +118,7 @@ size_t FatFileDescriptor::Read(Message msg) {
             SyscallClosedReceiveMessage(&rmsg, 1, fs_id);
             if (rmsg.arg.read.len) {
                 SyscallSendMessage(&rmsg, id_);
+                read_offset_ += rmsg.arg.read.len;
             } else {
                 SyscallSendMessage(&rmsg, id_);
                 break;
