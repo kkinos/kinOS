@@ -42,7 +42,7 @@ int open(const char* path, int flags) {
         smsg.type = kOpen;
         int i = 0;
         while (*path) {
-            if (i >= 31) {
+            if (i > 25) {
                 errno = EINVAL;
                 return -1;
             }

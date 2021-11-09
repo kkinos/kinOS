@@ -228,20 +228,20 @@ void ExecuteFile(uint64_t layer_id) {
 
     int i = 0;
     while (*command) {
-        if (i >= 31) {
-            PrintT(layer_id, "too long file name\n");
-            return;
-        }
         sent_messsage[0].arg.executefile.filename[i] = *command;
         ++i;
         ++command;
+        if (i > 25) {
+            PrintT(layer_id, "too long file name\n");
+            return;
+        }
     }
     sent_messsage[0].arg.executefile.filename[i] = '\0';
 
     i = 0;
     if (first_arg) {
         while (*first_arg) {
-            if (i >= 31) {
+            if (i > 25) {
                 PrintT(layer_id, "too long argument\n");
                 return;
             }
@@ -280,6 +280,21 @@ void ExecuteFile(uint64_t layer_id) {
                 Print(layer_id, received_message[0].arg.write.data,
                       received_message[0].arg.write.len);
                 break;
+
+            case Message::kRead: {
+                SyscallOpenReceiveMessage(received_message, 1);
+                if (received_message[0].type == Message::kKeyPush &&
+                    received_message[0].arg.keyboard.press) {
+                    auto [am_id, err] = SyscallFindServer("servers/am");
+
+                    Print(layer_id, received_message[0].arg.keyboard.ascii);
+                    sent_messsage[0].type = Message::kRead;
+                    sent_messsage[0].arg.read.data[0] =
+                        received_message[0].arg.keyboard.ascii;
+                    sent_messsage[0].arg.read.len = 1;
+                    SyscallSendMessage(sent_messsage, am_id);
+                }
+            } break;
 
             case Message::kExit:
                 last_exit_code_ = received_message[0].arg.exit.result;
