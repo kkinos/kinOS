@@ -282,18 +282,22 @@ void ExecuteFile(uint64_t layer_id) {
                 break;
 
             case Message::kRead: {
-                SyscallOpenReceiveMessage(received_message, 1);
-                if (received_message[0].type == Message::kKeyPush &&
-                    received_message[0].arg.keyboard.press) {
-                    auto [am_id, err] = SyscallFindServer("servers/am");
-
-                    Print(layer_id, received_message[0].arg.keyboard.ascii);
-                    sent_messsage[0].type = Message::kRead;
-                    sent_messsage[0].arg.read.data[0] =
-                        received_message[0].arg.keyboard.ascii;
-                    sent_messsage[0].arg.read.len = 1;
-                    SyscallSendMessage(sent_messsage, am_id);
+                while (1) {
+                    SyscallOpenReceiveMessage(received_message, 1);
+                    if (received_message[0].type == Message::kKeyPush &&
+                        received_message[0].arg.keyboard.press) {
+                        DrawCursor(layer_id, true);
+                        PrintT(layer_id,
+                               &received_message[0].arg.keyboard.ascii);
+                        sent_messsage[0].type = Message::kRead;
+                        sent_messsage[0].arg.read.data[0] =
+                            received_message[0].arg.keyboard.ascii;
+                        sent_messsage[0].arg.read.len = 1;
+                        SyscallSendMessage(sent_messsage, am_id);
+                        break;
+                    }
                 }
+
             } break;
 
             case Message::kExit:

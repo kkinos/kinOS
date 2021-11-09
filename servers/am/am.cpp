@@ -97,7 +97,6 @@ size_t TerminalFileDescriptor::Read(Message msg) {
 
     SyscallClosedReceiveMessage(&rmsg, 1, terminal_server_id_);
     SyscallSendMessage(&rmsg, id_);
-
     smsg.type = Message::kRead;
     smsg.arg.read.len = 0;
     SyscallSendMessage(&smsg, id_);
@@ -243,6 +242,7 @@ void ApplicationManagementServer::ProcessMessage() {
                             send_message_.type = Message::kOpen;
                             send_message_.arg.open.fd = 0;
                             send_message_.arg.open.exist = true;
+
                             ChangeState(State::InitialState);
                         } else {
                             send_message_.type = Message::kOpen;
@@ -328,6 +328,7 @@ void ApplicationManagementServer::ProcessMessage() {
                     send_message_.type = Message::kOpen;
                     send_message_.arg.open.exist =
                         received_message_.arg.open.exist;
+                    ChangeState(State::InitialState);
                 } else {
                     auto app_info = app_manager_->GetAppInfo(target_id_);
                     size_t fd = AllocateFD(app_info);
