@@ -45,7 +45,9 @@ enum State {
     Error,
     InitialState,
     ExecuteFile,
-    StartAppTask,
+    CreateTask,
+    StartApp,
+    Exit,
     Write,
     Open,
     Read,
@@ -55,7 +57,10 @@ class ApplicationManagementServer {
    public:
     ApplicationManagementServer();
     void Initilize();
-    void Processing();
+
+    void ReceiveMessage();
+    void ProcessMessage();
+    void SendMessage();
 
    private:
     Message send_message_;
@@ -65,13 +70,13 @@ class ApplicationManagementServer {
 
     State state_;
 
-    uint64_t target_p_id_;
     uint64_t target_id_;
-    char argument[32];
+    uint64_t new_task_id_;
+
+    char argument_[32];
     uint64_t fs_id_;
 
     void ChangeState(State state) { state_ = state; }
-    void ReceiveMessage();
 
     size_t AllocateFD(AppInfo* app_info);
 };
