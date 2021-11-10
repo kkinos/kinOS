@@ -414,9 +414,7 @@ extern "C" void main() {
 
     while (true) {
         application_management_server->ReceiveMessage();
-
         application_management_server->ProcessMessage();
-
         application_management_server->SendMessage();
     }
 }

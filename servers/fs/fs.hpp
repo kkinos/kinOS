@@ -84,7 +84,10 @@ class FileSystemServer {
    public:
     FileSystemServer();
     void Initilaize();
-    void Processing();
+
+    void ReceiveMessage();
+    void ProcessMessage();
+    void SendMessage();
 
    private:
     Message send_message_;
@@ -100,8 +103,6 @@ class FileSystemServer {
     State state_;
 
     void ChangeState(State state) { state_ = state; }
-    void ReceiveMessage();
-    void FindFile();
 
     unsigned long NextCluster(unsigned long cluster);
     uint32_t *ReadCluster(unsigned long cluster);
