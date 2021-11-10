@@ -1,6 +1,6 @@
 #include "terminal.hpp"
 
-#include <cstdio>
+#include <ctype.h>
 
 Vector2D<int> CalcCursorPos() {
     return kTopLeftMargin + Vector2D<int>{4 + 8 * cursorx, 4 + 16 * cursory};
@@ -286,15 +286,29 @@ void ExecuteFile(uint64_t layer_id) {
                     SyscallOpenReceiveMessage(received_message, 1);
                     if (received_message[0].type == Message::kKeyPush &&
                         received_message[0].arg.keyboard.press) {
-                        DrawCursor(layer_id, true);
-                        PrintT(layer_id,
-                               &received_message[0].arg.keyboard.ascii);
-                        sent_messsage[0].type = Message::kRead;
-                        sent_messsage[0].arg.read.data[0] =
-                            received_message[0].arg.keyboard.ascii;
-                        sent_messsage[0].arg.read.len = 1;
-                        SyscallSendMessage(sent_messsage, am_id);
-                        break;
+                        if (received_message[0].arg.keyboard.modifier &
+                            (kLControlBitMask | kRControlBitMask)) {
+                            char s[3] = "^ ";
+                            s[1] =
+                                toupper(received_message[0].arg.keyboard.ascii);
+                            if (received_message[0].arg.keyboard.keycode ==
+                                7 /* D */) {
+                                sent_messsage[0].type = Message::kRead;
+                                sent_messsage[0].arg.read.len = 0;  // EOT
+                                PrintT(layer_id, "%s\n", s);
+                                SyscallSendMessage(sent_messsage, am_id);
+                                break;
+                            }
+                        } else {
+                            PrintT(layer_id,
+                                   &received_message[0].arg.keyboard.ascii);
+                            sent_messsage[0].type = Message::kRead;
+                            sent_messsage[0].arg.read.data[0] =
+                                received_message[0].arg.keyboard.ascii;
+                            sent_messsage[0].arg.read.len = 1;
+                            SyscallSendMessage(sent_messsage, am_id);
+                            break;
+                        }
                     }
                 }
 

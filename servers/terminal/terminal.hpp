@@ -28,6 +28,9 @@ int cmd_history_index_{-1};
 
 int last_exit_code_{0};
 
+static const int kLControlBitMask = 0b00000001u;
+static const int kRControlBitMask = 0b00010000u;
+
 Message sent_messsage[1];
 Message received_message[1];
 
