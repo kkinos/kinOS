@@ -117,7 +117,8 @@ class TaskManager {
     Error ExpandTaskBuffer(uint64_t id, uint32_t bytes);
     int CopyToTaskBuffer(uint64_t id, void* buf, size_t offset, size_t len);
 
-    Error StartTaskApp(uint64_t id, uint64_t am_id);
+    Error StartAppTask(uint64_t id, uint64_t am_id);
+    Error StartServerTask(uint64_t id, uint64_t init_id);
 
    private:
     std::vector<std::unique_ptr<Task>> tasks_{};

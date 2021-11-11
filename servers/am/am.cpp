@@ -313,7 +313,7 @@ void ApplicationManagementServer::ProcessMessage() {
             if (received_message_.type == Message::kReady) {
                 SyscallSetArgument(new_task_id_, argument_);
                 app_manager_->NewApp(new_task_id_, target_id_);
-                send_message_.type = Message::kStartTask;
+                send_message_.type = Message::kStartApp;
                 send_message_.arg.starttask.id = new_task_id_;
                 ChangeState(State::StartApp);
             } else {

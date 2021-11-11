@@ -15,13 +15,13 @@ struct DataOfServer {
     char *file_name;
 };
 
-void TaskServer(uint64_t task_id, int64_t data);
-
-WithError<int> ExecuteServer(fat::DirectoryEntry &file_entry, char *command,
-                             char *first_arg);
-
+void TaskInitServer(uint64_t task_id, int64_t data);
+void TaskServer(uint64_t task_id, int64_t init_id);
 void TaskApp(uint64_t task_id, int64_t am_id);
 
+WithError<int> ExecuteInitServer(fat::DirectoryEntry &file_entry, char *command,
+                                 char *first_arg);
+WithError<int> ExecuteServer(Elf64_Ehdr *elf_header, char *server_name);
 WithError<int> ExecuteApp(Elf64_Ehdr *elf_header, char *first_arg);
 
 extern uint8_t *v_image;

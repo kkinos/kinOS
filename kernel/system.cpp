@@ -228,8 +228,8 @@ WithError<AppLoadInfo> LoadApp(Elf64_Ehdr *elf_header, Task &task) {
 }
 }  // namespace
 
-WithError<int> ExecuteServer(fat::DirectoryEntry &file_entry, char *command,
-                             char *first_arg) {
+WithError<int> ExecuteInitServer(fat::DirectoryEntry &file_entry, char *command,
+                                 char *first_arg) {
     __asm__("cli");
     auto &task = task_manager->CurrentTask();
     __asm__("sti");
@@ -283,25 +283,57 @@ WithError<int> ExecuteServer(fat::DirectoryEntry &file_entry, char *command,
     return {ret, FreePML4(task)};
 }
 
-void TaskServer(uint64_t task_id, int64_t data) {
-    const auto task_of_server_data = reinterpret_cast<DataOfServer *>(data);
-
+WithError<int> ExecuteServer(Elf64_Ehdr *elf_header, char *server_name) {
     __asm__("cli");
     auto &task = task_manager->CurrentTask();
     __asm__("sti");
 
-    auto [file_entry, post_slash] =
-        fat::FindFile(task_of_server_data->file_name);
-    if (!file_entry) {
-        printk("[ kinOS ] no such server %s\n", task_of_server_data->file_name);
-    } else {
-        auto [ec, err] =
-            ExecuteServer(*file_entry, task_of_server_data->file_name, "");
-        if (err) {
-            printk("[ kinOS ] cannnot execute server\n");
-        }
+    auto [app_load, err] = LoadApp(elf_header, task);
+    if (err) {
+        return {0, err};
     }
-    while (true) __asm__("hlt");
+    task.SetName(server_name);
+
+    LinearAddress4Level args_frame_addr{0xffff'ffff'ffff'f000};
+    if (auto err = SetupPageMaps(args_frame_addr, 1)) {
+        return {0, err};
+    }
+    auto argv = reinterpret_cast<char **>(args_frame_addr.value);
+    int argv_len = 32;  // argv = 8x32 = 256 bytes
+    auto argbuf = reinterpret_cast<char *>(args_frame_addr.value +
+                                           sizeof(char **) * argv_len);
+    int argbuf_len = 4096 - sizeof(char **) * argv_len;
+    auto argc = MakeArgVector(server_name, server_name, argv, argv_len, argbuf,
+                              argbuf_len);
+    if (argc.error) {
+        return {0, argc.error};
+    }
+
+    const int stack_size = 16 * 4096;
+    LinearAddress4Level stack_frame_addr{0xffff'ffff'ffff'f000 - stack_size};
+    if (auto err = SetupPageMaps(stack_frame_addr, stack_size / 4096)) {
+        return {0, err};
+    }
+
+    const uint64_t elf_next_page =
+        (app_load.vaddr_end + 4095) & 0xffff'ffff'ffff'f000;
+    task.SetDPagingBegin(elf_next_page);
+    task.SetDPagingEnd(elf_next_page);
+
+    task.SetFileMapEnd(stack_frame_addr.value);
+
+    int ret =
+        CallApp(argc.value, argv, 3 << 3 | 3, app_load.entry,
+                stack_frame_addr.value + 4096 - 8, &task.OSStackPointer());
+
+    // task.Files().clear();
+    task.FileMaps().clear();
+
+    if (auto err = CleanPageMaps(LinearAddress4Level{0xffff'8000'0000'0000})) {
+        return {ret, err};
+    }
+
+    return {ret, FreePML4(task)};
 }
 
 WithError<int> ExecuteApp(Elf64_Ehdr *elf_header, char *first_arg) {
@@ -355,6 +387,50 @@ WithError<int> ExecuteApp(Elf64_Ehdr *elf_header, char *first_arg) {
 
     return {ret, FreePML4(task)};
 };
+
+void TaskInitServer(uint64_t task_id, int64_t data) {
+    const auto task_of_server_data = reinterpret_cast<DataOfServer *>(data);
+
+    __asm__("cli");
+    auto &task = task_manager->CurrentTask();
+    __asm__("sti");
+
+    auto [file_entry, post_slash] =
+        fat::FindFile(task_of_server_data->file_name);
+    if (!file_entry) {
+        printk("[ kinOS ] no such server %s\n", task_of_server_data->file_name);
+    } else {
+        auto [ec, err] =
+            ExecuteInitServer(*file_entry, task_of_server_data->file_name, "");
+        if (err) {
+            printk("[ kinOS ] cannnot execute server\n");
+        }
+    }
+    while (true) __asm__("hlt");
+}
+
+void TaskServer(uint64_t task_id, int64_t init_id) {
+    __asm__("cli");
+    auto &task = task_manager->CurrentTask();
+    __asm__("sti");
+
+    auto elf_header = reinterpret_cast<Elf64_Ehdr *>(&task.buf_[0]);
+
+    auto [ec, err] = ExecuteServer(elf_header, task.arg_);
+    if (err) {
+        printk("[ kinOS ] cannnot execute server\n");
+    }
+
+    // if exit server or some error at executing server return here
+    Message msg;
+    msg.type = Message::kExit;
+    msg.src_task = 1;
+    msg.arg.exit.id = task.ID();
+    msg.arg.exit.result = ec;
+    task_manager->SendMessage(init_id, msg);
+
+    while (true) __asm__("hlt");
+}
 
 void TaskApp(uint64_t task_id, int64_t am_id) {
     __asm__("cli");
@@ -416,43 +492,14 @@ void InitializeSystemTask(void *volume_image) {
     kernel_log_tail = 0;
     kernel_log_changed = false;
 
-    Task &os_task = task_manager->NewTask();
-
-    auto os_server_data = new DataOfServer{
-        "servers/gui",
+    Task &init_task = task_manager->NewTask();
+    auto init_server_data = new DataOfServer{
+        "servers/init",
     };
-    os_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(os_server_data))
-        .Wakeup();
 
-    Task &terminal_task = task_manager->NewTask();
-    auto terminal_server_data = new DataOfServer{
-        "servers/terminal",
-    };
-    terminal_task
-        .InitContext(TaskServer,
-                     reinterpret_cast<uint64_t>(terminal_server_data))
-        .Wakeup();
-
-    Task &am_task = task_manager->NewTask();
-    auto am_server_data = new DataOfServer{
-        "servers/am",
-    };
-    am_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(am_server_data))
-        .Wakeup();
-
-    Task &fs_task = task_manager->NewTask();
-    auto fs_server_data = new DataOfServer{
-        "servers/fs",
-    };
-    fs_task.InitContext(TaskServer, reinterpret_cast<uint64_t>(fs_server_data))
-        .Wakeup();
-
-    Task &log_task = task_manager->NewTask();
-    auto log_server_data = new DataOfServer{
-        "servers/log",
-    };
-    log_task
-        .InitContext(TaskServer, reinterpret_cast<uint64_t>(log_server_data))
+    init_task
+        .InitContext(TaskInitServer,
+                     reinterpret_cast<uint64_t>(init_server_data))
         .Wakeup();
 }
 

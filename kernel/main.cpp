@@ -111,13 +111,15 @@ extern "C" void KernelMainNewStack(
                 __asm__("cli");
                 task_manager->SendMessage(rmsg->src_task, smsg);
                 __asm__("sti");
-
-                printk("[ kinOS ] expand buffer of task %d\n",
-                       rmsg->arg.expand.id);
                 break;
 
-            case Message::kStartTask:
-                task_manager->StartTaskApp(rmsg->arg.starttask.id,
+            case Message::kStartServer:
+                task_manager->StartServerTask(rmsg->arg.starttask.id,
+                                              rmsg->src_task);
+                break;
+
+            case Message::kStartApp:
+                task_manager->StartAppTask(rmsg->arg.starttask.id,
                                            rmsg->src_task);
                 printk("[ kinOS ] start task %d\n", rmsg->arg.starttask.id);
 

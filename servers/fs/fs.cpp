@@ -32,8 +32,7 @@ void FileSystemServer::ReceiveMessage() {
         case State::ExecuteFile: {
             auto [am_id, err] = SyscallFindServer("servers/am");
             if (err) {
-                Print(
-                    "[ fs ] cannot find file application management server\n");
+                Print("[ fs ] cannot find  application management server\n");
                 ChangeState(State::Error);
                 break;
             }

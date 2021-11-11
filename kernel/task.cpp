@@ -229,13 +229,23 @@ int TaskManager::CopyToTaskBuffer(uint64_t id, void *buf, size_t offset,
     return remain_bytes;
 }
 
-Error TaskManager::StartTaskApp(uint64_t id, uint64_t am_id) {
+Error TaskManager::StartAppTask(uint64_t id, uint64_t am_id) {
     auto it = std::find_if(tasks_.begin(), tasks_.end(),
                            [id](const auto &t) { return t->ID() == id; });
     if (it == tasks_.end()) {
         return MAKE_ERROR(Error::kNoSuchTask);
     }
     (*it)->InitContext(TaskApp, am_id).Wakeup();
+    return MAKE_ERROR(Error::kSuccess);
+}
+
+Error TaskManager::StartServerTask(uint64_t id, uint64_t init_id) {
+    auto it = std::find_if(tasks_.begin(), tasks_.end(),
+                           [id](const auto &t) { return t->ID() == id; });
+    if (it == tasks_.end()) {
+        return MAKE_ERROR(Error::kNoSuchTask);
+    }
+    (*it)->InitContext(TaskServer, init_id).Wakeup();
     return MAKE_ERROR(Error::kSuccess);
 }
 

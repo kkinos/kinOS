@@ -22,7 +22,8 @@ struct Message {
         kWindowActive,
         kPipe,
         kExpandTaskBuffer,
-        kStartTask,
+        kStartServer,
+        kStartApp,
         kExit,
         /*--------------------------------------------------------------------------
          * message types for servers and applications
