@@ -252,6 +252,14 @@ void ApplicationManagementServer::ProcessMessage() {
                         }
                     } break;
 
+                    case Message::kOpenDir: {
+                        target_id_ = received_message_.src_task;
+                        send_message_.type = Message::kOpenDir;
+                        strcpy(send_message_.arg.opendir.dirname,
+                               received_message_.arg.opendir.dirname);
+                        ChangeState(State::OpenDir);
+                    } break;
+
                     case Message::kRead: {
                         target_id_ = received_message_.src_task;
                         size_t fd = received_message_.arg.read.fd;
@@ -324,22 +332,47 @@ void ApplicationManagementServer::ProcessMessage() {
 
         case State::Open: {
             if (received_message_.type == Message::kOpen) {
-                if (!received_message_.arg.open.exist) {
-                    send_message_.type = Message::kOpen;
-                    send_message_.arg.open.exist =
-                        received_message_.arg.open.exist;
-                    ChangeState(State::InitialState);
-                } else {
+                send_message_.type = Message::kOpen;
+                send_message_.arg.open.exist = received_message_.arg.open.exist;
+                send_message_.arg.open.isdirectory =
+                    received_message_.arg.open.isdirectory;
+                ChangeState(State::InitialState);
+
+                if (received_message_.arg.open.exist &&
+                    !received_message_.arg.open.isdirectory) {
                     auto app_info = app_manager_->GetAppInfo(target_id_);
                     size_t fd = AllocateFD(app_info);
                     app_info->Files()[fd] = std::make_unique<FatFileDescriptor>(
                         target_id_, received_message_.arg.open.filename);
+                    send_message_.arg.open.fd = fd;
+
                     Print("[ am ] allocate file descriptor for %s\n",
                           received_message_.arg.open.filename);
+                }
+            } else {
+                Print("[ am ] unknown message type from fs\n");
+                ChangeState(State::Error);
+            }
+        } break;
 
-                    send_message_ = received_message_;
-                    send_message_.arg.open.fd = fd;
-                    ChangeState(State::InitialState);
+        case State::OpenDir: {
+            if (received_message_.type == Message::kOpenDir) {
+                send_message_.type = Message::kOpenDir;
+                send_message_.arg.opendir.exist =
+                    received_message_.arg.opendir.exist;
+                send_message_.arg.opendir.isdirectory =
+                    received_message_.arg.opendir.isdirectory;
+                ChangeState(State::InitialState);
+
+                if (received_message_.arg.opendir.exist &&
+                    received_message_.arg.opendir.isdirectory) {
+                    auto app_info = app_manager_->GetAppInfo(target_id_);
+                    size_t fd = AllocateFD(app_info);
+                    app_info->Files()[fd] = std::make_unique<FatFileDescriptor>(
+                        target_id_, received_message_.arg.opendir.dirname);
+                    Print("[ am ] allocate file descriptor for %s\n",
+                          received_message_.arg.opendir.dirname);
+                    send_message_.arg.opendir.fd = fd;
                 }
             } else {
                 Print("[ am ] unknown message type from fs\n");
@@ -367,6 +400,7 @@ void ApplicationManagementServer::SendMessage() {
         } break;
 
         case State::Open:
+        case State::OpenDir:
         case State::CreateTask:
         case State::ExecuteFile: {
             auto [fs_id, err] = SyscallFindServer("servers/fs");

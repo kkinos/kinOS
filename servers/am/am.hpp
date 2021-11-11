@@ -48,9 +48,10 @@ enum State {
     CreateTask,
     StartApp,
     Exit,
-    Write,
     Open,
+    OpenDir,
     Read,
+    Write,
 };
 
 class ApplicationManagementServer {

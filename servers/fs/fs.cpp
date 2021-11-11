@@ -96,14 +96,14 @@ void FileSystemServer::ProcessMessage() {
                         Print("[ fs ] cannnot find  %s\n", path);
                     }
 
-                    // the file is a directory
+                    // is a directory
                     else if (file_entry->attr == Attribute::kDirectory) {
                         send_message_.type = Message::kExecuteFile;
                         send_message_.arg.executefile.exist = true;
                         send_message_.arg.executefile.isdirectory = true;
                     }
 
-                    // the file exists and not a directory
+                    // exists and is not a directory
                     else {
                         target_file_entry_ = file_entry;
                         send_message_.type = Message::kExecuteFile;
@@ -124,7 +124,7 @@ void FileSystemServer::ProcessMessage() {
                         send_message_.arg.open.isdirectory = false;
                         Print("[ fs ] cannnot find  %s\n", path);
                     }
-                    // the file is a directory
+                    // is a directory
                     else if (file_entry->attr == Attribute::kDirectory) {
                         send_message_.type = Message::kOpen;
                         strcpy(send_message_.arg.open.filename,
@@ -132,13 +132,43 @@ void FileSystemServer::ProcessMessage() {
                         send_message_.arg.open.exist = true;
                         send_message_.arg.open.isdirectory = true;
                     }
-                    // the file exists and not a directory
+                    // exists and is not a directory
                     else {
                         send_message_.type = Message::kOpen;
                         strcpy(send_message_.arg.open.filename,
                                received_message_.arg.open.filename);
                         send_message_.arg.open.exist = true;
                         send_message_.arg.open.isdirectory = false;
+                    }
+                    ChangeState(State::InitialState);
+                } break;
+
+                case Message::kOpenDir: {
+                    const char *path = received_message_.arg.opendir.dirname;
+                    Print("[ fs ] find  %s\n", path);
+                    auto [file_entry, post_slash] = FindFile(path);
+                    // the directory doesn't exist
+                    if (!file_entry) {
+                        send_message_.type = Message::kOpenDir;
+                        send_message_.arg.opendir.exist = false;
+                        send_message_.arg.opendir.isdirectory = false;
+                        Print("[ fs ] cannnot find  %s\n", path);
+                    }
+                    //  is directory
+                    else if (file_entry->attr == Attribute::kDirectory) {
+                        send_message_.type = Message::kOpenDir;
+                        strcpy(send_message_.arg.opendir.dirname,
+                               received_message_.arg.opendir.dirname);
+                        send_message_.arg.opendir.exist = true;
+                        send_message_.arg.opendir.isdirectory = true;
+                    }
+                    // not directory
+                    else {
+                        send_message_.type = Message::kOpenDir;
+                        strcpy(send_message_.arg.opendir.dirname,
+                               received_message_.arg.opendir.dirname);
+                        send_message_.arg.opendir.exist = true;
+                        send_message_.arg.opendir.isdirectory = false;
                     }
                     ChangeState(State::InitialState);
                 } break;

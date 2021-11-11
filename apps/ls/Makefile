@@ -1,3 +1,3 @@
-TARGET = sl
-OBJS = sl.o
+TARGET = ls
+OBJS = ls.o
 include ../Makefile.elfapp

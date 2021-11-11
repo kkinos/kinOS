@@ -44,6 +44,7 @@ struct Message {
         kWinMoveRec,
         kWrite,
         kOpen,
+        kOpenDir,
         kRead,
         kCreateTask,
         kExecuteFile,
@@ -124,6 +125,13 @@ struct Message {
             int isdirectory;  // 1: true, 0: false
             int fd;
         } open;
+
+        struct {
+            char dirname[32];
+            int exist;        // 1: true, 0: false
+            int isdirectory;  // 1: true, 0: false
+            int fd;
+        } opendir;
 
         struct {
             char filename[32];
