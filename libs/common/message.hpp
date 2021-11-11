@@ -24,7 +24,8 @@ struct Message {
         kExpandTaskBuffer,
         kStartServer,
         kStartApp,
-        kExit,
+        kExitServer,
+        kExitApp,
         /*--------------------------------------------------------------------------
          * message types for servers and applications
          *--------------------------------------------------------------------------
@@ -104,7 +105,11 @@ struct Message {
         struct {
             uint64_t id;
             uint64_t result;
-        } exit;
+        } exitapp;
+
+        struct {
+            char name[32];
+        } exitserver;
 
         struct {
             int fd;

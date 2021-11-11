@@ -314,8 +314,8 @@ void ExecuteFile(uint64_t layer_id) {
 
             } break;
 
-            case Message::kExit:
-                last_exit_code_ = received_message[0].arg.exit.result;
+            case Message::kExitApp:
+                last_exit_code_ = received_message[0].arg.exitapp.result;
                 return;
 
             default:

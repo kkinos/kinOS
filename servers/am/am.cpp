@@ -190,13 +190,13 @@ void ApplicationManagementServer::ProcessMessage() {
             // message from kernel
             if (received_message_.src_task == 1) {
                 switch (received_message_.type) {
-                    case Message::kExit: {
-                        target_id_ =
-                            app_manager_->GetPID(received_message_.arg.exit.id);
+                    case Message::kExitApp: {
+                        target_id_ = app_manager_->GetPID(
+                            received_message_.arg.exitapp.id);
                         if (target_id_) {
-                            send_message_.type = Message::kExit;
-                            send_message_.arg.exit.result =
-                                received_message_.arg.exit.result;
+                            send_message_.type = Message::kExitApp;
+                            send_message_.arg.exitapp.result =
+                                received_message_.arg.exitapp.result;
                             ChangeState(State::Exit);
                         }
                     } break;
@@ -361,7 +361,8 @@ void ApplicationManagementServer::SendMessage() {
         case State::Exit: {
             SyscallSendMessage(&send_message_, target_id_);
             send_message_.type = Message::kReceived;
-            SyscallSendMessage(&send_message_, received_message_.arg.exit.id);
+            SyscallSendMessage(&send_message_,
+                               received_message_.arg.exitapp.id);
             ChangeState(State::InitialState);
         } break;
 

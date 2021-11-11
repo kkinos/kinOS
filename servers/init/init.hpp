@@ -80,7 +80,7 @@ class InitServer {
     InitServer();
     void Initilaize();
 
-    void StartServers();
+    void StartServers(const char *server_name);
     void WaitingForMessage();
 
    private:

@@ -423,10 +423,9 @@ void TaskServer(uint64_t task_id, int64_t init_id) {
 
     // if exit server or some error at executing server return here
     Message msg;
-    msg.type = Message::kExit;
+    msg.type = Message::kExitServer;
     msg.src_task = 1;
-    msg.arg.exit.id = task.ID();
-    msg.arg.exit.result = ec;
+    strcpy(msg.arg.exitserver.name, task.arg_);
     task_manager->SendMessage(init_id, msg);
 
     while (true) __asm__("hlt");
@@ -443,10 +442,10 @@ void TaskApp(uint64_t task_id, int64_t am_id) {
 
     // if exit application or some error at executing application return here
     Message msg;
-    msg.type = Message::kExit;
+    msg.type = Message::kExitApp;
     msg.src_task = 1;
-    msg.arg.exit.id = task.ID();
-    msg.arg.exit.result = ec;
+    msg.arg.exitapp.id = task.ID();
+    msg.arg.exitapp.result = ec;
     task_manager->SendMessage(am_id, msg);
 
     while (true) {

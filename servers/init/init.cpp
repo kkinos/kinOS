@@ -25,57 +25,57 @@ void InitServer::Initilaize() {
     }
 }
 
-void InitServer::StartServers() {
-    for (int i = 0; i < num_servers; ++i) {
-        const char *server_name = servers[i];
-        auto [file_entry, post_slash] = FindFile(server_name);
+void InitServer::StartServers(const char *server_name) {
+    auto [file_entry, post_slash] = FindFile(server_name);
+    if (!file_entry) {
+        Print("[ init ] cannnot find %s\n", server_name);
+    } else {
+        auto [id, err] = SyscallCreateNewTask();
+        target_task_id_ = id;
+        send_message_.type = Message::kExpandTaskBuffer;
+        send_message_.arg.expand.id = target_task_id_;
+        send_message_.arg.expand.bytes = file_entry->file_size;
+        SyscallSendMessage(&send_message_, 1);
+        SyscallClosedReceiveMessage(&received_message_, 1, 1);
 
-        if (!file_entry) {
-            Print("[ init ] cannnot find %s\n", server_name);
-        } else {
-            auto [id, err] = SyscallCreateNewTask();
-            target_task_id_ = id;
-            send_message_.type = Message::kExpandTaskBuffer;
-            send_message_.arg.expand.id = target_task_id_;
-            send_message_.arg.expand.bytes = file_entry->file_size;
-            SyscallSendMessage(&send_message_, 1);
-            SyscallClosedReceiveMessage(&received_message_, 1, 1);
+        if (received_message_.type == Message::kExpandTaskBuffer) {
+            auto cluster = file_entry->FirstCluster();
+            auto remain_bytes = file_entry->file_size;
+            int offset = 0;
 
-            if (received_message_.type == Message::kExpandTaskBuffer) {
-                auto cluster = file_entry->FirstCluster();
-                auto remain_bytes = file_entry->file_size;
-                int offset = 0;
-
-                while (cluster != 0 && cluster != 0x0ffffffflu) {
-                    char *p = reinterpret_cast<char *>(ReadCluster(cluster));
-                    int i = 0;
-                    for (; i < boot_volume_image_.bytes_per_sector *
-                                   boot_volume_image_.sectors_per_cluster &&
-                           i < remain_bytes;
-                         ++i) {
-                        auto [res, err] = SyscallCopyToTaskBuffer(
-                            target_task_id_, p, offset, 1);
-                        ++p;
-                        ++offset;
-                    }
-                    remain_bytes -= i;
-                    cluster = NextCluster(cluster);
+            while (cluster != 0 && cluster != 0x0ffffffflu) {
+                char *p = reinterpret_cast<char *>(ReadCluster(cluster));
+                int i = 0;
+                for (; i < boot_volume_image_.bytes_per_sector *
+                               boot_volume_image_.sectors_per_cluster &&
+                       i < remain_bytes;
+                     ++i) {
+                    auto [res, err] =
+                        SyscallCopyToTaskBuffer(target_task_id_, p, offset, 1);
+                    ++p;
+                    ++offset;
                 }
-                char bufc[32];
-                strcpy(bufc, server_name);
-
-                SyscallSetArgument(target_task_id_, bufc);
-
-                send_message_.type = Message::kStartServer;
-                send_message_.arg.starttask.id = target_task_id_;
-                SyscallSendMessage(&send_message_, 1);
+                remain_bytes -= i;
+                cluster = NextCluster(cluster);
             }
+            char bufc[32];
+            strcpy(bufc, server_name);
+
+            SyscallSetArgument(target_task_id_, bufc);
+
+            send_message_.type = Message::kStartServer;
+            send_message_.arg.starttask.id = target_task_id_;
+            SyscallSendMessage(&send_message_, 1);
         }
     }
 }
 
 void InitServer::WaitingForMessage() {
     SyscallOpenReceiveMessage(&received_message_, 1);
+    if (received_message_.type == Message::kExitServer) {
+        Print("[ init ] restart %s\n", received_message_.arg.exitserver.name);
+        StartServers(received_message_.arg.exitserver.name);
+    }
 }
 
 unsigned long InitServer::NextCluster(unsigned long cluster) {
@@ -202,7 +202,10 @@ void InitServer::ReadName(DirectoryEntry &entry, char *base, char *ext) {
 extern "C" void main() {
     init_server = new InitServer;
     init_server->Initilaize();
-    init_server->StartServers();
+
+    for (int i = 0; i < num_servers; ++i) {
+        init_server->StartServers(servers[i]);
+    }
 
     while (true) {
         init_server->WaitingForMessage();
