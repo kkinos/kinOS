@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <optional>
+#include <vector>
 
 #include "../../libs/common/template.hpp"
 #include "../../libs/gui/guisyscall.hpp"
@@ -71,15 +72,113 @@ struct DirectoryEntry {
     }
 } __attribute__((packed));
 
+class FileSystemServer;
+
 enum State {
-    Error,
-    InitialState,
-    ExecuteFile,
-    CopyFileToTaskBuffer,
-    OpenFile,
-    OpenDir,
-    ReadFile,
-    ReadDir,
+    StateErr,
+    StateInit,
+    StateExec,
+    StateExpand,
+    StateCopy,
+    StateOpen,
+    StateOpenDir,
+    StateRead,
+};
+
+class ServerState {
+   public:
+    virtual ~ServerState() = default;
+    virtual ServerState *ReceiveMessage() = 0;
+    virtual ServerState *HandleMessage() = 0;
+    virtual ServerState *SendMessage() = 0;
+};
+
+class ErrState : public ::ServerState {
+   public:
+    explicit ErrState(FileSystemServer *file_system_server);
+    ServerState *ReceiveMessage() override { return this; }
+    ServerState *HandleMessage() override { return this; }
+    ServerState *SendMessage() override;
+
+   private:
+    FileSystemServer *file_system_server_;
+};
+
+class InitState : public ::ServerState {
+   public:
+    explicit InitState(FileSystemServer *file_system_server);
+    ServerState *ReceiveMessage() override;
+    ServerState *HandleMessage() override { return this; }
+    ServerState *SendMessage() override;
+
+   private:
+    FileSystemServer *file_system_server_;
+};
+
+class ExecState : public ::ServerState {
+   public:
+    explicit ExecState(FileSystemServer *file_system_server);
+    ServerState *ReceiveMessage() override;
+    ServerState *HandleMessage() override;
+    ServerState *SendMessage() override;
+
+   private:
+    FileSystemServer *file_system_server_;
+};
+
+class ExpandState : public ::ServerState {
+   public:
+    explicit ExpandState(FileSystemServer *file_system_server);
+    ServerState *ReceiveMessage() override;
+    ServerState *HandleMessage() override;
+    ServerState *SendMessage() override;
+
+   private:
+    FileSystemServer *file_system_server_;
+};
+
+class CopyState : public ::ServerState {
+   public:
+    explicit CopyState(FileSystemServer *file_system_server);
+    ServerState *ReceiveMessage() override { return this; }
+    ServerState *HandleMessage() override;
+    ServerState *SendMessage() override;
+
+   private:
+    FileSystemServer *file_system_server_;
+};
+
+class OpenState : public ::ServerState {
+   public:
+    explicit OpenState(FileSystemServer *file_system_server);
+    ServerState *ReceiveMessage() override { return this; }
+    ServerState *HandleMessage() override;
+    ServerState *SendMessage() override { return this; }
+
+   private:
+    FileSystemServer *file_system_server_;
+};
+
+class OpenDirState : public ::ServerState {
+   public:
+    explicit OpenDirState(FileSystemServer *file_system_server);
+    ServerState *ReceiveMessage() override { return this; }
+    ServerState *HandleMessage() override;
+    ServerState *SendMessage() override { return this; }
+
+   private:
+    FileSystemServer *file_system_server_;
+};
+
+class ReadState : public ::ServerState {
+   public:
+    explicit ReadState(FileSystemServer *file_system_server);
+    ServerState *ReceiveMessage() override { return this; }
+    ServerState *HandleMessage() override;
+    ServerState *SendMessage() override { return this; }
+
+   private:
+    FileSystemServer *file_system_server_;
 };
 
 class FileSystemServer {
@@ -92,8 +191,12 @@ class FileSystemServer {
     void SendMessage();
 
    private:
+    ServerState *GetServerState(State state) { return state_pool_[state]; }
+
     Message send_message_;
     Message received_message_;
+
+    std::vector<::ServerState *> state_pool_{};
 
     BPB boot_volume_image_;
     DirectoryEntry *target_file_entry_;
@@ -102,9 +205,7 @@ class FileSystemServer {
     uint32_t *file_buf_;
 
     uint64_t am_id_;
-    State state_;
-
-    void ChangeState(State state) { state_ = state; }
+    ServerState *state_ = nullptr;
 
     unsigned long NextCluster(unsigned long cluster);
     uint32_t *ReadCluster(unsigned long cluster);
@@ -114,6 +215,15 @@ class FileSystemServer {
         const char *path, unsigned long directory_cluster = 0);
     bool NameIsEqual(DirectoryEntry &entry, const char *name);
     void ReadName(DirectoryEntry &root_dir, char *base, char *ext);
+
+    friend ErrState;
+    friend InitState;
+    friend ExecState;
+    friend ExpandState;
+    friend CopyState;
+    friend OpenState;
+    friend OpenDirState;
+    friend ReadState;
 };
 
 FileSystemServer *file_system_server;
