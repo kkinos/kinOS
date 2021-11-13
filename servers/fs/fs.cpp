@@ -6,6 +6,17 @@
 
 #include "../../libs/kinos/print.hpp"
 
+extern "C" void main() {
+    file_system_server = new FileSystemServer;
+    file_system_server->Initilaize();
+
+    while (true) {
+        file_system_server->ReceiveMessage();
+        file_system_server->HandleMessage();
+        file_system_server->SendMessage();
+    }
+}
+
 FileSystemServer::FileSystemServer() {}
 
 void FileSystemServer::Initilaize() {
@@ -78,7 +89,7 @@ void FileSystemServer::ReceiveMessage() {
     }
 }
 
-void FileSystemServer::ProcessMessage() {
+void FileSystemServer::HandleMessage() {
     switch (state_) {
         case State::InitialState: {
             switch (received_message_.type) {
@@ -419,16 +430,5 @@ void FileSystemServer::ReadName(DirectoryEntry &entry, char *base, char *ext) {
     ext[3] = 0;
     for (int i = 2; i >= 0 && ext[i] == 0x20; --i) {
         ext[i] = 0;
-    }
-}
-
-extern "C" void main() {
-    file_system_server = new FileSystemServer;
-    file_system_server->Initilaize();
-
-    while (true) {
-        file_system_server->ReceiveMessage();
-        file_system_server->ProcessMessage();
-        file_system_server->SendMessage();
     }
 }

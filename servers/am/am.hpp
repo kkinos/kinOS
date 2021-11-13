@@ -60,7 +60,7 @@ class ApplicationManagementServer {
     void Initilize();
 
     void ReceiveMessage();
-    void ProcessMessage();
+    void HandleMessage();
     void SendMessage();
 
    private:

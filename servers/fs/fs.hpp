@@ -88,7 +88,7 @@ class FileSystemServer {
     void Initilaize();
 
     void ReceiveMessage();
-    void ProcessMessage();
+    void HandleMessage();
     void SendMessage();
 
    private:

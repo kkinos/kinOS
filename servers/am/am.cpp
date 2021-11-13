@@ -4,6 +4,17 @@
 
 #include "../../libs/kinos/print.hpp"
 
+extern "C" void main() {
+    application_management_server = new ApplicationManagementServer;
+    application_management_server->Initilize();
+
+    while (true) {
+        application_management_server->ReceiveMessage();
+        application_management_server->HandleMessage();
+        application_management_server->SendMessage();
+    }
+}
+
 AppInfo::AppInfo(uint64_t task_id, uint64_t p_task_id)
     : task_id_{task_id}, p_task_id_{p_task_id} {}
 
@@ -184,7 +195,7 @@ void ApplicationManagementServer::ReceiveMessage() {
     }
 }
 
-void ApplicationManagementServer::ProcessMessage() {
+void ApplicationManagementServer::HandleMessage() {
     switch (state_) {
         case State::InitialState: {
             // message from kernel
@@ -441,15 +452,4 @@ size_t ApplicationManagementServer::AllocateFD(AppInfo* app_info) {
     }
     app_info->Files().emplace_back();
     return num_files;
-}
-
-extern "C" void main() {
-    application_management_server = new ApplicationManagementServer;
-    application_management_server->Initilize();
-
-    while (true) {
-        application_management_server->ReceiveMessage();
-        application_management_server->ProcessMessage();
-        application_management_server->SendMessage();
-    }
 }
