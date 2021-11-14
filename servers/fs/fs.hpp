@@ -95,90 +95,90 @@ class ServerState {
 
 class ErrState : public ::ServerState {
    public:
-    explicit ErrState(FileSystemServer *file_system_server);
+    explicit ErrState(FileSystemServer *server);
     ServerState *ReceiveMessage() override { return this; }
     ServerState *HandleMessage() override { return this; }
     ServerState *SendMessage() override;
 
    private:
-    FileSystemServer *file_system_server_;
+    FileSystemServer *server_;
 };
 
 class InitState : public ::ServerState {
    public:
-    explicit InitState(FileSystemServer *file_system_server);
+    explicit InitState(FileSystemServer *server);
     ServerState *ReceiveMessage() override;
     ServerState *HandleMessage() override { return this; }
     ServerState *SendMessage() override;
 
    private:
-    FileSystemServer *file_system_server_;
+    FileSystemServer *server_;
 };
 
 class ExecState : public ::ServerState {
    public:
-    explicit ExecState(FileSystemServer *file_system_server);
+    explicit ExecState(FileSystemServer *server);
     ServerState *ReceiveMessage() override;
     ServerState *HandleMessage() override;
     ServerState *SendMessage() override;
 
    private:
-    FileSystemServer *file_system_server_;
+    FileSystemServer *server_;
 };
 
 class ExpandState : public ::ServerState {
    public:
-    explicit ExpandState(FileSystemServer *file_system_server);
+    explicit ExpandState(FileSystemServer *server);
     ServerState *ReceiveMessage() override;
     ServerState *HandleMessage() override;
     ServerState *SendMessage() override;
 
    private:
-    FileSystemServer *file_system_server_;
+    FileSystemServer *server_;
 };
 
 class CopyState : public ::ServerState {
    public:
-    explicit CopyState(FileSystemServer *file_system_server);
+    explicit CopyState(FileSystemServer *server);
     ServerState *ReceiveMessage() override { return this; }
     ServerState *HandleMessage() override;
     ServerState *SendMessage() override;
 
    private:
-    FileSystemServer *file_system_server_;
+    FileSystemServer *server_;
 };
 
 class OpenState : public ::ServerState {
    public:
-    explicit OpenState(FileSystemServer *file_system_server);
+    explicit OpenState(FileSystemServer *server);
     ServerState *ReceiveMessage() override { return this; }
     ServerState *HandleMessage() override;
     ServerState *SendMessage() override { return this; }
 
    private:
-    FileSystemServer *file_system_server_;
+    FileSystemServer *server_;
 };
 
 class OpenDirState : public ::ServerState {
    public:
-    explicit OpenDirState(FileSystemServer *file_system_server);
+    explicit OpenDirState(FileSystemServer *server);
     ServerState *ReceiveMessage() override { return this; }
     ServerState *HandleMessage() override;
     ServerState *SendMessage() override { return this; }
 
    private:
-    FileSystemServer *file_system_server_;
+    FileSystemServer *server_;
 };
 
 class ReadState : public ::ServerState {
    public:
-    explicit ReadState(FileSystemServer *file_system_server);
+    explicit ReadState(FileSystemServer *server);
     ServerState *ReceiveMessage() override { return this; }
     ServerState *HandleMessage() override;
     ServerState *SendMessage() override { return this; }
 
    private:
-    FileSystemServer *file_system_server_;
+    FileSystemServer *server_;
 };
 
 class FileSystemServer {
@@ -186,9 +186,9 @@ class FileSystemServer {
     FileSystemServer();
     void Initilaize();
 
-    void ReceiveMessage();
-    void HandleMessage();
-    void SendMessage();
+    void ReceiveMessage() { state_ = state_->ReceiveMessage(); }
+    void HandleMessage() { state_ = state_->HandleMessage(); }
+    void SendMessage() { state_ = state_->SendMessage(); }
 
    private:
     ServerState *GetServerState(State state) { return state_pool_[state]; }
@@ -226,4 +226,4 @@ class FileSystemServer {
     friend ReadState;
 };
 
-FileSystemServer *file_system_server;
+FileSystemServer *server;

@@ -7,62 +7,58 @@
 #include "../../libs/kinos/print.hpp"
 
 extern "C" void main() {
-    file_system_server = new FileSystemServer;
-    file_system_server->Initilaize();
+    server = new FileSystemServer;
+    server->Initilaize();
     while (true) {
-        file_system_server->ReceiveMessage();
-        file_system_server->HandleMessage();
-        file_system_server->SendMessage();
+        server->ReceiveMessage();
+        server->HandleMessage();
+        server->SendMessage();
     }
 }
 
-ErrState::ErrState(FileSystemServer *file_system_server)
-    : file_system_server_{file_system_server} {}
+ErrState::ErrState(FileSystemServer *server) : server_{server} {}
 
 ServerState *ErrState::SendMessage() {
-    return file_system_server_->GetServerState(State::StateInit);
+    return server_->GetServerState(State::StateInit);
 }
 
-InitState::InitState(FileSystemServer *file_system_server)
-    : file_system_server_{file_system_server} {}
+InitState::InitState(FileSystemServer *server) : server_{server} {}
 
 ServerState *InitState::ReceiveMessage() {
     auto [am_id, err] = SyscallFindServer("servers/am");
     if (err) {
         Print("[ fs ] cannot find  application management server\n");
-        return file_system_server_->GetServerState(State::StateErr);
+        return server_->GetServerState(State::StateErr);
     }
-    file_system_server_->am_id_ = am_id;
+    server_->am_id_ = am_id;
 
     while (1) {
-        SyscallClosedReceiveMessage(&file_system_server_->received_message_, 1,
-                                    am_id);
-        switch (file_system_server_->received_message_.type) {
+        SyscallClosedReceiveMessage(&server_->received_message_, 1, am_id);
+        switch (server_->received_message_.type) {
             case Message::kError: {
-                if (file_system_server_->received_message_.arg.error.retry) {
-                    SyscallSendMessage(&file_system_server_->send_message_,
-                                       am_id);
+                if (server_->received_message_.arg.error.retry) {
+                    SyscallSendMessage(&server_->send_message_, am_id);
                     break;
                 } else {
                     Print("[ fs ] error at am server\n");
-                    return file_system_server_->GetServerState(State::StateErr);
+                    return server_->GetServerState(State::StateErr);
                 }
             } break;
 
             case Message::kExecuteFile: {
-                return file_system_server_->GetServerState(State::StateExec);
+                return server_->GetServerState(State::StateExec);
             } break;
 
             case Message::kOpen: {
-                return file_system_server_->GetServerState(State::StateOpen);
+                return server_->GetServerState(State::StateOpen);
             } break;
 
             case Message::kOpenDir: {
-                return file_system_server_->GetServerState(State::StateOpenDir);
+                return server_->GetServerState(State::StateOpenDir);
             } break;
 
             case Message::kRead: {
-                return file_system_server_->GetServerState(State::StateRead);
+                return server_->GetServerState(State::StateRead);
             } break;
 
             default:
@@ -73,294 +69,269 @@ ServerState *InitState::ReceiveMessage() {
 }
 
 ServerState *InitState::SendMessage() {
-    SyscallSendMessage(&file_system_server_->send_message_,
-                       file_system_server_->am_id_);
+    SyscallSendMessage(&server_->send_message_, server_->am_id_);
     return this;
 }
 
-ExecState::ExecState(FileSystemServer *file_system_server)
-    : file_system_server_{file_system_server} {}
+ExecState::ExecState(FileSystemServer *server) : server_{server} {}
 
 ServerState *ExecState::ReceiveMessage() {
     auto [am_id, err] = SyscallFindServer("servers/am");
     if (err) {
         Print("[ fs ] cannot find  application management server\n");
-        return file_system_server_->GetServerState(State::StateErr);
+        return server_->GetServerState(State::StateErr);
     }
-    file_system_server_->am_id_ = am_id;
+    server_->am_id_ = am_id;
 
     while (1) {
-        SyscallClosedReceiveMessage(&file_system_server_->received_message_, 1,
-                                    am_id);
-        switch (file_system_server_->received_message_.type) {
+        SyscallClosedReceiveMessage(&server_->received_message_, 1, am_id);
+        switch (server_->received_message_.type) {
             case Message::kError: {
-                if (file_system_server_->received_message_.arg.error.retry) {
-                    SyscallSendMessage(&file_system_server_->send_message_,
-                                       am_id);
-                    break;
+                if (server_->received_message_.arg.error.retry) {
+                    SyscallSendMessage(&server_->send_message_, am_id);
+                    continue;
                 } else {
                     Print("[ fs ] error at am server\n");
-                    return file_system_server_->GetServerState(State::StateErr);
+                    return server_->GetServerState(State::StateErr);
                 }
             } break;
 
             case Message::kExecuteFile: {
-                return file_system_server_->GetServerState(State::StateExpand);
+                return server_->GetServerState(State::StateExpand);
             }
             default:
-                Print("[ fs ] unknown message from am server");
-                return file_system_server_->GetServerState(State::StateErr);
+                Print("[ fs ] unknown message from am server\n");
+                return server_->GetServerState(State::StateErr);
         }
     }
 }
 
 ServerState *ExecState::HandleMessage() {
-    const char *path =
-        file_system_server_->received_message_.arg.executefile.filename;
+    const char *path = server_->received_message_.arg.executefile.filename;
     Print("[ fs ] find  %s\n", path);
 
-    auto [file_entry, post_slash] = file_system_server_->FindFile(path);
+    auto [file_entry, post_slash] = server_->FindFile(path);
     // the file doesn't exist
     if (!file_entry) {
-        file_system_server_->send_message_.type = Message::kExecuteFile;
-        file_system_server_->send_message_.arg.executefile.exist = false;
-        file_system_server_->send_message_.arg.executefile.isdirectory = false;
+        server_->send_message_.type = Message::kExecuteFile;
+        server_->send_message_.arg.executefile.exist = false;
+        server_->send_message_.arg.executefile.isdirectory = false;
         Print("[ fs ] cannnot find  %s\n", path);
-        return file_system_server_->GetServerState(State::StateInit);
+        return server_->GetServerState(State::StateInit);
     }
 
     // is a directory
     else if (file_entry->attr == Attribute::kDirectory) {
-        file_system_server_->send_message_.type = Message::kExecuteFile;
-        file_system_server_->send_message_.arg.executefile.exist = true;
-        file_system_server_->send_message_.arg.executefile.isdirectory = true;
-        return file_system_server_->GetServerState(State::StateInit);
+        server_->send_message_.type = Message::kExecuteFile;
+        server_->send_message_.arg.executefile.exist = true;
+        server_->send_message_.arg.executefile.isdirectory = true;
+        return server_->GetServerState(State::StateInit);
     }
 
     // exists and is not a directory
     else {
-        file_system_server_->target_file_entry_ = file_entry;
-        file_system_server_->send_message_.type = Message::kExecuteFile;
-        file_system_server_->send_message_.arg.executefile.exist = true;
-        file_system_server_->send_message_.arg.executefile.isdirectory = false;
+        server_->target_file_entry_ = file_entry;
+        server_->send_message_.type = Message::kExecuteFile;
+        server_->send_message_.arg.executefile.exist = true;
+        server_->send_message_.arg.executefile.isdirectory = false;
         return this;
     }
 }
 
 ServerState *ExecState::SendMessage() {
-    SyscallSendMessage(&file_system_server_->send_message_,
-                       file_system_server_->am_id_);
+    SyscallSendMessage(&server_->send_message_, server_->am_id_);
     return this;
 }
 
-ExpandState::ExpandState(FileSystemServer *file_system_server)
-    : file_system_server_{file_system_server} {}
+ExpandState::ExpandState(FileSystemServer *server) : server_{server} {}
 
 ServerState *ExpandState::ReceiveMessage() {
     while (1) {
-        SyscallClosedReceiveMessage(&file_system_server_->received_message_, 1,
-                                    1);
-        switch (file_system_server_->received_message_.type) {
+        SyscallClosedReceiveMessage(&server_->received_message_, 1, 1);
+        switch (server_->received_message_.type) {
             case Message::kError: {
-                if (file_system_server_->received_message_.arg.error.retry) {
-                    SyscallSendMessage(&file_system_server_->send_message_, 1);
+                if (server_->received_message_.arg.error.retry) {
+                    SyscallSendMessage(&server_->send_message_, 1);
                     break;
                 } else {
                     Print("[ fs ] error at kernel \n");
-                    return file_system_server_->GetServerState(State::StateErr);
+                    return server_->GetServerState(State::StateErr);
                 }
             } break;
 
             case Message::kExpandTaskBuffer: {
-                return file_system_server_->GetServerState(State::StateCopy);
+                return server_->GetServerState(State::StateCopy);
             }
             default:
                 Print("[ fs ] unknown message from am server");
-                return file_system_server_->GetServerState(State::StateErr);
+                return server_->GetServerState(State::StateErr);
         }
     }
 }
 ServerState *ExpandState::HandleMessage() {
-    file_system_server_->target_task_id_ =
-        file_system_server_->received_message_.arg.executefile.id;
-    file_system_server_->send_message_.type = Message::kExpandTaskBuffer;
-    file_system_server_->send_message_.arg.expand.id =
-        file_system_server_->target_task_id_;
-    file_system_server_->send_message_.arg.expand.bytes =
-        file_system_server_->target_file_entry_->file_size;
+    server_->target_task_id_ = server_->received_message_.arg.executefile.id;
+    server_->send_message_.type = Message::kExpandTaskBuffer;
+    server_->send_message_.arg.expand.id = server_->target_task_id_;
+    server_->send_message_.arg.expand.bytes =
+        server_->target_file_entry_->file_size;
     return this;
 }
 
 ServerState *ExpandState::SendMessage() {
-    SyscallSendMessage(&file_system_server_->send_message_, 1);
+    SyscallSendMessage(&server_->send_message_, 1);
     return this;
 }
 
-CopyState::CopyState(FileSystemServer *file_system_server)
-    : file_system_server_{file_system_server} {}
+CopyState::CopyState(FileSystemServer *server) : server_{server} {}
 
 ServerState *CopyState::HandleMessage() {
-    auto cluster = file_system_server->target_file_entry_->FirstCluster();
-    auto remain_bytes = file_system_server->target_file_entry_->file_size;
+    auto cluster = server->target_file_entry_->FirstCluster();
+    auto remain_bytes = server->target_file_entry_->file_size;
     int offset = 0;
-    Print("[ fs ] copy %s to task buffer\n",
-          file_system_server->target_file_entry_->name);
+    Print("[ fs ] copy %s to task buffer\n", server->target_file_entry_->name);
 
     while (cluster != 0 && cluster != 0x0ffffffflu) {
-        char *p =
-            reinterpret_cast<char *>(file_system_server->ReadCluster(cluster));
+        char *p = reinterpret_cast<char *>(server->ReadCluster(cluster));
         int i = 0;
-        for (; i < file_system_server->boot_volume_image_.bytes_per_sector *
-                       file_system_server->boot_volume_image_
-                           .sectors_per_cluster &&
+        for (; i < server->boot_volume_image_.bytes_per_sector *
+                       server->boot_volume_image_.sectors_per_cluster &&
                i < remain_bytes;
              ++i) {
-            auto [res, err] = SyscallCopyToTaskBuffer(
-                file_system_server->target_task_id_, p, offset, 1);
+            auto [res, err] =
+                SyscallCopyToTaskBuffer(server->target_task_id_, p, offset, 1);
             ++p;
             ++offset;
         }
         remain_bytes -= i;
-        cluster = file_system_server->NextCluster(cluster);
+        cluster = server->NextCluster(cluster);
     }
-    file_system_server->send_message_.type = Message::kReady;
+    server->send_message_.type = Message::kReady;
     return this;
 }
 
 ServerState *CopyState::SendMessage() {
-    SyscallSendMessage(&file_system_server_->send_message_,
-                       file_system_server_->am_id_);
-    return file_system_server_->GetServerState(State::StateInit);
+    SyscallSendMessage(&server_->send_message_, server_->am_id_);
+    return server_->GetServerState(State::StateInit);
 }
 
-OpenState::OpenState(FileSystemServer *file_system_server)
-    : file_system_server_{file_system_server} {}
+OpenState::OpenState(FileSystemServer *server) : server_{server} {}
 
 ServerState *OpenState::HandleMessage() {
-    const char *path = file_system_server_->received_message_.arg.open.filename;
+    const char *path = server_->received_message_.arg.open.filename;
     Print("[ fs ] find  %s\n", path);
-    auto [file_entry, post_slash] = file_system_server_->FindFile(path);
+    auto [file_entry, post_slash] = server_->FindFile(path);
     // the file doesn't exist
     if (!file_entry) {
-        file_system_server_->send_message_.type = Message::kOpen;
-        file_system_server_->send_message_.arg.open.exist = false;
-        file_system_server_->send_message_.arg.open.isdirectory = false;
+        server_->send_message_.type = Message::kOpen;
+        server_->send_message_.arg.open.exist = false;
+        server_->send_message_.arg.open.isdirectory = false;
         Print("[ fs ] cannnot find  %s\n", path);
     }
     // is a directory
     else if (file_entry->attr == Attribute::kDirectory) {
-        file_system_server_->send_message_.type = Message::kOpen;
-        strcpy(file_system_server_->send_message_.arg.open.filename,
-               file_system_server_->received_message_.arg.open.filename);
-        file_system_server_->send_message_.arg.open.exist = true;
-        file_system_server_->send_message_.arg.open.isdirectory = true;
+        server_->send_message_.type = Message::kOpen;
+        strcpy(server_->send_message_.arg.open.filename,
+               server_->received_message_.arg.open.filename);
+        server_->send_message_.arg.open.exist = true;
+        server_->send_message_.arg.open.isdirectory = true;
     }
     // exists and is not a directory
     else {
-        file_system_server_->send_message_.type = Message::kOpen;
-        strcpy(file_system_server_->send_message_.arg.open.filename,
-               file_system_server_->received_message_.arg.open.filename);
-        file_system_server_->send_message_.arg.open.exist = true;
-        file_system_server_->send_message_.arg.open.isdirectory = false;
+        server_->send_message_.type = Message::kOpen;
+        strcpy(server_->send_message_.arg.open.filename,
+               server_->received_message_.arg.open.filename);
+        server_->send_message_.arg.open.exist = true;
+        server_->send_message_.arg.open.isdirectory = false;
     }
-    return file_system_server_->GetServerState(State::StateInit);
+    return server_->GetServerState(State::StateInit);
 }
 
-OpenDirState::OpenDirState(FileSystemServer *file_system_server)
-    : file_system_server_{file_system_server} {}
+OpenDirState::OpenDirState(FileSystemServer *server) : server_{server} {}
 
 ServerState *OpenDirState::HandleMessage() {
-    const char *path =
-        file_system_server_->received_message_.arg.opendir.dirname;
+    const char *path = server_->received_message_.arg.opendir.dirname;
     Print("[ fs ] find  %s\n", path);
-    auto [file_entry, post_slash] = file_system_server_->FindFile(path);
+    auto [file_entry, post_slash] = server_->FindFile(path);
     // the directory doesn't exist
     if (!file_entry) {
-        file_system_server_->send_message_.type = Message::kOpenDir;
-        file_system_server_->send_message_.arg.opendir.exist = false;
-        file_system_server_->send_message_.arg.opendir.isdirectory = false;
+        server_->send_message_.type = Message::kOpenDir;
+        server_->send_message_.arg.opendir.exist = false;
+        server_->send_message_.arg.opendir.isdirectory = false;
         Print("[ fs ] cannnot find  %s\n", path);
     }
     //  is directory
     else if (file_entry->attr == Attribute::kDirectory) {
-        file_system_server_->send_message_.type = Message::kOpenDir;
-        strcpy(file_system_server_->send_message_.arg.opendir.dirname,
-               file_system_server_->received_message_.arg.opendir.dirname);
-        file_system_server_->send_message_.arg.opendir.exist = true;
-        file_system_server_->send_message_.arg.opendir.isdirectory = true;
+        server_->send_message_.type = Message::kOpenDir;
+        strcpy(server_->send_message_.arg.opendir.dirname,
+               server_->received_message_.arg.opendir.dirname);
+        server_->send_message_.arg.opendir.exist = true;
+        server_->send_message_.arg.opendir.isdirectory = true;
     }
     // not directory
     else {
-        file_system_server_->send_message_.type = Message::kOpenDir;
-        strcpy(file_system_server_->send_message_.arg.opendir.dirname,
-               file_system_server_->received_message_.arg.opendir.dirname);
-        file_system_server_->send_message_.arg.opendir.exist = true;
-        file_system_server_->send_message_.arg.opendir.isdirectory = false;
+        server_->send_message_.type = Message::kOpenDir;
+        strcpy(server_->send_message_.arg.opendir.dirname,
+               server_->received_message_.arg.opendir.dirname);
+        server_->send_message_.arg.opendir.exist = true;
+        server_->send_message_.arg.opendir.isdirectory = false;
     }
-    return file_system_server_->GetServerState(State::StateInit);
+    return server_->GetServerState(State::StateInit);
 }
 
-ReadState::ReadState(FileSystemServer *file_system_server)
-    : file_system_server_{file_system_server} {}
+ReadState::ReadState(FileSystemServer *server) : server_{server} {}
 
 ServerState *ReadState::HandleMessage() {
-    const char *path = file_system_server_->received_message_.arg.read.filename;
-    auto [file_entry, post_slash] = file_system_server_->FindFile(path);
+    const char *path = server_->received_message_.arg.read.filename;
+    auto [file_entry, post_slash] = server_->FindFile(path);
 
-    file_system_server_->target_file_entry_ = file_entry;
+    server_->target_file_entry_ = file_entry;
 
-    size_t count = file_system_server_->received_message_.arg.read.count;
+    size_t count = server_->received_message_.arg.read.count;
     size_t sent_bytes = 0;
-    size_t read_offset = file_system_server_->received_message_.arg.read.offset;
+    size_t read_offset = server_->received_message_.arg.read.offset;
 
     size_t total = 0;
-    auto cluster = file_system_server_->target_file_entry_->FirstCluster();
-    auto remain_bytes = file_system_server_->target_file_entry_->file_size;
+    auto cluster = server_->target_file_entry_->FirstCluster();
+    auto remain_bytes = server_->target_file_entry_->file_size;
     int msg_offset = 0;
 
     while (cluster != 0 && cluster != 0x0ffffffflu && sent_bytes < count) {
-        char *p =
-            reinterpret_cast<char *>(file_system_server_->ReadCluster(cluster));
+        char *p = reinterpret_cast<char *>(server_->ReadCluster(cluster));
         int i = 0;
-        for (; i < file_system_server_->boot_volume_image_.bytes_per_sector *
-                       file_system_server_->boot_volume_image_
-                           .sectors_per_cluster &&
+        for (; i < server_->boot_volume_image_.bytes_per_sector *
+                       server_->boot_volume_image_.sectors_per_cluster &&
                i < remain_bytes && sent_bytes < count;
              ++i) {
             if (total >= read_offset) {
-                memcpy(&file_system_server_->send_message_.arg.read
-                            .data[msg_offset],
-                       p, 1);
+                memcpy(&server_->send_message_.arg.read.data[msg_offset], p, 1);
                 ++p;
                 ++msg_offset;
                 ++sent_bytes;
 
                 if (msg_offset ==
-                    sizeof(file_system_server_->send_message_.arg.read.data)) {
-                    file_system_server_->send_message_.type = Message::kRead;
-                    file_system_server_->send_message_.arg.read.len =
-                        msg_offset;
-                    SyscallSendMessage(&file_system_server_->send_message_,
-                                       file_system_server_->am_id_);
+                    sizeof(server_->send_message_.arg.read.data)) {
+                    server_->send_message_.type = Message::kRead;
+                    server_->send_message_.arg.read.len = msg_offset;
+                    SyscallSendMessage(&server_->send_message_,
+                                       server_->am_id_);
                     msg_offset = 0;
                 }
             }
             ++total;
         }
         remain_bytes -= i;
-        cluster = file_system_server_->NextCluster(cluster);
+        cluster = server_->NextCluster(cluster);
     }
 
     if (msg_offset) {
-        file_system_server_->send_message_.type = Message::kRead;
-        file_system_server_->send_message_.arg.read.len = msg_offset;
-        SyscallSendMessage(&file_system_server_->send_message_,
-                           file_system_server_->am_id_);
+        server_->send_message_.type = Message::kRead;
+        server_->send_message_.arg.read.len = msg_offset;
+        SyscallSendMessage(&server_->send_message_, server_->am_id_);
         msg_offset = 0;
     }
-    file_system_server_->send_message_.type = Message::kRead;
-    file_system_server_->send_message_.arg.read.len = msg_offset;
-    return file_system_server_->GetServerState(State::StateInit);
+    server_->send_message_.type = Message::kRead;
+    server_->send_message_.arg.read.len = msg_offset;
+    return server_->GetServerState(State::StateInit);
 }
 
 FileSystemServer::FileSystemServer() {}
@@ -392,10 +363,6 @@ void FileSystemServer::Initilaize() {
         Print("[ fs ] ready\n");
     }
 }
-
-void FileSystemServer::ReceiveMessage() { state_ = state_->ReceiveMessage(); }
-void FileSystemServer::HandleMessage() { state_ = state_->HandleMessage(); }
-void FileSystemServer::SendMessage() { state_ = state_->SendMessage(); }
 
 unsigned long FileSystemServer::NextCluster(unsigned long cluster) {
     unsigned long sector_offset =

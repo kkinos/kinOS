@@ -72,8 +72,10 @@ struct DirectoryEntry {
 } __attribute__((packed));
 
 int num_servers = 5;
-char servers[][32] = {"servers/gui", "servers/log", "servers/am", "servers/fs",
-                      "servers/terminal"};
+char servers[][32] = {
+    "servers/gui", "servers/log",      "servers/am",
+    "servers/fs",  "servers/terminal",
+};
 
 class InitServer {
    public:
