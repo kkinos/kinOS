@@ -284,54 +284,92 @@ ServerState *ReadState::HandleMessage() {
     const char *path = server_->received_message_.arg.read.filename;
     auto [file_entry, post_slash] = server_->FindFile(path);
 
-    server_->target_file_entry_ = file_entry;
+    if (file_entry->attr == Attribute::kDirectory) {
+        server_->target_file_entry_ = file_entry;
+        auto cluster = server_->target_file_entry_->FirstCluster();
+        DirectoryEntry *dir_entry =
+            reinterpret_cast<DirectoryEntry *>(server_->ReadCluster(cluster));
+        size_t target_num = server_->received_message_.arg.read.offset;
+        size_t offset = 1;
 
-    size_t count = server_->received_message_.arg.read.count;
-    size_t sent_bytes = 0;
-    size_t read_offset = server_->received_message_.arg.read.offset;
-
-    size_t total = 0;
-    auto cluster = server_->target_file_entry_->FirstCluster();
-    auto remain_bytes = server_->target_file_entry_->file_size;
-    int msg_offset = 0;
-
-    while (cluster != 0 && cluster != 0x0ffffffflu && sent_bytes < count) {
-        char *p = reinterpret_cast<char *>(server_->ReadCluster(cluster));
-        int i = 0;
-        for (; i < server_->boot_volume_image_.bytes_per_sector *
-                       server_->boot_volume_image_.sectors_per_cluster &&
-               i < remain_bytes && sent_bytes < count;
-             ++i) {
-            if (total >= read_offset) {
-                memcpy(&server_->send_message_.arg.read.data[msg_offset], p, 1);
-                ++p;
-                ++msg_offset;
-                ++sent_bytes;
-
-                if (msg_offset ==
-                    sizeof(server_->send_message_.arg.read.data)) {
-                    server_->send_message_.type = Message::kRead;
-                    server_->send_message_.arg.read.len = msg_offset;
-                    SyscallSendMessage(&server_->send_message_,
-                                       server_->am_id_);
-                    msg_offset = 0;
-                }
+        char name[9];
+        char ext[4];
+        while (1) {
+            server_->ReadName(dir_entry[target_num], name, ext);
+            if (name[0] == 0x00) {
+                break;
+            } else if (static_cast<uint8_t>(name[0]) == 0xe5) {
+                ++target_num;
+                continue;
+            } else if (dir_entry[target_num].attr == Attribute::kLongName) {
+                ++target_num;
+                continue;
+            } else {
+                ++target_num;
+                server_->send_message_.type = Message::kRead;
+                memcpy(&server_->send_message_.arg.read.data[0], &name[0], 9);
+                server_->send_message_.arg.read.len =
+                    target_num - server_->received_message_.arg.read.offset;
+                SyscallSendMessage(&server_->send_message_, server_->am_id_);
+                break;
             }
-            ++total;
         }
-        remain_bytes -= i;
-        cluster = server_->NextCluster(cluster);
-    }
 
-    if (msg_offset) {
+        server_->send_message_.type = Message::kRead;
+        server_->send_message_.arg.read.len = 0;
+        return server_->GetServerState(State::StateInit);
+
+    } else {
+        server_->target_file_entry_ = file_entry;
+
+        size_t count = server_->received_message_.arg.read.count;
+        size_t sent_bytes = 0;
+        size_t read_offset = server_->received_message_.arg.read.offset;
+
+        size_t total = 0;
+        auto cluster = server_->target_file_entry_->FirstCluster();
+        auto remain_bytes = server_->target_file_entry_->file_size;
+        int msg_offset = 0;
+
+        while (cluster != 0 && cluster != 0x0ffffffflu && sent_bytes < count) {
+            char *p = reinterpret_cast<char *>(server_->ReadCluster(cluster));
+            int i = 0;
+            for (; i < server_->boot_volume_image_.bytes_per_sector *
+                           server_->boot_volume_image_.sectors_per_cluster &&
+                   i < remain_bytes && sent_bytes < count;
+                 ++i) {
+                if (total >= read_offset) {
+                    memcpy(&server_->send_message_.arg.read.data[msg_offset], p,
+                           1);
+                    ++p;
+                    ++msg_offset;
+                    ++sent_bytes;
+
+                    if (msg_offset ==
+                        sizeof(server_->send_message_.arg.read.data)) {
+                        server_->send_message_.type = Message::kRead;
+                        server_->send_message_.arg.read.len = msg_offset;
+                        SyscallSendMessage(&server_->send_message_,
+                                           server_->am_id_);
+                        msg_offset = 0;
+                    }
+                }
+                ++total;
+            }
+            remain_bytes -= i;
+            cluster = server_->NextCluster(cluster);
+        }
+
+        if (msg_offset) {
+            server_->send_message_.type = Message::kRead;
+            server_->send_message_.arg.read.len = msg_offset;
+            SyscallSendMessage(&server_->send_message_, server_->am_id_);
+            msg_offset = 0;
+        }
         server_->send_message_.type = Message::kRead;
         server_->send_message_.arg.read.len = msg_offset;
-        SyscallSendMessage(&server_->send_message_, server_->am_id_);
-        msg_offset = 0;
+        return server_->GetServerState(State::StateInit);
     }
-    server_->send_message_.type = Message::kRead;
-    server_->send_message_.arg.read.len = msg_offset;
-    return server_->GetServerState(State::StateInit);
 }
 
 FileSystemServer::FileSystemServer() {}

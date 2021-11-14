@@ -388,13 +388,15 @@ ServerState* AllocateFDState::HandleMessage() {
                 app_info->Files()[fd] = std::make_unique<FatFileDescriptor>(
                     server_->target_id_,
                     server_->received_message_.arg.opendir.dirname);
+
+                server_->send_message_.arg.opendir.fd = fd;
+
                 Print("[ am ] allocate file descriptor for %s\n",
                       server_->received_message_.arg.opendir.dirname);
-                server_->send_message_.arg.opendir.fd = fd;
-                return server_->GetServerState(State::StateInit);
             }
-            break;
-        }
+            return server_->GetServerState(State::StateInit);
+
+        } break;
         default:
             break;
     }
@@ -575,7 +577,6 @@ FatFileDescriptor::FatFileDescriptor(uint64_t id, char* filename) : id_{id} {
 size_t FatFileDescriptor::Read(Message msg) {
     size_t count = msg.arg.read.count;
     msg.arg.read.offset = read_offset_;
-
     strcpy(msg.arg.read.filename, filename_);
     auto [fs_id, err] = SyscallFindServer("servers/fs");
     if (err) {
@@ -589,9 +590,10 @@ size_t FatFileDescriptor::Read(Message msg) {
         Message rmsg;
         while (1) {
             SyscallClosedReceiveMessage(&rmsg, 1, fs_id);
-            if (rmsg.arg.read.len) {
+            if (rmsg.arg.read.len != 0) {
                 SyscallSendMessage(&rmsg, id_);
                 read_offset_ += rmsg.arg.read.len;
+
             } else {
                 SyscallSendMessage(&rmsg, id_);
                 break;

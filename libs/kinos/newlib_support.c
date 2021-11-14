@@ -1,10 +1,10 @@
 #include <errno.h>
 #include <signal.h>
 #include <stdint.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "dirent.h"
 #include "syscall.h"
 
 int close(int fd) {
@@ -80,61 +80,6 @@ int open(const char* path, int flags) {
         }
 
         return rmsg.arg.open.fd;
-    }
-
-    errno = id.error;
-    return -1;
-}
-
-DIR* opendir(const char* name) {
-    struct SyscallResult id = SyscallFindServer("servers/am");
-    if (id.error == 0) {
-        struct Message smsg;
-        struct Message rmsg;
-
-        DIR dir;
-
-        smsg.type = kOpenDir;
-        int i = 0;
-        while (*name) {
-            if (i > 25) {
-                errno = EINVAL;
-                return 0;
-            }
-            smsg.arg.opendir.dirname[i] = *name;
-            ++i;
-            ++name;
-        }
-        smsg.arg.opendir.dirname[i] = '\0';
-        SyscallSendMessage(&smsg, id.value);
-
-        while (1) {
-            SyscallClosedReceiveMessage(&rmsg, 1, id.value);
-            if (rmsg.type == kError) {
-                if (rmsg.arg.error.retry) {
-                    SyscallSendMessage(&smsg, id.value);
-                    continue;
-                } else {
-                    errno = EAGAIN;
-                    return 0;
-                }
-            } else if (rmsg.type == kOpenDir) {
-                if (!rmsg.arg.opendir.exist) {
-                    errno = ENOENT;
-                    return 0;
-                }
-
-                if (!rmsg.arg.opendir.isdirectory) {
-                    errno = ENOTDIR;
-                    return 0;
-                }
-
-                dir.fd = rmsg.arg.opendir.fd;
-                break;
-            }
-        }
-
-        return &dir;
     }
 
     errno = id.error;
