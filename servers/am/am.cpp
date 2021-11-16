@@ -576,7 +576,8 @@ FatFileDescriptor::FatFileDescriptor(uint64_t id, char* filename) : id_{id} {
 
 size_t FatFileDescriptor::Read(Message msg) {
     size_t count = msg.arg.read.count;
-    msg.arg.read.offset = read_offset_;
+    msg.arg.read.offset = rd_off_;
+    msg.arg.read.cluster = rd_cluster_;
     strcpy(msg.arg.read.filename, filename_);
     auto [fs_id, err] = SyscallFindServer("servers/fs");
     if (err) {
@@ -592,7 +593,8 @@ size_t FatFileDescriptor::Read(Message msg) {
             SyscallClosedReceiveMessage(&rmsg, 1, fs_id);
             if (rmsg.arg.read.len != 0) {
                 SyscallSendMessage(&rmsg, id_);
-                read_offset_ += rmsg.arg.read.len;
+                rd_off_ += rmsg.arg.read.len;
+                rd_cluster_ = rmsg.arg.read.cluster;
 
             } else {
                 SyscallSendMessage(&rmsg, id_);

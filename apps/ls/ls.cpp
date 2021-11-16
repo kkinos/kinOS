@@ -89,7 +89,7 @@ ssize_t readdir(int fd, void* buf) {
 
         smsg.type = Message::kRead;
         smsg.arg.read.fd = fd;
-        smsg.arg.read.count = 13;
+        smsg.arg.read.count = 8 + 1;  // dir name length max is 8 + 1
         SyscallSendMessage(&smsg, id.value);
 
         size_t read_bytes = 0;

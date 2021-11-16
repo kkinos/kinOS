@@ -287,34 +287,53 @@ ServerState *ReadState::HandleMessage() {
     if (file_entry->attr == Attribute::kDirectory) {
         server_->target_file_entry_ = file_entry;
         auto cluster = server_->target_file_entry_->FirstCluster();
-        DirectoryEntry *dir_entry =
-            reinterpret_cast<DirectoryEntry *>(server_->ReadCluster(cluster));
-        size_t target_num = server_->received_message_.arg.read.offset;
-        size_t offset = 1;
-
-        char name[9];
-        char ext[4];
-        while (1) {
-            server_->ReadName(dir_entry[target_num], name, ext);
-            if (name[0] == 0x00) {
-                break;
-            } else if (static_cast<uint8_t>(name[0]) == 0xe5) {
-                ++target_num;
-                continue;
-            } else if (dir_entry[target_num].attr == Attribute::kLongName) {
-                ++target_num;
-                continue;
-            } else {
-                ++target_num;
-                server_->send_message_.type = Message::kRead;
-                memcpy(&server_->send_message_.arg.read.data[0], &name[0], 9);
-                server_->send_message_.arg.read.len =
-                    target_num - server_->received_message_.arg.read.offset;
-                SyscallSendMessage(&server_->send_message_, server_->am_id_);
-                break;
-            }
+        size_t read_cluster = server_->received_message_.arg.read.cluster;
+        for (int i = 0; i < read_cluster; ++i) {
+            cluster = server_->NextCluster(cluster);
         }
 
+        size_t entry_index = server_->received_message_.arg.read.offset;
+        auto num_entries_per_cluster =
+            (server_->boot_volume_image_.bytes_per_sector *
+             server_->boot_volume_image_.sectors_per_cluster) /
+            sizeof(DirectoryEntry);
+        if (num_entries_per_cluster <= entry_index) {
+            read_cluster = entry_index / num_entries_per_cluster;
+            entry_index = entry_index % num_entries_per_cluster;
+        }
+
+        if (cluster != 0 && cluster != 0x0ffffffflu) {
+            DirectoryEntry *dir_entry = reinterpret_cast<DirectoryEntry *>(
+                server_->ReadCluster(cluster));
+
+            char name[9];
+            char ext[4];
+            while (1) {
+                server_->ReadName(dir_entry[entry_index], name, ext);
+                if (name[0] == 0x00) {
+                    break;
+                } else if (static_cast<uint8_t>(name[0]) == 0xe5) {
+                    ++entry_index;
+                    continue;
+                } else if (dir_entry[entry_index].attr ==
+                           Attribute::kLongName) {
+                    ++entry_index;
+                    continue;
+                } else {
+                    ++entry_index;
+                    server_->send_message_.type = Message::kRead;
+                    memcpy(&server_->send_message_.arg.read.data[0], &name[0],
+                           9);
+                    server_->send_message_.arg.read.len =
+                        (entry_index + num_entries_per_cluster * read_cluster) -
+                        server_->received_message_.arg.read.offset;
+                    server_->send_message_.arg.read.cluster = read_cluster;
+                    SyscallSendMessage(&server_->send_message_,
+                                       server_->am_id_);
+                    break;
+                }
+            }
+        }
         server_->send_message_.type = Message::kRead;
         server_->send_message_.arg.read.len = 0;
         return server_->GetServerState(State::StateInit);

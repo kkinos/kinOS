@@ -139,6 +139,7 @@ struct Message {
             char data[16];
             uint32_t count;
             uint32_t offset;
+            uint32_t cluster;
             uint8_t len;
         } read;
 

@@ -26,10 +26,8 @@ class FatFileDescriptor : public ::FileDescriptor {
     uint64_t id_;
     char filename_[32];
 
-    // when read file is bytes, when read directory number of directory
-    size_t read_offset_ = 0;
-
-    size_t rd_off_ = 0;
+    size_t rd_off_ =
+        0;  //  for read file ,bytes offset, for read dir , index offset
     unsigned long rd_cluster_ = 0;
     size_t rd_cluster_off_ = 0;
     size_t wr_off_ = 0;
