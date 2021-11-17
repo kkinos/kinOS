@@ -355,8 +355,8 @@ WithError<int> ExecuteApp(Elf64_Ehdr *elf_header, char *first_arg) {
     auto argbuf = reinterpret_cast<char *>(args_frame_addr.value +
                                            sizeof(char **) * argv_len);
     int argbuf_len = 4096 - sizeof(char **) * argv_len;
-    auto argc = MakeArgVector("application", first_arg, argv, argv_len, argbuf,
-                              argbuf_len);
+    auto argc =
+        MakeArgVector("", first_arg, argv, argv_len, argbuf, argbuf_len);
     if (argc.error) {
         return {0, argc.error};
     }
