@@ -330,7 +330,7 @@ SyscallEntry:  ; void SyscallEntry(void);
 
 
     pop rsi  ; システムコール番号を復帰
-    cmp esi, 0x80000002
+    cmp esi, 0x80000000
     je  .exit
 
     pop r11

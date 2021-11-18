@@ -9,15 +9,12 @@ extern "C" {
 #endif
 
 #include "../common/message.hpp"
-#include "logger.hpp"
 
 struct SyscallResult {
     uint64_t value;
     int error;
 };
 
-struct SyscallResult SyscallLogString(enum LogLevel level, const char *message);
-struct SyscallResult SyscallPutString(int fd, const char *s, size_t len);
 void SyscallExit(int exit_code);
 struct SyscallResult SyscallGetCurrentTick();
 #define TIMER_ONESHOT_REL 1
@@ -49,7 +46,7 @@ struct SyscallResult SyscallClosedReceiveMessage(struct Message *msg,
 struct SyscallResult SyscallSendMessage(struct Message *msg, uint64_t id);
 
 /*--------------------------------------------------------------------------
- * system calls for GUI
+ * system calls for GUI server
  *--------------------------------------------------------------------------
  */
 
@@ -69,7 +66,7 @@ struct SyscallResult SyscallReadVolumeImage(void *buf, size_t offset,
                                             size_t len);
 
 /*--------------------------------------------------------------------------
- * common system calls for servers
+ * common system calls for application and server
  *--------------------------------------------------------------------------
  */
 

@@ -28,37 +28,6 @@ struct Result {
     Result name(uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, \
                 uint64_t arg5, uint64_t arg6)
 
-SYSCALL(LogString) {
-    if (arg1 != kError && arg1 != kWarn && arg1 != kInfo && arg1 != kDebug) {
-        return {0, EPERM};
-    }
-    const char *s = reinterpret_cast<const char *>(arg2);
-    const auto len = strlen(s);
-    if (len > 1024) {
-        return {0, E2BIG};
-    }
-    Log(static_cast<LogLevel>(arg1), "%s", s);
-    return {len, 0};
-}
-
-SYSCALL(PutString) {
-    const auto fd = arg1;
-    const char *s = reinterpret_cast<const char *>(arg2);
-    const auto len = arg3;
-    if (len > 1024) {
-        return {0, E2BIG};
-    }
-
-    __asm__("cli");
-    auto &task = task_manager->CurrentTask();
-    __asm__("sti");
-
-    if (fd < 0 || task.Files().size() <= fd || !task.Files()[fd]) {
-        return {0, EBADF};
-    }
-    return {task.Files()[fd]->Write(s, len), 0};
-}
-
 SYSCALL(Exit) {
     __asm__("cli");
     auto &task = task_manager->CurrentTask();
@@ -390,30 +359,28 @@ SYSCALL(WriteKernelLog) {
 
 using SyscallFuncType = syscall::Result(uint64_t, uint64_t, uint64_t, uint64_t,
                                         uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType *, 0x17> syscall_table{
-    /* 0x00 */ syscall::LogString,
-    /* 0x01 */ syscall::PutString,
-    /* 0x02 */ syscall::Exit,
-    /* 0x03 */ syscall::GetCurrentTick,
-    /* 0x04 */ syscall::CreateTimer,
-    /* 0x05 */ syscall::OpenFile,
-    /* 0x06 */ syscall::ReadFile,
-    /* 0x07 */ syscall::DemandPages,
-    /* 0x08 */ syscall::MapFile,
-    /* 0x09 */ syscall::CreateNewTask,
-    /* 0x0a */ syscall::CopyToTaskBuffer,
-    /* 0x0b */ syscall::SetArgument,
-    /* 0x0c */ syscall::FindServer,
-    /* 0x0d */ syscall::OpenReceiveMessage,
-    /* 0x0e */ syscall::ClosedReceiveMessage,
-    /* 0x0f */ syscall::SendMessage,
-    /* 0x10 */ syscall::WritePixel,
-    /* 0x11 */ syscall::GetFrameBufferWitdth,
-    /* 0x12 */ syscall::GetFrameBufferHeight,
-    /* 0x13 */ syscall::CopyToFrameBuffer,
-    /* 0x14 */ syscall::ReadVolumeImage,
-    /* 0x15 */ syscall::ReadKernelLog,
-    /* 0x16 */ syscall::WriteKernelLog,
+extern "C" std::array<SyscallFuncType *, 0x15> syscall_table{
+    /* 0x00 */ syscall::Exit,
+    /* 0x01 */ syscall::GetCurrentTick,
+    /* 0x02 */ syscall::CreateTimer,
+    /* 0x03 */ syscall::OpenFile,
+    /* 0x04 */ syscall::ReadFile,
+    /* 0x05 */ syscall::DemandPages,
+    /* 0x06 */ syscall::MapFile,
+    /* 0x07 */ syscall::CreateNewTask,
+    /* 0x08 */ syscall::CopyToTaskBuffer,
+    /* 0x09 */ syscall::SetArgument,
+    /* 0x0a */ syscall::FindServer,
+    /* 0x0b */ syscall::OpenReceiveMessage,
+    /* 0x0c */ syscall::ClosedReceiveMessage,
+    /* 0x0d */ syscall::SendMessage,
+    /* 0x0e */ syscall::WritePixel,
+    /* 0x0f */ syscall::GetFrameBufferWitdth,
+    /* 0x10 */ syscall::GetFrameBufferHeight,
+    /* 0x11 */ syscall::CopyToFrameBuffer,
+    /* 0x12 */ syscall::ReadVolumeImage,
+    /* 0x13 */ syscall::ReadKernelLog,
+    /* 0x14 */ syscall::WriteKernelLog,
 
 };
 
