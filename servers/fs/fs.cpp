@@ -1,5 +1,7 @@
 #include "fs.hpp"
 
+#include <fcntl.h>
+
 #include <algorithm>
 #include <cctype>
 #include <utility>
@@ -222,10 +224,14 @@ ServerState *OpenState::HandleMessage() {
     auto [file_entry, post_slash] = server_->FindFile(path);
     // the file doesn't exist
     if (!file_entry) {
-        server_->send_message_.type = Message::kOpen;
-        server_->send_message_.arg.open.exist = false;
-        server_->send_message_.arg.open.isdirectory = false;
-        Print("[ fs ] cannnot find  %s\n", path);
+        if ((server_->received_message_.arg.open.flags & O_CREAT) == 0) {
+            server_->send_message_.type = Message::kOpen;
+            server_->send_message_.arg.open.exist = false;
+            server_->send_message_.arg.open.isdirectory = false;
+            Print("[ fs ] cannnot find  %s\n", path);
+        } else {
+            // create file
+        }
     }
     // is a directory
     else if (file_entry->attr == Attribute::kDirectory) {

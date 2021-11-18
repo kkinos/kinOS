@@ -309,6 +309,8 @@ ServerState* OpenState::HandleMessage() {
                 server_->send_message_.type = Message::kOpen;
                 strcpy(server_->send_message_.arg.open.filename,
                        server_->received_message_.arg.open.filename);
+                server_->send_message_.arg.open.flags =
+                    server_->received_message_.arg.open.flags;
                 return this;
             }
 
