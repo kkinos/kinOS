@@ -6,7 +6,9 @@
 #include <cctype>
 #include <utility>
 
+#include "../../libs/common/message.hpp"
 #include "../../libs/kinos/print.hpp"
+#include "../../libs/kinos/syscall.h"
 
 extern "C" void main() {
     server = new FileSystemServer;

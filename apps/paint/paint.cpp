@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "../../libs/gui/guisyscall.hpp"
+#include "../../libs/kinos/app/gui/guisyscall.hpp"
 
 static const int kWidth = 200, kHeight = 130;
 

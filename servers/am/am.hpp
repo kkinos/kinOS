@@ -11,8 +11,8 @@
 
 #include "../../libs/common/message.hpp"
 #include "../../libs/common/template.hpp"
-#include "../../libs/gui/guisyscall.hpp"
 #include "filedescriptor.hpp"
+#include "../../libs/kinos/syscall.h"
 
 class AppInfo {
    public:

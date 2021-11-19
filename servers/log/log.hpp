@@ -7,7 +7,7 @@
 #include <optional>
 
 #include "../../libs/common/template.hpp"
-#include "../../libs/gui/guisyscall.hpp"
+#include "../../libs/kinos/app/gui/guisyscall.hpp"
 
 const int kRows = 15;
 const int kColumns = 60;

@@ -7,8 +7,8 @@
 #include <optional>
 #include <vector>
 
+#include "../../libs/common/message.hpp"
 #include "../../libs/common/template.hpp"
-#include "../../libs/gui/guisyscall.hpp"
 
 #define SECTOR_SIZE 512
 

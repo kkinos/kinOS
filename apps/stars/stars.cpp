@@ -1,7 +1,7 @@
 #include <cstdlib>
 #include <random>
 
-#include "../../libs/gui/guisyscall.hpp"
+#include "../../libs/kinos/app/gui/guisyscall.hpp"
 
 static constexpr int kWidth = 100, kHeight = 100;
 

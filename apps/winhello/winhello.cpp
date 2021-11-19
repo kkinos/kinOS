@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "../../libs/gui/guisyscall.hpp"
+#include "../../libs/kinos/app/gui/guisyscall.hpp"
 
 extern "C" void main(int argc, char** argv) {
     int layer_id = OpenWindow(200, 100, 10, 10, "winhello");
