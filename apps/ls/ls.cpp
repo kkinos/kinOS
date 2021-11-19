@@ -5,7 +5,7 @@
 #include <cstdlib>
 
 #include "../../libs/common/message.hpp"
-#include "../../libs/kinos/syscall.h"
+#include "../../libs/kinos/common/syscall.h"
 
 int opendir(const char* name);
 ssize_t readdir(int fd, void* buf);

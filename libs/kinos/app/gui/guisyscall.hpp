@@ -7,7 +7,7 @@
 #pragma once
 
 #include "../../../common/message.hpp"
-#include "../../syscall.h"
+#include "../../common/syscall.h"
 
 int OpenWindow(int w, int h, int x, int y, char* title);
 void WinFillRectangle(int layer_id, bool draw, int x, int y, int w, int h,

@@ -8,7 +8,7 @@ extern "C" {
 #include <stdint.h>
 #endif
 
-#include "../common/message.hpp"
+#include "../../common/message.hpp"
 
 struct SyscallResult {
     uint64_t value;

@@ -4,8 +4,8 @@
 #include <cctype>
 #include <utility>
 
-#include "../../libs/kinos/print.hpp"
-#include "../../libs/kinos/syscall.h"
+#include "../../libs/kinos/common/print.hpp"
+#include "../../libs/kinos/common/syscall.h"
 
 InitServer::InitServer() {}
 

@@ -2,7 +2,7 @@
 
 #include <cstdio>
 
-#include "../../libs/kinos/print.hpp"
+#include "../../libs/kinos/common/print.hpp"
 
 extern "C" void main() {
     server = new ApplicationManagementServer;

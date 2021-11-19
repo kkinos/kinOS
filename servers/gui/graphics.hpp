@@ -3,7 +3,7 @@
 #include <cstdlib>
 
 #include "../../libs/common/template.hpp"
-#include "../../libs/kinos/syscall.h"
+#include "../../libs/kinos/common/syscall.h"
 #include "shadow_buffer_config.hpp"
 
 struct PixelColor {

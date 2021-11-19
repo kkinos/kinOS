@@ -7,8 +7,8 @@
 #include <utility>
 
 #include "../../libs/common/message.hpp"
-#include "../../libs/kinos/print.hpp"
-#include "../../libs/kinos/syscall.h"
+#include "../../libs/kinos/common/print.hpp"
+#include "../../libs/kinos/common/syscall.h"
 
 extern "C" void main() {
     server = new FileSystemServer;
