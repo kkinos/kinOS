@@ -53,12 +53,9 @@ ServerState *InitState::ReceiveMessage() {
                 return server_->GetServerState(State::StateExec);
             } break;
 
-            case Message::kOpen: {
-                return server_->GetServerState(State::StateOpen);
-            } break;
-
+            case Message::kOpen:
             case Message::kOpenDir: {
-                return server_->GetServerState(State::StateOpenDir);
+                return server_->GetServerState(State::StateOpen);
             } break;
 
             case Message::kRead: {
@@ -221,75 +218,148 @@ ServerState *CopyState::SendMessage() {
 OpenState::OpenState(FileSystemServer *server) : server_{server} {}
 
 ServerState *OpenState::HandleMessage() {
-    const char *path = server_->received_message_.arg.open.filename;
-    Print("[ fs ] find  %s\n", path);
-    auto [file_entry, post_slash] = server_->FindFile(path);
-    // the file doesn't exist
-    if (!file_entry) {
-        if ((server_->received_message_.arg.open.flags & O_CREAT) == 0) {
-            server_->send_message_.type = Message::kOpen;
-            server_->send_message_.arg.open.exist = false;
-            server_->send_message_.arg.open.isdirectory = false;
-            Print("[ fs ] cannnot find  %s\n", path);
-        } else {
-            // create file
-        }
-    }
-    // is a directory
-    else if (file_entry->attr == Attribute::kDirectory) {
-        server_->send_message_.type = Message::kOpen;
-        strcpy(server_->send_message_.arg.open.filename,
-               server_->received_message_.arg.open.filename);
-        server_->send_message_.arg.open.exist = true;
-        server_->send_message_.arg.open.isdirectory = true;
-    }
-    // exists and is not a directory
-    else {
-        server_->send_message_.type = Message::kOpen;
-        strcpy(server_->send_message_.arg.open.filename,
-               server_->received_message_.arg.open.filename);
-        server_->send_message_.arg.open.exist = true;
-        server_->send_message_.arg.open.isdirectory = false;
-    }
-    return server_->GetServerState(State::StateInit);
-}
+    if (server_->received_message_.type == Message::kOpen)
+        SetTarget(Target::File);
+    if (server_->received_message_.type == Message::kOpenDir)
+        SetTarget(Target::Dir);
+    switch (target_) {
+        case Target::File: {
+            const char *path = server_->received_message_.arg.open.filename;
+            Print("[ fs ] find file %s\n", path);
+            auto [file_entry, post_slash] = server_->FindFile(path);
+            // the file doesn't exist
+            if (!file_entry) {
+                if ((server_->received_message_.arg.open.flags & O_CREAT) ==
+                    0) {
+                    server_->send_message_.type = Message::kOpen;
+                    server_->send_message_.arg.open.exist = false;
+                    server_->send_message_.arg.open.isdirectory = false;
+                    Print("[ fs ] cannnot find  %s\n", path);
+                } else {
+                    // create file
+                }
+            }
+            // is a directory
+            else if (file_entry->attr == Attribute::kDirectory) {
+                server_->send_message_.type = Message::kOpen;
+                strcpy(server_->send_message_.arg.open.filename,
+                       server_->received_message_.arg.open.filename);
+                server_->send_message_.arg.open.exist = true;
+                server_->send_message_.arg.open.isdirectory = true;
+            }
+            // exists and is not a directory
+            else {
+                server_->send_message_.type = Message::kOpen;
+                strcpy(server_->send_message_.arg.open.filename,
+                       server_->received_message_.arg.open.filename);
+                server_->send_message_.arg.open.exist = true;
+                server_->send_message_.arg.open.isdirectory = false;
+            }
+            return server_->GetServerState(State::StateInit);
+        } break;
 
-OpenDirState::OpenDirState(FileSystemServer *server) : server_{server} {}
+        case Target::Dir: {
+            const char *path = server_->received_message_.arg.opendir.dirname;
+            Print("[ fs ] find directory %s\n", path);
+            // is root directory
+            if (strcmp(path, ".") == 0) {
+                server_->send_message_.type = Message::kOpenDir;
+                strcpy(server_->send_message_.arg.opendir.dirname,
+                       server_->received_message_.arg.opendir.dirname);
+                server_->send_message_.arg.opendir.exist = true;
+                server_->send_message_.arg.opendir.isdirectory = true;
+            } else {
+                auto [file_entry, post_slash] = server_->FindFile(path);
+                // the directory doesn't exist
+                if (!file_entry) {
+                    server_->send_message_.type = Message::kOpenDir;
+                    server_->send_message_.arg.opendir.exist = false;
+                    server_->send_message_.arg.opendir.isdirectory = false;
+                    Print("[ fs ] cannnot find  %s\n", path);
+                }
+                //  is directory
+                else if (file_entry->attr == Attribute::kDirectory) {
+                    server_->send_message_.type = Message::kOpenDir;
+                    strcpy(server_->send_message_.arg.opendir.dirname,
+                           server_->received_message_.arg.opendir.dirname);
+                    server_->send_message_.arg.opendir.exist = true;
+                    server_->send_message_.arg.opendir.isdirectory = true;
+                }
+                // not directory
+                else {
+                    server_->send_message_.type = Message::kOpenDir;
+                    strcpy(server_->send_message_.arg.opendir.dirname,
+                           server_->received_message_.arg.opendir.dirname);
+                    server_->send_message_.arg.opendir.exist = true;
+                    server_->send_message_.arg.opendir.isdirectory = false;
+                }
+            }
+            return server_->GetServerState(State::StateInit);
+        } break;
 
-ServerState *OpenDirState::HandleMessage() {
-    const char *path = server_->received_message_.arg.opendir.dirname;
-    Print("[ fs ] find  %s\n", path);
-    auto [file_entry, post_slash] = server_->FindFile(path);
-    // the directory doesn't exist
-    if (!file_entry) {
-        server_->send_message_.type = Message::kOpenDir;
-        server_->send_message_.arg.opendir.exist = false;
-        server_->send_message_.arg.opendir.isdirectory = false;
-        Print("[ fs ] cannnot find  %s\n", path);
+        default:
+            break;
     }
-    //  is directory
-    else if (file_entry->attr == Attribute::kDirectory) {
-        server_->send_message_.type = Message::kOpenDir;
-        strcpy(server_->send_message_.arg.opendir.dirname,
-               server_->received_message_.arg.opendir.dirname);
-        server_->send_message_.arg.opendir.exist = true;
-        server_->send_message_.arg.opendir.isdirectory = true;
-    }
-    // not directory
-    else {
-        server_->send_message_.type = Message::kOpenDir;
-        strcpy(server_->send_message_.arg.opendir.dirname,
-               server_->received_message_.arg.opendir.dirname);
-        server_->send_message_.arg.opendir.exist = true;
-        server_->send_message_.arg.opendir.isdirectory = false;
-    }
-    return server_->GetServerState(State::StateInit);
 }
 
 ReadState::ReadState(FileSystemServer *server) : server_{server} {}
 
 ServerState *ReadState::HandleMessage() {
     const char *path = server_->received_message_.arg.read.filename;
+    // root directory
+    if (strcmp(path, ".") == 0) {
+        auto cluster = server_->boot_volume_image_.root_cluster;
+        size_t read_cluster = server_->received_message_.arg.read.cluster;
+        for (int i = 0; i < read_cluster; ++i) {
+            cluster = server_->NextCluster(cluster);
+        }
+        size_t entry_index = server_->received_message_.arg.read.offset;
+        auto num_entries_per_cluster =
+            (server_->boot_volume_image_.bytes_per_sector *
+             server_->boot_volume_image_.sectors_per_cluster) /
+            sizeof(DirectoryEntry);
+        if (num_entries_per_cluster <= entry_index) {
+            read_cluster = entry_index / num_entries_per_cluster;
+            entry_index = entry_index % num_entries_per_cluster;
+        }
+
+        if (cluster != 0 && cluster != 0x0ffffffflu) {
+            DirectoryEntry *dir_entry = reinterpret_cast<DirectoryEntry *>(
+                server_->ReadCluster(cluster));
+
+            char name[9];
+            char ext[4];
+            while (1) {
+                server_->ReadName(dir_entry[entry_index], name, ext);
+                if (name[0] == 0x00) {
+                    break;
+                } else if (static_cast<uint8_t>(name[0]) == 0xe5) {
+                    ++entry_index;
+                    continue;
+                } else if (dir_entry[entry_index].attr ==
+                           Attribute::kLongName) {
+                    ++entry_index;
+                    continue;
+                } else {
+                    ++entry_index;
+                    server_->send_message_.type = Message::kRead;
+                    memcpy(&server_->send_message_.arg.read.data[0], &name[0],
+                           9);
+                    server_->send_message_.arg.read.len =
+                        (entry_index + num_entries_per_cluster * read_cluster) -
+                        server_->received_message_.arg.read.offset;
+                    server_->send_message_.arg.read.cluster = read_cluster;
+                    SyscallSendMessage(&server_->send_message_,
+                                       server_->am_id_);
+                    break;
+                }
+            }
+        }
+        server_->send_message_.type = Message::kRead;
+        server_->send_message_.arg.read.len = 0;
+        return server_->GetServerState(State::StateInit);
+    }
+
     auto [file_entry, post_slash] = server_->FindFile(path);
 
     if (file_entry->attr == Attribute::kDirectory) {
@@ -420,7 +490,6 @@ void FileSystemServer::Initilaize() {
         state_pool_.emplace_back(new ExpandState(this));
         state_pool_.emplace_back(new CopyState(this));
         state_pool_.emplace_back(new OpenState(this));
-        state_pool_.emplace_back(new OpenDirState(this));
         state_pool_.emplace_back(new ReadState(this));
 
         state_ = GetServerState(State::StateInit);

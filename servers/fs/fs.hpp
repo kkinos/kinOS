@@ -81,8 +81,12 @@ enum State {
     StateExpand,
     StateCopy,
     StateOpen,
-    StateOpenDir,
     StateRead,
+};
+
+enum Target {
+    File,
+    Dir,
 };
 
 class ServerState {
@@ -155,19 +159,11 @@ class OpenState : public ::ServerState {
     ServerState *HandleMessage() override;
     ServerState *SendMessage() override { return this; }
 
-   private:
-    FileSystemServer *server_;
-};
-
-class OpenDirState : public ::ServerState {
-   public:
-    explicit OpenDirState(FileSystemServer *server);
-    ServerState *ReceiveMessage() override { return this; }
-    ServerState *HandleMessage() override;
-    ServerState *SendMessage() override { return this; }
+    void SetTarget(Target target) { target_ = target; }
 
    private:
     FileSystemServer *server_;
+    Target target_;
 };
 
 class ReadState : public ::ServerState {
@@ -222,7 +218,6 @@ class FileSystemServer {
     friend ExpandState;
     friend CopyState;
     friend OpenState;
-    friend OpenDirState;
     friend ReadState;
 };
 
