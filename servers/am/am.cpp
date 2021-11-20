@@ -41,7 +41,7 @@ ServerState* InitState::ReceiveMessage() {
         // message from others
         switch (server_->received_message_.type) {
             case Message::kExecuteFile: {
-                return server_->GetServerState(State::StateExec);
+                return server_->GetServerState(State::StateExecFile);
             } break;
             case Message::kWrite: {
                 return server_->GetServerState(State::StateWrite);
@@ -67,9 +67,10 @@ ServerState* InitState::SendMessage() {
     return this;
 }
 
-ExecState::ExecState(ApplicationManagementServer* server) : server_{server} {}
+ExecFileState::ExecFileState(ApplicationManagementServer* server)
+    : server_{server} {}
 
-ServerState* ExecState::ReceiveMessage() {
+ServerState* ExecFileState::ReceiveMessage() {
     auto [fs_id, err] = SyscallFindServer("servers/fs");
     if (err) {
         Print("[ am ] cannnot find file system server\n");
@@ -97,7 +98,7 @@ ServerState* ExecState::ReceiveMessage() {
             } break;
 
             case Message::kExecuteFile: {
-                return server_->GetServerState(State::StateCreate);
+                return server_->GetServerState(State::StateCreateTask);
             } break;
 
             default:
@@ -107,7 +108,7 @@ ServerState* ExecState::ReceiveMessage() {
     }
 }
 
-ServerState* ExecState::HandleMessage() {
+ServerState* ExecFileState::HandleMessage() {
     server_->target_id_ = server_->received_message_.src_task;
     strcpy(server_->argument_, server_->received_message_.arg.executefile.arg);
 
@@ -121,7 +122,7 @@ ServerState* ExecState::HandleMessage() {
     return this;
 }
 
-ServerState* ExecState::SendMessage() {
+ServerState* ExecFileState::SendMessage() {
     auto [fs_id, err] = SyscallFindServer("servers/fs");
     if (err) {
         server_->send_message_.type = Message::kError;
@@ -137,10 +138,10 @@ ServerState* ExecState::SendMessage() {
     }
 }
 
-CreateState::CreateState(ApplicationManagementServer* server)
+CreateTaskState::CreateTaskState(ApplicationManagementServer* server)
     : server_{server} {}
 
-ServerState* CreateState::ReceiveMessage() {
+ServerState* CreateTaskState::ReceiveMessage() {
     auto [fs_id, err] = SyscallFindServer("servers/fs");
     if (err) {
         Print("[ am ] cannnot find file system server\n");
@@ -168,7 +169,7 @@ ServerState* CreateState::ReceiveMessage() {
             } break;
 
             case Message::kReady: {
-                return server_->GetServerState(State::StateStart);
+                return server_->GetServerState(State::StateStartTask);
             } break;
 
             default: {
@@ -180,7 +181,7 @@ ServerState* CreateState::ReceiveMessage() {
     }
 }
 
-ServerState* CreateState::HandleMessage() {
+ServerState* CreateTaskState::HandleMessage() {
     if (!server_->received_message_.arg.executefile.exist ||
         server_->received_message_.arg.executefile.isdirectory) {
         server_->send_message_.type = Message::kExecuteFile;
@@ -208,14 +209,15 @@ ServerState* CreateState::HandleMessage() {
     }
 }
 
-ServerState* CreateState::SendMessage() {
+ServerState* CreateTaskState::SendMessage() {
     SyscallSendMessage(&server_->send_message_, server_->fs_id_);
     return this;
 }
 
-StartState::StartState(ApplicationManagementServer* server) : server_{server} {}
+StartTaskState::StartTaskState(ApplicationManagementServer* server)
+    : server_{server} {}
 
-ServerState* StartState::HandleMessage() {
+ServerState* StartTaskState::HandleMessage() {
     SyscallSetArgument(server_->new_task_id_, server_->argument_);
     server_->app_manager_->NewApp(server_->new_task_id_, server_->target_id_);
     server_->send_message_.type = Message::kStartApp;
@@ -223,7 +225,7 @@ ServerState* StartState::HandleMessage() {
     return this;
 }
 
-ServerState* StartState::SendMessage() {
+ServerState* StartTaskState::SendMessage() {
     SyscallSendMessage(&server_->send_message_, 1);
     return server_->GetServerState(State::StateInit);
 }
@@ -286,16 +288,18 @@ ServerState* OpenState::ReceiveMessage() {
             default:
                 Print("[ am ] unknown message from fs\n");
                 return server_->GetServerState(State::StateErr);
+                break;
         }
     }
 }
 
 ServerState* OpenState::HandleMessage() {
     server_->target_id_ = server_->received_message_.src_task;
-    if (server_->received_message_.type == Message::kOpen)
+    if (server_->received_message_.type == Message::kOpen) {
         SetTarget(Target::File);
-    if (server_->received_message_.type == Message::kOpenDir)
+    } else if (server_->received_message_.type == Message::kOpenDir) {
         SetTarget(Target::Dir);
+    }
     switch (target_) {
         case Target::File: {
             if (strcmp(server_->received_message_.arg.open.filename,
@@ -303,7 +307,7 @@ ServerState* OpenState::HandleMessage() {
                 server_->send_message_.type = Message::kOpen;
                 server_->send_message_.arg.open.fd = 0;
                 server_->send_message_.arg.open.exist = true;
-
+                server_->send_message_.arg.open.isdirectory = false;
                 return server_->GetServerState(State::StateInit);
             } else {
                 server_->send_message_.type = Message::kOpen;
@@ -315,6 +319,7 @@ ServerState* OpenState::HandleMessage() {
             }
 
         } break;
+
         case Target::Dir: {
             server_->send_message_.type = Message::kOpenDir;
             strcpy(server_->send_message_.arg.opendir.dirname,
@@ -346,10 +351,12 @@ AllocateFDState::AllocateFDState(ApplicationManagementServer* server)
     : server_{server} {}
 
 ServerState* AllocateFDState::HandleMessage() {
-    if (server_->received_message_.type == Message::kOpen)
+    if (server_->received_message_.type == Message::kOpen) {
         SetTarget(Target::File);
-    if (server_->received_message_.type == Message::kOpenDir)
+    } else if (server_->received_message_.type == Message::kOpenDir) {
         SetTarget(Target::Dir);
+    }
+
     switch (target_) {
         case Target::File: {
             server_->send_message_.type = Message::kOpen;
@@ -399,6 +406,7 @@ ServerState* AllocateFDState::HandleMessage() {
             return server_->GetServerState(State::StateInit);
 
         } break;
+
         default:
             break;
     }
@@ -448,9 +456,9 @@ void ApplicationManagementServer::Initilize() {
 
     state_pool_.emplace_back(new ErrState(this));
     state_pool_.emplace_back(new InitState(this));
-    state_pool_.emplace_back(new ExecState(this));
-    state_pool_.emplace_back(new CreateState(this));
-    state_pool_.emplace_back(new StartState(this));
+    state_pool_.emplace_back(new ExecFileState(this));
+    state_pool_.emplace_back(new CreateTaskState(this));
+    state_pool_.emplace_back(new StartTaskState(this));
     state_pool_.emplace_back(new ExitState(this));
     state_pool_.emplace_back(new OpenState(this));
     state_pool_.emplace_back(new AllocateFDState(this));

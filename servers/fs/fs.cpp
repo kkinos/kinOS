@@ -50,7 +50,7 @@ ServerState *InitState::ReceiveMessage() {
             } break;
 
             case Message::kExecuteFile: {
-                return server_->GetServerState(State::StateExec);
+                return server_->GetServerState(State::StateExecFile);
             } break;
 
             case Message::kOpen:
@@ -74,9 +74,9 @@ ServerState *InitState::SendMessage() {
     return this;
 }
 
-ExecState::ExecState(FileSystemServer *server) : server_{server} {}
+ExecFileState::ExecFileState(FileSystemServer *server) : server_{server} {}
 
-ServerState *ExecState::ReceiveMessage() {
+ServerState *ExecFileState::ReceiveMessage() {
     auto [am_id, err] = SyscallFindServer("servers/am");
     if (err) {
         Print("[ fs ] cannot find  application management server\n");
@@ -98,7 +98,7 @@ ServerState *ExecState::ReceiveMessage() {
             } break;
 
             case Message::kExecuteFile: {
-                return server_->GetServerState(State::StateExpand);
+                return server_->GetServerState(State::StateExpandBuffer);
             }
             default:
                 Print("[ fs ] unknown message from am server\n");
@@ -107,7 +107,7 @@ ServerState *ExecState::ReceiveMessage() {
     }
 }
 
-ServerState *ExecState::HandleMessage() {
+ServerState *ExecFileState::HandleMessage() {
     const char *path = server_->received_message_.arg.executefile.filename;
     Print("[ fs ] find  %s\n", path);
 
@@ -139,14 +139,15 @@ ServerState *ExecState::HandleMessage() {
     }
 }
 
-ServerState *ExecState::SendMessage() {
+ServerState *ExecFileState::SendMessage() {
     SyscallSendMessage(&server_->send_message_, server_->am_id_);
     return this;
 }
 
-ExpandState::ExpandState(FileSystemServer *server) : server_{server} {}
+ExpandBufferState::ExpandBufferState(FileSystemServer *server)
+    : server_{server} {}
 
-ServerState *ExpandState::ReceiveMessage() {
+ServerState *ExpandBufferState::ReceiveMessage() {
     while (1) {
         SyscallClosedReceiveMessage(&server_->received_message_, 1, 1);
         switch (server_->received_message_.type) {
@@ -161,7 +162,7 @@ ServerState *ExpandState::ReceiveMessage() {
             } break;
 
             case Message::kExpandTaskBuffer: {
-                return server_->GetServerState(State::StateCopy);
+                return server_->GetServerState(State::StateCopyToBuffer);
             }
             default:
                 Print("[ fs ] unknown message from am server");
@@ -169,7 +170,7 @@ ServerState *ExpandState::ReceiveMessage() {
         }
     }
 }
-ServerState *ExpandState::HandleMessage() {
+ServerState *ExpandBufferState::HandleMessage() {
     server_->target_task_id_ = server_->received_message_.arg.executefile.id;
     server_->send_message_.type = Message::kExpandTaskBuffer;
     server_->send_message_.arg.expand.id = server_->target_task_id_;
@@ -178,14 +179,15 @@ ServerState *ExpandState::HandleMessage() {
     return this;
 }
 
-ServerState *ExpandState::SendMessage() {
+ServerState *ExpandBufferState::SendMessage() {
     SyscallSendMessage(&server_->send_message_, 1);
     return this;
 }
 
-CopyState::CopyState(FileSystemServer *server) : server_{server} {}
+CopyToBufferState::CopyToBufferState(FileSystemServer *server)
+    : server_{server} {}
 
-ServerState *CopyState::HandleMessage() {
+ServerState *CopyToBufferState::HandleMessage() {
     auto cluster = server->target_file_entry_->FirstCluster();
     auto remain_bytes = server->target_file_entry_->file_size;
     int offset = 0;
@@ -210,7 +212,7 @@ ServerState *CopyState::HandleMessage() {
     return this;
 }
 
-ServerState *CopyState::SendMessage() {
+ServerState *CopyToBufferState::SendMessage() {
     SyscallSendMessage(&server_->send_message_, server_->am_id_);
     return server_->GetServerState(State::StateInit);
 }
@@ -486,9 +488,9 @@ void FileSystemServer::Initilaize() {
 
         state_pool_.emplace_back(new ErrState(this));
         state_pool_.emplace_back(new InitState(this));
-        state_pool_.emplace_back(new ExecState(this));
-        state_pool_.emplace_back(new ExpandState(this));
-        state_pool_.emplace_back(new CopyState(this));
+        state_pool_.emplace_back(new ExecFileState(this));
+        state_pool_.emplace_back(new ExpandBufferState(this));
+        state_pool_.emplace_back(new CopyToBufferState(this));
         state_pool_.emplace_back(new OpenState(this));
         state_pool_.emplace_back(new ReadState(this));
 

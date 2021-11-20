@@ -77,9 +77,9 @@ class FileSystemServer;
 enum State {
     StateErr,
     StateInit,
-    StateExec,
-    StateExpand,
-    StateCopy,
+    StateExecFile,
+    StateExpandBuffer,
+    StateCopyToBuffer,
     StateOpen,
     StateRead,
 };
@@ -119,9 +119,9 @@ class InitState : public ::ServerState {
     FileSystemServer *server_;
 };
 
-class ExecState : public ::ServerState {
+class ExecFileState : public ::ServerState {
    public:
-    explicit ExecState(FileSystemServer *server);
+    explicit ExecFileState(FileSystemServer *server);
     ServerState *ReceiveMessage() override;
     ServerState *HandleMessage() override;
     ServerState *SendMessage() override;
@@ -130,9 +130,9 @@ class ExecState : public ::ServerState {
     FileSystemServer *server_;
 };
 
-class ExpandState : public ::ServerState {
+class ExpandBufferState : public ::ServerState {
    public:
-    explicit ExpandState(FileSystemServer *server);
+    explicit ExpandBufferState(FileSystemServer *server);
     ServerState *ReceiveMessage() override;
     ServerState *HandleMessage() override;
     ServerState *SendMessage() override;
@@ -141,9 +141,9 @@ class ExpandState : public ::ServerState {
     FileSystemServer *server_;
 };
 
-class CopyState : public ::ServerState {
+class CopyToBufferState : public ::ServerState {
    public:
-    explicit CopyState(FileSystemServer *server);
+    explicit CopyToBufferState(FileSystemServer *server);
     ServerState *ReceiveMessage() override { return this; }
     ServerState *HandleMessage() override;
     ServerState *SendMessage() override;
@@ -214,9 +214,9 @@ class FileSystemServer {
 
     friend ErrState;
     friend InitState;
-    friend ExecState;
-    friend ExpandState;
-    friend CopyState;
+    friend ExecFileState;
+    friend ExpandBufferState;
+    friend CopyToBufferState;
     friend OpenState;
     friend ReadState;
 };

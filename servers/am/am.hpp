@@ -44,9 +44,9 @@ class AppManager {
 enum State {
     StateErr,
     StateInit,
-    StateExec,
-    StateCreate,
-    StateStart,
+    StateExecFile,
+    StateCreateTask,
+    StateStartTask,
     StateExit,
     StateOpen,
     StateAllcateFD,
@@ -91,9 +91,9 @@ class InitState : public ::ServerState {
     ApplicationManagementServer* server_;
 };
 
-class ExecState : public ::ServerState {
+class ExecFileState : public ::ServerState {
    public:
-    explicit ExecState(ApplicationManagementServer* server);
+    explicit ExecFileState(ApplicationManagementServer* server);
     ServerState* ReceiveMessage() override;
     ServerState* HandleMessage() override;
     ServerState* SendMessage() override;
@@ -102,9 +102,9 @@ class ExecState : public ::ServerState {
     ApplicationManagementServer* server_;
 };
 
-class CreateState : public ::ServerState {
+class CreateTaskState : public ::ServerState {
    public:
-    explicit CreateState(ApplicationManagementServer* server);
+    explicit CreateTaskState(ApplicationManagementServer* server);
     ServerState* ReceiveMessage() override;
     ServerState* HandleMessage() override;
     ServerState* SendMessage() override;
@@ -113,9 +113,9 @@ class CreateState : public ::ServerState {
     ApplicationManagementServer* server_;
 };
 
-class StartState : public ::ServerState {
+class StartTaskState : public ::ServerState {
    public:
-    explicit StartState(ApplicationManagementServer* server);
+    explicit StartTaskState(ApplicationManagementServer* server);
     ServerState* ReceiveMessage() override { return this; }
     ServerState* HandleMessage() override;
     ServerState* SendMessage() override;
@@ -217,9 +217,9 @@ class ApplicationManagementServer {
 
     friend ErrState;
     friend InitState;
-    friend ExecState;
-    friend CreateState;
-    friend StartState;
+    friend ExecFileState;
+    friend CreateTaskState;
+    friend StartTaskState;
     friend ExitState;
     friend OpenState;
     friend AllocateFDState;
