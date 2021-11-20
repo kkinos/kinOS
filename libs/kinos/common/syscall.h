@@ -33,6 +33,7 @@ struct SyscallResult SyscallCreateNewTask();
 struct SyscallResult SyscallCopyToTaskBuffer(uint64_t id, void *buf,
                                              size_t offset, size_t len);
 struct SyscallResult SyscallSetArgument(uint64_t id, char *buf);
+struct SyscallResult SyscallSetCommand(uint64_t id, char *buf);
 
 /*--------------------------------------------------------------------------
  * system calls for ipc

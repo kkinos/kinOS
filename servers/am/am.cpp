@@ -110,7 +110,10 @@ ServerState* ExecFileState::ReceiveMessage() {
 
 ServerState* ExecFileState::HandleMessage() {
     server_->target_id_ = server_->received_message_.src_task;
-    strcpy(server_->argument_, server_->received_message_.arg.executefile.arg);
+    strcpy(server_->task_argument_,
+           server_->received_message_.arg.executefile.arg);
+    strcpy(server_->task_command_,
+           server_->received_message_.arg.executefile.filename);
 
     server_->send_message_.type = Message::kExecuteFile;
     strcpy(server_->send_message_.arg.executefile.filename,
@@ -218,7 +221,8 @@ StartTaskState::StartTaskState(ApplicationManagementServer* server)
     : server_{server} {}
 
 ServerState* StartTaskState::HandleMessage() {
-    SyscallSetArgument(server_->new_task_id_, server_->argument_);
+    SyscallSetCommand(server_->new_task_id_, server_->task_command_);
+    SyscallSetArgument(server_->new_task_id_, server_->task_argument_);
     server_->app_manager_->NewApp(server_->new_task_id_, server_->target_id_);
     server_->send_message_.type = Message::kStartApp;
     server_->send_message_.arg.starttask.id = server_->new_task_id_;

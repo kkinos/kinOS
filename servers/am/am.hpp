@@ -211,7 +211,8 @@ class ApplicationManagementServer {
     uint64_t target_id_;
     uint64_t new_task_id_;
 
-    char argument_[32];
+    char task_command_[32];
+    char task_argument_[32];
     uint64_t fs_id_;
     size_t AllocateFD(AppInfo* app_info);
 

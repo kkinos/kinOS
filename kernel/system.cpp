@@ -336,7 +336,8 @@ WithError<int> ExecuteServer(Elf64_Ehdr *elf_header, char *server_name) {
     return {ret, FreePML4(task)};
 }
 
-WithError<int> ExecuteApp(Elf64_Ehdr *elf_header, char *first_arg) {
+WithError<int> ExecuteApp(Elf64_Ehdr *elf_header, char *command,
+                          char *first_arg) {
     __asm__("cli");
     auto &task = task_manager->CurrentTask();
     __asm__("sti");
@@ -356,7 +357,7 @@ WithError<int> ExecuteApp(Elf64_Ehdr *elf_header, char *first_arg) {
                                            sizeof(char **) * argv_len);
     int argbuf_len = 4096 - sizeof(char **) * argv_len;
     auto argc =
-        MakeArgVector("", first_arg, argv, argv_len, argbuf, argbuf_len);
+        MakeArgVector(command, first_arg, argv, argv_len, argbuf, argbuf_len);
     if (argc.error) {
         return {0, argc.error};
     }
@@ -440,7 +441,7 @@ void TaskApp(uint64_t task_id, int64_t am_id) {
 
     auto elf_header = reinterpret_cast<Elf64_Ehdr *>(&task.buf_[0]);
 
-    auto [ec, err] = ExecuteApp(elf_header, task.arg_);
+    auto [ec, err] = ExecuteApp(elf_header, task.command_, task.arg_);
 
     // if exit application or some error at executing application return here
     Message msg;

@@ -37,14 +37,14 @@ class Task {
     static const size_t kDefaultStackBytes = 8 * 4096;
 
     std::vector<uint8_t> buf_;
-    char arg_[32];
+    char command_[32];  // use for application
+    char arg_[32];      // use for application
 
     Task(uint64_t id);
     Task& InitContext(TaskFunc* f, int64_t data);
     TaskContext& Context();
     uint64_t& OSStackPointer();
     uint64_t ID() const;
-    uint64_t PID() { return pid_; }
     Task& Sleep();
     Task& Wakeup();
     void SendMessage(const Message& msg);
@@ -66,7 +66,6 @@ class Task {
 
    private:
     uint64_t id_;
-    uint64_t pid_{0};
     std::string name_;
 
     std::vector<uint64_t> stack_;
