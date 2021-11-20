@@ -428,6 +428,8 @@ void TaskServer(uint64_t task_id, int64_t init_id) {
     strcpy(msg.arg.exitserver.name, task.arg_);
     task_manager->SendMessage(init_id, msg);
 
+    task_manager->Finish(1);
+
     while (true) __asm__("hlt");
 }
 
@@ -474,6 +476,7 @@ void TaskApp(uint64_t task_id, int64_t am_id) {
     }
 
 end:
+    task_manager->Finish(ec);
     while (true) __asm__("hlt");
 }
 
