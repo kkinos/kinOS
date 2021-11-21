@@ -209,6 +209,7 @@ class FileSystemServer {
                                                   char *path_elem);
     std::pair<DirectoryEntry *, bool> FindFile(
         const char *path, unsigned long directory_cluster = 0);
+    std::pair<DirectoryEntry *, int> CreateFile(const char *path);
     bool NameIsEqual(DirectoryEntry &entry, const char *name);
     void ReadName(DirectoryEntry &root_dir, char *base, char *ext);
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <errno.h>
 #include <stdint.h>
 
 struct Message {
@@ -55,6 +56,7 @@ struct Message {
     union {
         struct {
             int retry;  // 1: true, 0: false
+            int err;    // errno
         } error;
 
         struct {

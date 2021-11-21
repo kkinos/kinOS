@@ -225,7 +225,8 @@ void ExecuteFile(uint64_t layer_id) {
     }
 
     sent_messsage[0].type = Message::kExecuteFile;
-
+    memset(sent_messsage[0].arg.executefile.filename, 0,
+           sizeof(sent_messsage[0].arg.executefile.filename));
     int i = 0;
     while (*command) {
         sent_messsage[0].arg.executefile.filename[i] = *command;

@@ -83,6 +83,7 @@ int open(const char* path, int flags) {
         struct Message rmsg;
 
         smsg.type = kOpen;
+        memset(smsg.arg.open.filename, 0, sizeof(smsg.arg.open.filename));
         int i = 0;
         while (*path) {
             if (i > 25) {
@@ -105,7 +106,7 @@ int open(const char* path, int flags) {
                     SyscallSendMessage(&smsg, id.value);
                     continue;
                 } else {
-                    errno = EAGAIN;
+                    errno = rmsg.arg.error.err;
                     return -1;
                 }
             } else if (rmsg.type == kOpen) {

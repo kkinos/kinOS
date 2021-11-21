@@ -1,5 +1,6 @@
 #include "fs.hpp"
 
+#include <errno.h>
 #include <fcntl.h>
 
 #include <algorithm>
@@ -238,7 +239,15 @@ ServerState *OpenState::HandleMessage() {
                     server_->send_message_.arg.open.isdirectory = false;
                     Print("[ fs ] cannnot find  %s\n", path);
                 } else {
-                    // create file
+                    auto [new_file, err] = server_->CreateFile(path);
+                    if (err) {
+                        server_->send_message_.type = Message::kError;
+                        server_->send_message_.arg.error.retry = false;
+                        server_->send_message_.arg.error.err = err;
+                    } else {
+                        // success to create file
+                        // Print("[ fs ] create file %s\n", path)
+                    }
                 }
             }
             // is a directory
@@ -606,6 +615,11 @@ std::pair<DirectoryEntry *, bool> FileSystemServer::FindFile(
     }
 not_found:
     return {nullptr, post_slash};
+}
+
+std::pair<DirectoryEntry *, int> FileSystemServer::CreateFile(
+    const char *path) {
+    return {nullptr, EISDIR};
 }
 
 void FileSystemServer::ReadName(DirectoryEntry &entry, char *base, char *ext) {

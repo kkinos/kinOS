@@ -278,6 +278,8 @@ ServerState* OpenState::ReceiveMessage() {
                     Print("[ am ] error at fs server\n");
                     server_->send_message_.type = Message::kError;
                     server_->send_message_.arg.error.retry = false;
+                    server_->send_message_.arg.error.err =
+                        server_->received_message_.arg.error.err;
                     SyscallSendMessage(&server_->send_message_,
                                        server_->target_id_);
                     return server_->GetServerState(State::StateErr);
