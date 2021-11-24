@@ -80,7 +80,7 @@ char servers[][32] = {
 class InitServer {
    public:
     InitServer();
-    void Initilaize();
+    void Initialize();
 
     void StartServers(const char *server_name);
     void WaitingForMessage();
@@ -92,7 +92,8 @@ class InitServer {
     BPB boot_volume_image_;
     uint64_t target_task_id_;
     uint32_t *fat_;
-    uint32_t *file_buf_;
+    uint32_t *cluster_buf_;  // 1 cluster
+    unsigned long bytes_per_cluster_;
 
     unsigned long NextCluster(unsigned long cluster);
     uint32_t *ReadCluster(unsigned long cluster);

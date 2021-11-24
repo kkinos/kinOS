@@ -180,7 +180,7 @@ class ReadState : public ::ServerState {
 class FileSystemServer {
    public:
     FileSystemServer();
-    void Initilaize();
+    void Initialize();
 
     void ReceiveMessage() { state_ = state_->ReceiveMessage(); }
     void HandleMessage() { state_ = state_->HandleMessage(); }
@@ -197,8 +197,9 @@ class FileSystemServer {
     BPB boot_volume_image_;
     DirectoryEntry *target_file_entry_;
     uint64_t target_task_id_;
-    uint32_t *fat_;
-    uint32_t *file_buf_;
+    uint32_t *fat_;          // 1 block = 512 bytes
+    uint32_t *cluster_buf_;  // 1 cluster
+    unsigned long bytes_per_cluster_;
 
     uint64_t am_id_;
     ServerState *state_ = nullptr;
@@ -209,9 +210,13 @@ class FileSystemServer {
                                                   char *path_elem);
     std::pair<DirectoryEntry *, bool> FindFile(
         const char *path, unsigned long directory_cluster = 0);
-    std::pair<DirectoryEntry *, int> CreateFile(const char *path);
+
     bool NameIsEqual(DirectoryEntry &entry, const char *name);
     void ReadName(DirectoryEntry &root_dir, char *base, char *ext);
+
+    // std::pair<DirectoryEntry *, int> CreateFile(const char *path);
+    // DirectoryEntry *AllocateEntry(unsigned long dir_cluster);
+    // unsigned long ExtendCluster(unsigned long eoc_cluster, size_t n);
 
     friend ErrState;
     friend InitState;

@@ -6,7 +6,7 @@
 
 extern "C" void main() {
     server = new ApplicationManagementServer;
-    server->Initilize();
+    server->Initialize();
 
     while (true) {
         server->ReceiveMessage();
@@ -240,6 +240,8 @@ ServerState* ExitState::HandleMessage() {
     server_->target_id_ = server_->app_manager_->GetPID(
         server_->received_message_.arg.exitapp.id);
     if (server_->target_id_) {
+        server_->app_manager_->ExitApp(
+            server_->received_message_.arg.exitapp.id);
         server_->send_message_.type = Message::kExitApp;
         server_->send_message_.arg.exitapp.result =
             server_->received_message_.arg.exitapp.result;
@@ -457,7 +459,7 @@ ServerState* WriteState::HandleMessage() {
 
 ApplicationManagementServer::ApplicationManagementServer() {}
 
-void ApplicationManagementServer::Initilize() {
+void ApplicationManagementServer::Initialize() {
     app_manager_ = new AppManager;
 
     state_pool_.emplace_back(new ErrState(this));
@@ -530,6 +532,20 @@ AppInfo* AppManager::GetAppInfo(uint64_t task_id) {
         return nullptr;
     }
     return it->get();
+}
+
+void AppManager::ExitApp(uint64_t task_id) {
+    while (1) {
+        auto it =
+            std::find_if(apps_.begin(), apps_.end(), [task_id](const auto& t) {
+                return t->ID() == task_id && t->GetState() == AppState::Run;
+            });
+        if (it == apps_.end()) {
+            break;
+        }
+        (*it)->Files().clear();
+        (*it)->SetState(AppState::Kill);
+    }
 }
 
 void AppManager::InitializeFileDescriptor(uint64_t task_id) {

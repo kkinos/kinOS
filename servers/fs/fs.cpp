@@ -13,7 +13,7 @@
 
 extern "C" void main() {
     server = new FileSystemServer;
-    server->Initilaize();
+    server->Initialize();
     while (true) {
         server->ReceiveMessage();
         server->HandleMessage();
@@ -196,18 +196,19 @@ ServerState *CopyToBufferState::HandleMessage() {
 
     while (cluster != 0 && cluster != 0x0ffffffflu) {
         char *p = reinterpret_cast<char *>(server->ReadCluster(cluster));
-        int i = 0;
-        for (; i < server->boot_volume_image_.bytes_per_sector *
-                       server->boot_volume_image_.sectors_per_cluster &&
-               i < remain_bytes;
-             ++i) {
+        if (remain_bytes >= server_->bytes_per_cluster_) {
             auto [res, err] =
-                SyscallCopyToTaskBuffer(server->target_task_id_, p, offset, 1);
-            ++p;
-            ++offset;
+                SyscallCopyToTaskBuffer(server->target_task_id_, p, offset,
+                                        server_->bytes_per_cluster_);
+            offset += server_->bytes_per_cluster_;
+            remain_bytes -= server_->bytes_per_cluster_;
+            cluster = server->NextCluster(cluster);
+
+        } else {
+            auto [res, err] = SyscallCopyToTaskBuffer(server->target_task_id_,
+                                                      p, offset, remain_bytes);
+            cluster = server->NextCluster(cluster);
         }
-        remain_bytes -= i;
-        cluster = server->NextCluster(cluster);
     }
     server->send_message_.type = Message::kReady;
     return this;
@@ -239,15 +240,21 @@ ServerState *OpenState::HandleMessage() {
                     server_->send_message_.arg.open.isdirectory = false;
                     Print("[ fs ] cannnot find  %s\n", path);
                 } else {
-                    auto [new_file, err] = server_->CreateFile(path);
-                    if (err) {
-                        server_->send_message_.type = Message::kError;
-                        server_->send_message_.arg.error.retry = false;
-                        server_->send_message_.arg.error.err = err;
-                    } else {
-                        // success to create file
-                        // Print("[ fs ] create file %s\n", path)
-                    }
+                    // auto [new_file, err] = server_->CreateFile(path);
+                    // if (err) {
+                    //     server_->send_message_.type = Message::kError;
+                    //     server_->send_message_.arg.error.retry = false;
+                    //     server_->send_message_.arg.error.err = err;
+                    //     Print("[ fs ] cannnot create file \n");
+                    // } else {
+                    //     // success to create file
+                    //     Print("[ fs ] create file %s\n", path);
+                    //     server_->send_message_.type = Message::kOpen;
+                    //     strcpy(server_->send_message_.arg.open.filename,
+                    //            server_->received_message_.arg.open.filename);
+                    //     server_->send_message_.arg.open.exist = true;
+                    //     server_->send_message_.arg.open.isdirectory = false;
+                    // }
                 }
             }
             // is a directory
@@ -442,9 +449,8 @@ ServerState *ReadState::HandleMessage() {
         while (cluster != 0 && cluster != 0x0ffffffflu && sent_bytes < count) {
             char *p = reinterpret_cast<char *>(server_->ReadCluster(cluster));
             int i = 0;
-            for (; i < server_->boot_volume_image_.bytes_per_sector *
-                           server_->boot_volume_image_.sectors_per_cluster &&
-                   i < remain_bytes && sent_bytes < count;
+            for (; i < server_->bytes_per_cluster_ && i < remain_bytes &&
+                   sent_bytes < count;
                  ++i) {
                 if (total >= read_offset) {
                     memcpy(&server_->send_message_.arg.read.data[msg_offset], p,
@@ -482,7 +488,7 @@ ServerState *ReadState::HandleMessage() {
 
 FileSystemServer::FileSystemServer() {}
 
-void FileSystemServer::Initilaize() {
+void FileSystemServer::Initialize() {
     auto [ret, err] = SyscallReadVolumeImage(&boot_volume_image_, 0, 1);
     if (err) {
         Print("[ fs ] cannnot read volume image");
@@ -491,9 +497,13 @@ void FileSystemServer::Initilaize() {
 
     // supports only FAT32 TODO:supports other fat
     if (boot_volume_image_.total_sectors_16 == 0) {
-        fat_ = reinterpret_cast<uint32_t *>(new char[SECTOR_SIZE]);
-        file_buf_ = reinterpret_cast<uint32_t *>(
-            new char[boot_volume_image_.sectors_per_cluster * SECTOR_SIZE]);
+        bytes_per_cluster_ = boot_volume_image_.bytes_per_sector *
+                             boot_volume_image_.sectors_per_cluster;
+
+        fat_ = reinterpret_cast<uint32_t *>(
+            new char[boot_volume_image_.bytes_per_sector]);
+        cluster_buf_ =
+            reinterpret_cast<uint32_t *>(new char[bytes_per_cluster_]);
 
         state_pool_.emplace_back(new ErrState(this));
         state_pool_.emplace_back(new InitState(this));
@@ -540,12 +550,12 @@ uint32_t *FileSystemServer::ReadCluster(unsigned long cluster) {
         (cluster - 2) * boot_volume_image_.sectors_per_cluster;
 
     auto [ret, err] = SyscallReadVolumeImage(
-        file_buf_, sector_offset, boot_volume_image_.sectors_per_cluster);
+        cluster_buf_, sector_offset, boot_volume_image_.sectors_per_cluster);
     if (err) {
         return nullptr;
     }
 
-    return file_buf_;
+    return cluster_buf_;
 }
 
 bool FileSystemServer::NameIsEqual(DirectoryEntry &entry, const char *name) {
@@ -617,11 +627,6 @@ not_found:
     return {nullptr, post_slash};
 }
 
-std::pair<DirectoryEntry *, int> FileSystemServer::CreateFile(
-    const char *path) {
-    return {nullptr, EISDIR};
-}
-
 void FileSystemServer::ReadName(DirectoryEntry &entry, char *base, char *ext) {
     memcpy(base, &entry.name[0], 8);
     base[8] = 0;
@@ -634,3 +639,68 @@ void FileSystemServer::ReadName(DirectoryEntry &entry, char *base, char *ext) {
         ext[i] = 0;
     }
 }
+
+// std::pair<DirectoryEntry *, int> FileSystemServer::CreateFile(
+//     const char *path) {
+//     auto parent_dir_cluster = boot_volume_image_.root_cluster;
+//     const char *filename = path;
+
+//     if (const char *slash_pos = strrchr(path, '/')) {
+//         filename = &slash_pos[0];
+//         if (slash_pos[1] == '\0') {
+//             return {nullptr, EISDIR};
+//         }
+//     };
+
+//     char parent_dir_name[slash_pos - path + 1];
+//     strncpy(parent_dir_name, path, slash_pos - path);
+//     parent_dir_name[slash_pos - path] = '\0';
+
+//     if (parent_dir_name[0] != '\0') {
+//         auto [parent_dir, post_slash2] = FindFile(parent_dir_name);
+//         if (parent_dir == nullptr) {
+//             return {nullptr, ENOENT};
+//         }
+//         parent_dir_cluster = parent_dir->FirstCluster();
+//     }
+
+//     auto dir = AllocateEntry(parent_dir_cluster);
+//     if (dir == nullptr) {
+//         return {nullptr, ENOSPC};
+//     }
+//     SetFileName(*dir, filename);
+//     dir->file_size = 0;
+//     return {dir, 0};
+// }
+
+// DirectoryEntry *FileSystemServer::AllocateEntry(unsigned long dir_cluster) {
+//     while (true) {
+//         auto dir = reinterpret_cast<DirectoryEntry
+//         *>(ReadCluster(dir_cluster)); for (int i = 0; i <
+//         (boot_volume_image_.bytes_per_sector *
+//                              boot_volume_image_.sectors_per_cluster) /
+//                                 sizeof(DirectoryEntry);
+//              ++i) {
+//             if (dir[i].name[0] == 0 || dir[i].name[0] == 0xe5) {
+//                 return &dir[i];
+//             }
+//         }
+//         auto next = NextCluster(dir_cluster);
+//         if (next == 0x0ffffffflu) {
+//             break;
+//         }
+//         dir_cluster = next;
+//     }
+
+//     dir_cluster = ExtendCluster(dir_cluster, 1);
+//     auto dir = reinterpret_cast<DirectoryEntry *>(ReadCluster(dir_cluster));
+//     memset(dir, 0,
+//            boot_volume_image_.bytes_per_sector *
+//                boot_volume_image_.sectors_per_cluster);
+//     return &dir[0];
+// }
+
+// unsigned long FileSystemServer::ExtendCluster(unsigned long eoc_cluster,
+//                                               size_t n) {
+//     uint32_t *fat =
+// }

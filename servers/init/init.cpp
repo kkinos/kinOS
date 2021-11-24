@@ -9,7 +9,7 @@
 
 InitServer::InitServer() {}
 
-void InitServer::Initilaize() {
+void InitServer::Initialize() {
     auto [ret, err] = SyscallReadVolumeImage(&boot_volume_image_, 0, 1);
     if (err) {
         Print("[ init ] cannnot read volume image");
@@ -17,9 +17,13 @@ void InitServer::Initilaize() {
 
     // supports only FAT32 TODO:supports other fat
     if (boot_volume_image_.total_sectors_16 == 0) {
-        fat_ = reinterpret_cast<uint32_t *>(new char[SECTOR_SIZE]);
-        file_buf_ = reinterpret_cast<uint32_t *>(
-            new char[boot_volume_image_.sectors_per_cluster * SECTOR_SIZE]);
+        bytes_per_cluster_ = boot_volume_image_.bytes_per_sector *
+                             boot_volume_image_.sectors_per_cluster;
+
+        fat_ = reinterpret_cast<uint32_t *>(
+            new char[boot_volume_image_.bytes_per_sector]);
+        cluster_buf_ =
+            reinterpret_cast<uint32_t *>(new char[bytes_per_cluster_]);
 
         Print("[ init ] ready\n");
     }
@@ -45,18 +49,17 @@ void InitServer::StartServers(const char *server_name) {
 
             while (cluster != 0 && cluster != 0x0ffffffflu) {
                 char *p = reinterpret_cast<char *>(ReadCluster(cluster));
-                int i = 0;
-                for (; i < boot_volume_image_.bytes_per_sector *
-                               boot_volume_image_.sectors_per_cluster &&
-                       i < remain_bytes;
-                     ++i) {
-                    auto [res, err] =
-                        SyscallCopyToTaskBuffer(target_task_id_, p, offset, 1);
-                    ++p;
-                    ++offset;
+                if (remain_bytes >= bytes_per_cluster_) {
+                    auto [res, err] = SyscallCopyToTaskBuffer(
+                        target_task_id_, p, offset, bytes_per_cluster_);
+                    offset += bytes_per_cluster_;
+                    remain_bytes -= bytes_per_cluster_;
+                    cluster = NextCluster(cluster);
+                } else {
+                    auto [res, err] = SyscallCopyToTaskBuffer(
+                        target_task_id_, p, offset, remain_bytes);
+                    cluster = NextCluster(cluster);
                 }
-                remain_bytes -= i;
-                cluster = NextCluster(cluster);
             }
             char bufc[32];
             strcpy(bufc, server_name);
@@ -109,12 +112,12 @@ uint32_t *InitServer::ReadCluster(unsigned long cluster) {
         (cluster - 2) * boot_volume_image_.sectors_per_cluster;
 
     auto [ret, err] = SyscallReadVolumeImage(
-        file_buf_, sector_offset, boot_volume_image_.sectors_per_cluster);
+        cluster_buf_, sector_offset, boot_volume_image_.sectors_per_cluster);
     if (err) {
         return nullptr;
     }
 
-    return file_buf_;
+    return cluster_buf_;
 }
 
 bool InitServer::NameIsEqual(DirectoryEntry &entry, const char *name) {
@@ -201,7 +204,7 @@ void InitServer::ReadName(DirectoryEntry &entry, char *base, char *ext) {
 
 extern "C" void main() {
     init_server = new InitServer;
-    init_server->Initilaize();
+    init_server->Initialize();
 
     for (int i = 0; i < num_servers; ++i) {
         init_server->StartServers(servers[i]);
