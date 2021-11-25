@@ -280,7 +280,7 @@ ServerState *OpenState::HandleMessage() {
             const char *path = server_->received_message_.arg.opendir.dirname;
             Print("[ fs ] find directory %s\n", path);
             // is root directory
-            if (strcmp(path, ".") == 0) {
+            if (strcmp(path, "/") == 0) {
                 server_->send_message_.type = Message::kOpenDir;
                 strcpy(server_->send_message_.arg.opendir.dirname,
                        server_->received_message_.arg.opendir.dirname);
@@ -325,7 +325,7 @@ ReadState::ReadState(FileSystemServer *server) : server_{server} {}
 ServerState *ReadState::HandleMessage() {
     const char *path = server_->received_message_.arg.read.filename;
     // root directory
-    if (strcmp(path, ".") == 0) {
+    if (strcmp(path, "/") == 0) {
         auto cluster = server_->boot_volume_image_.root_cluster;
         size_t read_cluster = server_->received_message_.arg.read.cluster;
         for (int i = 0; i < read_cluster; ++i) {

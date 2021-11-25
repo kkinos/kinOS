@@ -447,13 +447,23 @@ ServerState* ReadState::SendMessage() {
 WriteState::WriteState(ApplicationManagementServer* server) : server_{server} {}
 
 ServerState* WriteState::HandleMessage() {
-    auto app_info =
-        server_->app_manager_->GetAppInfo(server_->received_message_.src_task);
-    app_info->Files()[server_->received_message_.arg.write.fd]->Write(
-        server_->received_message_);
     server_->target_id_ = server_->received_message_.src_task;
 
-    server_->send_message_.type = Message::kReceived;
+    size_t fd = server_->received_message_.arg.write.fd;
+    auto app_info = server_->app_manager_->GetAppInfo(server_->target_id_);
+
+    if (fd < 0 || app_info->Files().size() <= fd || !app_info->Files()[fd]) {
+        server_->send_message_.type = Message::kError;
+        server_->send_message_.arg.error.retry = false;
+        Print("[ am ] %d bad file number\n", fd);
+        return server_->GetServerState(State::StateInit);
+    } else {
+        app_info->Files()[fd]->Write(server_->received_message_);
+        return this;
+    }
+}
+
+ServerState* WriteState::SendMessage() {
     return server_->GetServerState(State::StateInit);
 }
 
@@ -587,6 +597,10 @@ TerminalFileDescriptor::TerminalFileDescriptor(uint64_t id) : id_{id} {
 
 size_t TerminalFileDescriptor::Write(Message msg) {
     SyscallSendMessage(&msg, terminal_server_id_);
+
+    Message smsg;
+    smsg.type = Message::kReceived;
+    SyscallSendMessage(&smsg, id_);
     return 0;
 }
 size_t TerminalFileDescriptor::Read(Message msg) {

@@ -191,7 +191,7 @@ class WriteState : public ::ServerState {
     explicit WriteState(ApplicationManagementServer* server);
     ServerState* ReceiveMessage() override { return this; }
     ServerState* HandleMessage() override;
-    ServerState* SendMessage() override { return this; }
+    ServerState* SendMessage() override;
 
    private:
     ApplicationManagementServer* server_;

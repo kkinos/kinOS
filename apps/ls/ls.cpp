@@ -11,7 +11,7 @@ int opendir(const char* name);
 ssize_t readdir(int fd, void* buf);
 
 extern "C" void main(int argc, char* argv[]) {
-    const char* path = ".";
+    const char* path = "/";
     char dirname[256];
     int fd;
 
