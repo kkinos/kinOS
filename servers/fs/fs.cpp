@@ -240,21 +240,21 @@ ServerState *OpenState::HandleMessage() {
                     server_->send_message_.arg.open.isdirectory = false;
                     Print("[ fs ] cannnot find  %s\n", path);
                 } else {
-                    // auto [new_file, err] = server_->CreateFile(path);
-                    // if (err) {
-                    //     server_->send_message_.type = Message::kError;
-                    //     server_->send_message_.arg.error.retry = false;
-                    //     server_->send_message_.arg.error.err = err;
-                    //     Print("[ fs ] cannnot create file \n");
-                    // } else {
-                    //     // success to create file
-                    //     Print("[ fs ] create file %s\n", path);
-                    //     server_->send_message_.type = Message::kOpen;
-                    //     strcpy(server_->send_message_.arg.open.filename,
-                    //            server_->received_message_.arg.open.filename);
-                    //     server_->send_message_.arg.open.exist = true;
-                    //     server_->send_message_.arg.open.isdirectory = false;
-                    // }
+                    auto [new_file, err] = server_->CreateFile(path);
+                    if (err) {
+                        server_->send_message_.type = Message::kError;
+                        server_->send_message_.arg.error.retry = false;
+                        server_->send_message_.arg.error.err = err;
+                        Print("[ fs ] cannnot create file \n");
+                    } else {
+                        // success to create file
+                        Print("[ fs ] create file %s\n", path);
+                        server_->send_message_.type = Message::kOpen;
+                        strcpy(server_->send_message_.arg.open.filename,
+                               server_->received_message_.arg.open.filename);
+                        server_->send_message_.arg.open.exist = true;
+                        server_->send_message_.arg.open.isdirectory = false;
+                    }
                 }
             }
             // is a directory
@@ -519,27 +519,35 @@ void FileSystemServer::Initialize() {
     }
 }
 
-unsigned long FileSystemServer::NextCluster(unsigned long cluster) {
+unsigned long FileSystemServer::GetFAT(unsigned long cluster) {
     unsigned long sector_offset =
         cluster / (boot_volume_image_.bytes_per_sector / sizeof(uint32_t));
 
-    // copy 1 block
+    // copy only 1 block
     auto [ret, err] = SyscallReadVolumeImage(
         fat_, boot_volume_image_.reserved_sector_count + sector_offset, 1);
-    if (err) {
-        return 0;
-    }
 
-    cluster =
+    unsigned long index =
         cluster - ((boot_volume_image_.bytes_per_sector / sizeof(uint32_t)) *
                    sector_offset);
-    uint32_t next = fat_[cluster];
+    return index;
+}
 
+void FileSystemServer::UpdateFAT(unsigned long cluster) {
+    unsigned long sector_offset =
+        cluster / (boot_volume_image_.bytes_per_sector / sizeof(uint32_t));
+
+    auto [ret, err] = SyscallCopyToVolumeImage(
+        fat_, boot_volume_image_.reserved_sector_count + sector_offset, 1);
+}
+
+unsigned long FileSystemServer::NextCluster(unsigned long cluster) {
+    auto index = GetFAT(cluster);
+    uint32_t next = fat_[index];
     // end of cluster chain
     if (next >= 0x0ffffff8ul) {
         return 0x0ffffffflu;
     }
-
     return next;
 }
 
@@ -556,6 +564,16 @@ uint32_t *FileSystemServer::ReadCluster(unsigned long cluster) {
     }
 
     return cluster_buf_;
+}
+
+void FileSystemServer::UpdateCluster(unsigned long cluster) {
+    unsigned long sector_offset =
+        boot_volume_image_.reserved_sector_count +
+        boot_volume_image_.num_fats * boot_volume_image_.fat_size_32 +
+        (cluster - 2) * boot_volume_image_.sectors_per_cluster;
+
+    auto [ret, err] = SyscallCopyToVolumeImage(
+        cluster_buf_, sector_offset, boot_volume_image_.sectors_per_cluster);
 }
 
 bool FileSystemServer::NameIsEqual(DirectoryEntry &entry, const char *name) {
@@ -640,67 +658,104 @@ void FileSystemServer::ReadName(DirectoryEntry &entry, char *base, char *ext) {
     }
 }
 
-// std::pair<DirectoryEntry *, int> FileSystemServer::CreateFile(
-//     const char *path) {
-//     auto parent_dir_cluster = boot_volume_image_.root_cluster;
-//     const char *filename = path;
+std::pair<DirectoryEntry *, int> FileSystemServer::CreateFile(
+    const char *path) {
+    auto parent_dir_cluster = boot_volume_image_.root_cluster;
+    const char *filename = path;
 
-//     if (const char *slash_pos = strrchr(path, '/')) {
-//         filename = &slash_pos[0];
-//         if (slash_pos[1] == '\0') {
-//             return {nullptr, EISDIR};
-//         }
-//     };
+    if (const char *slash_pos = strrchr(path, '/')) {
+        filename = &slash_pos[1];
+        if (slash_pos[1] == '\0') {
+            return {nullptr, EISDIR};
+        }
 
-//     char parent_dir_name[slash_pos - path + 1];
-//     strncpy(parent_dir_name, path, slash_pos - path);
-//     parent_dir_name[slash_pos - path] = '\0';
+        char parent_dir_name[slash_pos - path + 1];
+        strncpy(parent_dir_name, path, slash_pos - path);
+        parent_dir_name[slash_pos - path] = '\0';
 
-//     if (parent_dir_name[0] != '\0') {
-//         auto [parent_dir, post_slash2] = FindFile(parent_dir_name);
-//         if (parent_dir == nullptr) {
-//             return {nullptr, ENOENT};
-//         }
-//         parent_dir_cluster = parent_dir->FirstCluster();
-//     }
+        if (parent_dir_name[0] != '\0') {
+            auto [parent_dir, post_slash2] = FindFile(parent_dir_name);
+            if (parent_dir == nullptr) {
+                return {nullptr, ENOENT};
+            }
+            parent_dir_cluster = parent_dir->FirstCluster();
+        }
+    }
+    auto [dir, allocated_cluster] = AllocateEntry(parent_dir_cluster);
+    if (dir == nullptr) {
+        return {nullptr, ENOSPC};
+    }
+    SetFileName(*dir, filename);
+    dir->file_size = 0;
+    UpdateCluster(allocated_cluster);
+    return {dir, 0};
+}
 
-//     auto dir = AllocateEntry(parent_dir_cluster);
-//     if (dir == nullptr) {
-//         return {nullptr, ENOSPC};
-//     }
-//     SetFileName(*dir, filename);
-//     dir->file_size = 0;
-//     return {dir, 0};
-// }
+std::pair<DirectoryEntry *, unsigned long> FileSystemServer::AllocateEntry(
+    unsigned long dir_cluster) {
+    while (true) {
+        auto dir = reinterpret_cast<DirectoryEntry *>(ReadCluster(dir_cluster));
+        for (int i = 0; i < bytes_per_cluster_ / sizeof(DirectoryEntry); ++i) {
+            if (dir[i].name[0] == 0 || dir[i].name[0] == 0xe5) {
+                return {&dir[i], dir_cluster};
+            }
+        }
+        auto next = NextCluster(dir_cluster);
+        if (next == 0x0ffffffflu) {
+            break;
+        }
+        dir_cluster = next;
+    }
 
-// DirectoryEntry *FileSystemServer::AllocateEntry(unsigned long dir_cluster) {
-//     while (true) {
-//         auto dir = reinterpret_cast<DirectoryEntry
-//         *>(ReadCluster(dir_cluster)); for (int i = 0; i <
-//         (boot_volume_image_.bytes_per_sector *
-//                              boot_volume_image_.sectors_per_cluster) /
-//                                 sizeof(DirectoryEntry);
-//              ++i) {
-//             if (dir[i].name[0] == 0 || dir[i].name[0] == 0xe5) {
-//                 return &dir[i];
-//             }
-//         }
-//         auto next = NextCluster(dir_cluster);
-//         if (next == 0x0ffffffflu) {
-//             break;
-//         }
-//         dir_cluster = next;
-//     }
+    dir_cluster = ExtendCluster(dir_cluster, 1);
+    auto dir = reinterpret_cast<DirectoryEntry *>(ReadCluster(dir_cluster));
+    memset(dir, 0, bytes_per_cluster_);
+    return {&dir[0], dir_cluster};
+}
 
-//     dir_cluster = ExtendCluster(dir_cluster, 1);
-//     auto dir = reinterpret_cast<DirectoryEntry *>(ReadCluster(dir_cluster));
-//     memset(dir, 0,
-//            boot_volume_image_.bytes_per_sector *
-//                boot_volume_image_.sectors_per_cluster);
-//     return &dir[0];
-// }
+unsigned long FileSystemServer::ExtendCluster(unsigned long eoc_cluster,
+                                              size_t n) {
+    while (1) {
+        auto index = GetFAT(eoc_cluster);
+        eoc_cluster = fat_[index];
+        if (eoc_cluster == 0x0ffffffflu) {
+            break;
+        }
+    }
 
-// unsigned long FileSystemServer::ExtendCluster(unsigned long eoc_cluster,
-//                                               size_t n) {
-//     uint32_t *fat =
-// }
+    size_t num_allocated = 0;
+    auto current = eoc_cluster;
+
+    for (unsigned long candidate = 2; num_allocated < n; ++candidate) {
+        auto i = GetFAT(candidate);
+        if (fat_[i] != 0) {
+            continue;  // candidate cluster is not free
+        }
+        auto j = GetFAT(current);
+        fat_[j] = candidate;
+        UpdateFAT(current);
+        current = candidate;
+        ++num_allocated;
+    }
+    auto j = GetFAT(current);
+    fat_[j] = 0x0ffffffflu;
+    UpdateFAT(current);
+    return current;
+}
+
+void FileSystemServer::SetFileName(DirectoryEntry &entry, const char *name) {
+    const char *dot_pos = strrchr(name, '.');
+    memset(entry.name, ' ', 8 + 3);
+    if (dot_pos) {
+        for (int i = 0; i < 8 && i < dot_pos - name; ++i) {
+            entry.name[i] = toupper(name[i]);
+        }
+        for (int i = 0; i < 3 && dot_pos[i + 1]; ++i) {
+            entry.name[8 + i] = toupper(dot_pos[i + 1]);
+        }
+    } else {
+        for (int i = 0; i < 8 && name[i]; ++i) {
+            entry.name[i] = toupper(name[i]);
+        }
+    }
+}

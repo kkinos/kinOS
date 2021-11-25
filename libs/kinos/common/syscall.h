@@ -63,8 +63,11 @@ struct SyscallResult SyscallCopyToFrameBuffer(const uint8_t *src_buf,
  *--------------------------------------------------------------------------
  */
 
-struct SyscallResult SyscallReadVolumeImage(void *buf, size_t offset,
-                                            size_t len);
+struct SyscallResult SyscallReadVolumeImage(void *buf, size_t offset_by_sector,
+                                            size_t len_by_sector);
+struct SyscallResult SyscallCopyToVolumeImage(void *buf,
+                                              size_t offset_by_sector,
+                                              size_t len_by_sector);
 
 /*--------------------------------------------------------------------------
  * common system calls for application and server

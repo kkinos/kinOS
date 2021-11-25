@@ -29,7 +29,8 @@ extern uint8_t *v_image;
 
 void InitializeSystemTask(void *volume_image);
 
-void ReadImage(void *buf, size_t offset, size_t len);
+void ReadImage(void *buf, size_t offset_by_sector, size_t len_by_sector);
+void CopyToImage(void *buf, size_t offset_by_sector, size_t len_by_sector);
 
 extern char kernel_log_buf[1024];  // kernel log
 extern size_t kernel_log_head;

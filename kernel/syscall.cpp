@@ -342,10 +342,20 @@ SYSCALL(CopyToFrameBuffer) {
 
 SYSCALL(ReadVolumeImage) {
     void *buf = reinterpret_cast<void *>(arg1);
-    size_t offset = arg2;
-    size_t len = arg3;
+    size_t offset_by_sector = arg2;
+    size_t len_by_sector = arg3;
 
-    ReadImage(buf, offset, len);
+    ReadImage(buf, offset_by_sector, len_by_sector);
+
+    return {0, 0};
+}
+
+SYSCALL(CopyToVolumeImage) {
+    void *buf = reinterpret_cast<void *>(arg1);
+    size_t offset_by_sector = arg2;
+    size_t len_by_sector = arg3;
+
+    CopyToImage(buf, offset_by_sector, len_by_sector);
 
     return {0, 0};
 }
@@ -373,7 +383,7 @@ SYSCALL(WriteKernelLog) {
 
 using SyscallFuncType = syscall::Result(uint64_t, uint64_t, uint64_t, uint64_t,
                                         uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType *, 0x16> syscall_table{
+extern "C" std::array<SyscallFuncType *, 0x17> syscall_table{
     /* 0x00 */ syscall::Exit,
     /* 0x01 */ syscall::GetCurrentTick,
     /* 0x02 */ syscall::CreateTimer,
@@ -394,8 +404,9 @@ extern "C" std::array<SyscallFuncType *, 0x16> syscall_table{
     /* 0x11 */ syscall::GetFrameBufferHeight,
     /* 0x12 */ syscall::CopyToFrameBuffer,
     /* 0x13 */ syscall::ReadVolumeImage,
-    /* 0x14 */ syscall::ReadKernelLog,
-    /* 0x15 */ syscall::WriteKernelLog,
+    /* 0x14 */ syscall::CopyToVolumeImage,
+    /* 0x15 */ syscall::ReadKernelLog,
+    /* 0x16 */ syscall::WriteKernelLog,
 
 };
 

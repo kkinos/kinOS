@@ -10,8 +10,6 @@
 #include "../../libs/common/message.hpp"
 #include "../../libs/common/template.hpp"
 
-#define SECTOR_SIZE 512
-
 struct BPB {
     uint8_t jump_boot[3];
     char oem_name[8];
@@ -197,15 +195,21 @@ class FileSystemServer {
     BPB boot_volume_image_;
     DirectoryEntry *target_file_entry_;
     uint64_t target_task_id_;
-    uint32_t *fat_;          // 1 block = 512 bytes
-    uint32_t *cluster_buf_;  // 1 cluster
+    uint32_t *fat_;  // 1 block = 512 bytes
+    uint32_t *cluster_buf_;
     unsigned long bytes_per_cluster_;
 
     uint64_t am_id_;
     ServerState *state_ = nullptr;
 
+    unsigned long GetFAT(unsigned long cluster);
+    void UpdateFAT(unsigned long cluster);
+
     unsigned long NextCluster(unsigned long cluster);
+
     uint32_t *ReadCluster(unsigned long cluster);
+    void UpdateCluster(unsigned long cluster);
+
     std::pair<const char *, bool> NextPathElement(const char *path,
                                                   char *path_elem);
     std::pair<DirectoryEntry *, bool> FindFile(
@@ -214,9 +218,11 @@ class FileSystemServer {
     bool NameIsEqual(DirectoryEntry &entry, const char *name);
     void ReadName(DirectoryEntry &root_dir, char *base, char *ext);
 
-    // std::pair<DirectoryEntry *, int> CreateFile(const char *path);
-    // DirectoryEntry *AllocateEntry(unsigned long dir_cluster);
-    // unsigned long ExtendCluster(unsigned long eoc_cluster, size_t n);
+    std::pair<DirectoryEntry *, int> CreateFile(const char *path);
+    std::pair<DirectoryEntry *, unsigned long> AllocateEntry(
+        unsigned long dir_cluster);
+    unsigned long ExtendCluster(unsigned long eoc_cluster, size_t n);
+    void SetFileName(DirectoryEntry &entry, const char *name);
 
     friend ErrState;
     friend InitState;

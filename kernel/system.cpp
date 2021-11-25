@@ -510,15 +510,23 @@ void InitializeSystemTask(void *volume_image) {
  * @brief Copy the image volumed by the bootloader to buf
  *
  * @param buf
- * @param offset 512bytes uint
- * @param len 512bytes uint
+ * @param offset_by_sector 1 sector is 512bytes
+ * @param len_by_sector
  */
-void ReadImage(void *buf, size_t offset, size_t len) {
+void ReadImage(void *buf, size_t offset_by_sector, size_t len_by_sector) {
     uint8_t *src_buf = reinterpret_cast<uint8_t *>(buf);
-    size_t sector = offset * SECTOR_SIZE;
-    size_t num_sector = len * SECTOR_SIZE;
-    uint8_t *v_image_start = v_image + sector;
-    memcpy(src_buf, v_image_start, num_sector);
+    size_t offset_bytes = offset_by_sector * SECTOR_SIZE;
+    size_t copy_bytes = len_by_sector * SECTOR_SIZE;
+    uint8_t *v_image_start = v_image + offset_bytes;
+    memcpy(src_buf, v_image_start, copy_bytes);
+}
+
+void CopyToImage(void *buf, size_t offset_by_sector, size_t len_by_sector) {
+    uint8_t *src_buf = reinterpret_cast<uint8_t *>(buf);
+    size_t offset_bytes = offset_by_sector * SECTOR_SIZE;
+    size_t copy_bytes = len_by_sector * SECTOR_SIZE;
+    uint8_t *v_image_start = v_image + offset_bytes;
+    memcpy(v_image_start, src_buf, copy_bytes);
 }
 
 void KernelLogWrite(char *s) {
