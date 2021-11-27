@@ -58,20 +58,10 @@ int opendir(const char* name) {
                     SyscallSendMessage(&smsg, id.value);
                     continue;
                 } else {
-                    errno = EAGAIN;
+                    errno = rmsg.arg.error.err;
                     return -1;
                 }
             } else if (rmsg.type == Message::kOpenDir) {
-                if (!rmsg.arg.opendir.exist) {
-                    errno = ENOENT;
-                    return -1;
-                }
-
-                if (!rmsg.arg.opendir.isdirectory) {
-                    errno = ENOTDIR;
-                    return -1;
-                }
-
                 return rmsg.arg.opendir.fd;
             }
         }
@@ -100,6 +90,7 @@ ssize_t readdir(int fd, void* buf) {
                     SyscallSendMessage(&smsg, id.value);
                     continue;
                 } else {
+                    errno = rmsg.arg.error.err;
                     return 0;
                 }
             } else if (rmsg.type == Message::kRead) {

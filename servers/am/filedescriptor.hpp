@@ -18,7 +18,7 @@ class FatFileDescriptor : public ::FileDescriptor {
    public:
     explicit FatFileDescriptor(uint64_t id, char* filename);
     size_t Read(Message msg) override;
-    size_t Write(Message msg) override { return 0; }
+    size_t Write(Message msg) override;
     size_t Size() const override { return 0; }
     size_t Load(void* buf, size_t len, size_t offset) override { return 0; }
 

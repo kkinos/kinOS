@@ -115,12 +115,6 @@ struct Message {
         } exitserver;
 
         struct {
-            int fd;
-            char data[16];
-            uint8_t len;
-        } write;
-
-        struct {
             char filename[32];
             int flags;
             int exist;        // 1: true, 0: false
@@ -139,11 +133,21 @@ struct Message {
             char filename[32];
             int fd;
             char data[16];
+            uint8_t len;
+            uint32_t count;
+            uint32_t offset;
+            uint32_t cluster;  // use for directory
+        } read;
+
+        struct {
+            char filename[32];
+            int fd;
+            char data[16];
+            uint8_t len;
             uint32_t count;
             uint32_t offset;
             uint32_t cluster;
-            uint8_t len;
-        } read;
+        } write;
 
         struct {
             int w, h, x, y;

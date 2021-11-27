@@ -80,6 +80,7 @@ enum State {
     StateCopyToBuffer,
     StateOpen,
     StateRead,
+    StateWrite,
 };
 
 enum Target {
@@ -175,6 +176,17 @@ class ReadState : public ::ServerState {
     FileSystemServer *server_;
 };
 
+class WriteState : public ::ServerState {
+   public:
+    explicit WriteState(FileSystemServer *server);
+    ServerState *ReceiveMessage() override { return this; }
+    ServerState *HandleMessage() override;
+    ServerState *SendMessage() override { return this; }
+
+   private:
+    FileSystemServer *server_;
+};
+
 class FileSystemServer {
    public:
     FileSystemServer();
@@ -231,6 +243,7 @@ class FileSystemServer {
     friend CopyToBufferState;
     friend OpenState;
     friend ReadState;
+    friend WriteState;
 };
 
 FileSystemServer *server;

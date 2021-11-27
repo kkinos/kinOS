@@ -110,18 +110,9 @@ int open(const char* path, int flags) {
                     return -1;
                 }
             } else if (rmsg.type == kOpen) {
-                if (!rmsg.arg.open.exist) {
-                    errno = ENOENT;
-                    return -1;
-                }
-                if (rmsg.arg.open.isdirectory) {
-                    errno = EISDIR;
-                    return -1;
-                }
                 break;
             }
         }
-
         return rmsg.arg.open.fd;
     }
 
@@ -177,6 +168,7 @@ ssize_t write(int fd, const void* buf, size_t count) {
 
         smsg.type = kWrite;
         smsg.arg.write.fd = fd;
+        smsg.arg.write.count = count;
         const char* bufc = (const char*)buf;
         size_t sent_bytes = 0;
         while (sent_bytes < count) {
@@ -201,7 +193,10 @@ ssize_t write(int fd, const void* buf, size_t count) {
                 }
             }
         }
-        return count;
+        smsg.type = kWrite;
+        smsg.arg.write.len = 0;
+        SyscallSendMessage(&smsg, id.value);
+        return sent_bytes;
     }
 
     errno = id.error;

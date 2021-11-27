@@ -1,5 +1,7 @@
 #include "am.hpp"
 
+#include <errno.h>
+
 #include <cstdio>
 
 #include "../../libs/kinos/common/print.hpp"
@@ -91,6 +93,8 @@ ServerState* ExecFileState::ReceiveMessage() {
                     Print("[ am ] error at fs server\n");
                     server_->send_message_.type = Message::kError;
                     server_->send_message_.arg.error.retry = false;
+                    server_->send_message_.arg.error.err =
+                        server_->received_message_.arg.error.err;
                     SyscallSendMessage(&server_->send_message_,
                                        server_->target_id_);
                     return server_->GetServerState(State::StateErr);
@@ -130,6 +134,7 @@ ServerState* ExecFileState::SendMessage() {
     if (err) {
         server_->send_message_.type = Message::kError;
         server_->send_message_.arg.error.retry = false;
+        server_->send_message_.arg.error.err = EAGAIN;
         Print("[ am ] cannnot find file system server\n");
         SyscallSendMessage(&server_->send_message_, server_->target_id_);
         return server_->GetServerState(State::StateInit);
@@ -147,7 +152,11 @@ CreateTaskState::CreateTaskState(ApplicationManagementServer* server)
 ServerState* CreateTaskState::ReceiveMessage() {
     auto [fs_id, err] = SyscallFindServer("servers/fs");
     if (err) {
+        server_->send_message_.type = Message::kError;
+        server_->send_message_.arg.error.retry = false;
+        server_->send_message_.arg.error.err = EAGAIN;
         Print("[ am ] cannnot find file system server\n");
+        SyscallSendMessage(&server_->send_message_, server_->target_id_);
         return server_->GetServerState(State::StateErr);
     }
     server_->fs_id_ = fs_id;
@@ -165,6 +174,7 @@ ServerState* CreateTaskState::ReceiveMessage() {
                     Print("[ am ] error at fs server\n");
                     server_->send_message_.type = Message::kError;
                     server_->send_message_.arg.error.retry = false;
+                    server_->send_message_.arg.error.err = EAGAIN;
                     SyscallSendMessage(&server_->send_message_,
                                        server_->target_id_);
                     return server_->GetServerState(State::StateErr);
@@ -185,30 +195,20 @@ ServerState* CreateTaskState::ReceiveMessage() {
 }
 
 ServerState* CreateTaskState::HandleMessage() {
-    if (!server_->received_message_.arg.executefile.exist ||
-        server_->received_message_.arg.executefile.isdirectory) {
-        server_->send_message_.type = Message::kExecuteFile;
-        server_->send_message_.arg.executefile.exist =
-            server_->received_message_.arg.executefile.exist;
-        server_->send_message_.arg.executefile.isdirectory =
-            server_->received_message_.arg.executefile.isdirectory;
-        return server_->GetServerState(State::StateInit);
+    auto [id, err] = SyscallCreateNewTask();
+    if (err) {
+        Print("[ am ] syscall error\n");
+        server_->send_message_.type = Message::kError;
+        server_->send_message_.arg.error.retry = false;
+        server_->send_message_.arg.error.err = EAGAIN;
+        SyscallSendMessage(&server_->send_message_, server_->target_id_);
+        SyscallSendMessage(&server_->send_message_, server_->fs_id_);
+        return server_->GetServerState(State::StateErr);
     } else {
-        // the file exists, and not a directory
-        auto [id, err] = SyscallCreateNewTask();
-        if (err) {
-            Print("[ am ] syscall error\n");
-            server_->send_message_.type = Message::kError;
-            server_->send_message_.arg.error.retry = false;
-            SyscallSendMessage(&server_->send_message_, server_->target_id_);
-            SyscallSendMessage(&server_->send_message_, server_->fs_id_);
-            return server_->GetServerState(State::StateErr);
-        } else {
-            server_->send_message_.type = Message::kExecuteFile;
-            server_->send_message_.arg.executefile.id = id;
-            server_->new_task_id_ = id;
-            return this;
-        }
+        server_->send_message_.type = Message::kExecuteFile;
+        server_->send_message_.arg.executefile.id = id;
+        server_->new_task_id_ = id;
+        return this;
     }
 }
 
@@ -345,6 +345,7 @@ ServerState* OpenState::SendMessage() {
     if (err) {
         server_->send_message_.type = Message::kError;
         server_->send_message_.arg.error.retry = false;
+        server_->send_message_.arg.error.err = EAGAIN;
         Print("[ am ] cannnot find file system server\n");
         SyscallSendMessage(&server_->send_message_, server_->target_id_);
         return server_->GetServerState(State::StateInit);
@@ -368,49 +369,28 @@ ServerState* AllocateFDState::HandleMessage() {
     switch (target_) {
         case Target::File: {
             server_->send_message_.type = Message::kOpen;
-            server_->send_message_.arg.open.exist =
-                server_->received_message_.arg.open.exist;
-            server_->send_message_.arg.open.isdirectory =
-                server_->received_message_.arg.open.isdirectory;
-            if (server_->received_message_.arg.open.exist &&
-                !server_->received_message_.arg.open.isdirectory) {
-                auto app_info =
-                    server_->app_manager_->GetAppInfo(server_->target_id_);
-
-                size_t fd = server_->AllocateFD(app_info);
-                app_info->Files()[fd] = std::make_unique<FatFileDescriptor>(
-                    server_->target_id_,
-                    server_->received_message_.arg.open.filename);
-
-                server_->send_message_.arg.open.fd = fd;
-
-                Print("[ am ] allocate file descriptor for %s\n",
-                      server_->received_message_.arg.open.filename);
-            }
+            auto app_info =
+                server_->app_manager_->GetAppInfo(server_->target_id_);
+            size_t fd = server_->AllocateFD(app_info);
+            app_info->Files()[fd] = std::make_unique<FatFileDescriptor>(
+                server_->target_id_,
+                server_->received_message_.arg.open.filename);
+            server_->send_message_.arg.open.fd = fd;
+            Print("[ am ] allocate file descriptor for %s\n",
+                  server_->received_message_.arg.open.filename);
             return server_->GetServerState(State::StateInit);
         } break;
 
         case Target::Dir: {
-            server_->send_message_.type = Message::kOpenDir;
-            server_->send_message_.arg.opendir.exist =
-                server_->received_message_.arg.opendir.exist;
-            server_->send_message_.arg.opendir.isdirectory =
-                server_->received_message_.arg.opendir.isdirectory;
-
-            if (server_->received_message_.arg.opendir.exist &&
-                server_->received_message_.arg.opendir.isdirectory) {
-                auto app_info =
-                    server_->app_manager_->GetAppInfo(server_->target_id_);
-                size_t fd = server_->AllocateFD(app_info);
-                app_info->Files()[fd] = std::make_unique<FatFileDescriptor>(
-                    server_->target_id_,
-                    server_->received_message_.arg.opendir.dirname);
-
-                server_->send_message_.arg.opendir.fd = fd;
-
-                Print("[ am ] allocate file descriptor for %s\n",
-                      server_->received_message_.arg.opendir.dirname);
-            }
+            auto app_info =
+                server_->app_manager_->GetAppInfo(server_->target_id_);
+            size_t fd = server_->AllocateFD(app_info);
+            app_info->Files()[fd] = std::make_unique<FatFileDescriptor>(
+                server_->target_id_,
+                server_->received_message_.arg.opendir.dirname);
+            server_->send_message_.arg.opendir.fd = fd;
+            Print("[ am ] allocate file descriptor for %s\n",
+                  server_->received_message_.arg.opendir.dirname);
             return server_->GetServerState(State::StateInit);
 
         } break;
@@ -431,6 +411,7 @@ ServerState* ReadState::HandleMessage() {
     if (fd < 0 || app_info->Files().size() <= fd || !app_info->Files()[fd]) {
         server_->send_message_.type = Message::kError;
         server_->send_message_.arg.error.retry = false;
+        server_->send_message_.arg.error.err = EBADF;
         Print("[ am ] %d bad file number\n", fd);
         return server_->GetServerState(State::StateInit);
 
@@ -455,6 +436,7 @@ ServerState* WriteState::HandleMessage() {
     if (fd < 0 || app_info->Files().size() <= fd || !app_info->Files()[fd]) {
         server_->send_message_.type = Message::kError;
         server_->send_message_.arg.error.retry = false;
+        server_->send_message_.arg.error.err = EBADF;
         Print("[ am ] %d bad file number\n", fd);
         return server_->GetServerState(State::StateInit);
     } else {
@@ -596,11 +578,13 @@ TerminalFileDescriptor::TerminalFileDescriptor(uint64_t id) : id_{id} {
 }
 
 size_t TerminalFileDescriptor::Write(Message msg) {
-    SyscallSendMessage(&msg, terminal_server_id_);
+    if (msg.arg.write.len != 0) {
+        SyscallSendMessage(&msg, terminal_server_id_);
 
-    Message smsg;
-    smsg.type = Message::kReceived;
-    SyscallSendMessage(&smsg, id_);
+        Message smsg;
+        smsg.type = Message::kReceived;
+        SyscallSendMessage(&smsg, id_);
+    }
     return 0;
 }
 size_t TerminalFileDescriptor::Read(Message msg) {
@@ -648,5 +632,25 @@ size_t FatFileDescriptor::Read(Message msg) {
             }
         }
         return count;
+    }
+}
+
+size_t FatFileDescriptor::Write(Message msg) {
+    strcpy(msg.arg.write.filename, filename_);
+    auto [fs_id, err] = SyscallFindServer("servers/fs");
+    if (err) {
+        msg.type = Message::kError;
+        msg.arg.error.retry = false;
+        Print("[ am ] cannnot find file system server\n");
+        SyscallSendMessage(&msg, id_);
+        return 0;
+    } else {
+        wr_off_ += msg.arg.write.len;
+        msg.arg.write.offset = wr_off_;
+        SyscallSendMessage(&msg, fs_id);
+
+        Message smsg;
+        smsg.type = Message::kReceived;
+        SyscallSendMessage(&smsg, id_);
     }
 }

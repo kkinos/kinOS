@@ -1,6 +1,7 @@
 #include "terminal.hpp"
 
 #include <ctype.h>
+#include <errno.h>
 
 Vector2D<int> CalcCursorPos() {
     return kTopLeftMargin + Vector2D<int>{4 + 8 * cursorx, 4 + 16 * cursory};
@@ -263,19 +264,16 @@ void ExecuteFile(uint64_t layer_id) {
                     SyscallSendMessage(sent_messsage, am_id);
                     break;
                 } else {
-                    PrintT(layer_id, "error at other server\n");
-                    last_exit_code_ = 1;
-                    return;
-                }
-
-            case Message::kExecuteFile:
-                if (!received_message[0].arg.executefile.exist) {
-                    PrintT(layer_id, "no such file\n");
-                    return;
-                }
-                if (received_message[0].arg.executefile.isdirectory) {
-                    PrintT(layer_id, "this is directory\n");
-                    return;
+                    if (received_message[0].arg.error.err == ENOENT) {
+                        PrintT(layer_id, "no such file\n");
+                        return;
+                    } else if (received_message[0].arg.error.err == EISDIR) {
+                        PrintT(layer_id, "this is a directory\n");
+                        return;
+                    } else {
+                        PrintT(layer_id, "error at other server\n");
+                        return;
+                    }
                 }
             case Message::kWrite:
                 Print(layer_id, received_message[0].arg.write.data,
