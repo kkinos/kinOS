@@ -80,7 +80,7 @@ class ServerState {
 
 class ErrState : public ::ServerState {
    public:
-    explicit ErrState(ApplicationManagementServer* server);
+    explicit ErrState(ApplicationManagementServer* server) { server_ = server; }
     ServerState* ReceiveMessage() override { return this; }
     ServerState* HandleMessage() override { return this; }
     ServerState* SendMessage() override;
@@ -91,7 +91,9 @@ class ErrState : public ::ServerState {
 
 class InitState : public ::ServerState {
    public:
-    explicit InitState(ApplicationManagementServer* server);
+    explicit InitState(ApplicationManagementServer* server) {
+        server_ = server;
+    }
     ServerState* ReceiveMessage() override;
     ServerState* HandleMessage() override { return this; }
     ServerState* SendMessage() override;
@@ -102,7 +104,9 @@ class InitState : public ::ServerState {
 
 class ExecFileState : public ::ServerState {
    public:
-    explicit ExecFileState(ApplicationManagementServer* server);
+    explicit ExecFileState(ApplicationManagementServer* server) {
+        server_ = server;
+    }
     ServerState* ReceiveMessage() override;
     ServerState* HandleMessage() override;
     ServerState* SendMessage() override;
@@ -113,7 +117,9 @@ class ExecFileState : public ::ServerState {
 
 class CreateTaskState : public ::ServerState {
    public:
-    explicit CreateTaskState(ApplicationManagementServer* server);
+    explicit CreateTaskState(ApplicationManagementServer* server) {
+        server_ = server;
+    }
     ServerState* ReceiveMessage() override;
     ServerState* HandleMessage() override;
     ServerState* SendMessage() override;
@@ -124,7 +130,9 @@ class CreateTaskState : public ::ServerState {
 
 class StartTaskState : public ::ServerState {
    public:
-    explicit StartTaskState(ApplicationManagementServer* server);
+    explicit StartTaskState(ApplicationManagementServer* server) {
+        server_ = server;
+    }
     ServerState* ReceiveMessage() override { return this; }
     ServerState* HandleMessage() override;
     ServerState* SendMessage() override;
@@ -135,7 +143,9 @@ class StartTaskState : public ::ServerState {
 
 class ExitState : public ::ServerState {
    public:
-    explicit ExitState(ApplicationManagementServer* server);
+    explicit ExitState(ApplicationManagementServer* server) {
+        server_ = server;
+    }
     ServerState* ReceiveMessage() override { return this; }
     ServerState* HandleMessage() override;
     ServerState* SendMessage() override;
@@ -146,7 +156,9 @@ class ExitState : public ::ServerState {
 
 class OpenState : public ::ServerState {
    public:
-    explicit OpenState(ApplicationManagementServer* server);
+    explicit OpenState(ApplicationManagementServer* server) {
+        server_ = server;
+    }
     ServerState* ReceiveMessage() override;
     ServerState* HandleMessage() override;
     ServerState* SendMessage() override;
@@ -160,7 +172,9 @@ class OpenState : public ::ServerState {
 
 class AllocateFDState : public ::ServerState {
    public:
-    explicit AllocateFDState(ApplicationManagementServer* server);
+    explicit AllocateFDState(ApplicationManagementServer* server) {
+        server_ = server;
+    }
     ServerState* ReceiveMessage() override { return this; }
     ServerState* HandleMessage() override;
     ServerState* SendMessage() override { return this; }
@@ -174,7 +188,9 @@ class AllocateFDState : public ::ServerState {
 
 class ReadState : public ::ServerState {
    public:
-    explicit ReadState(ApplicationManagementServer* server);
+    explicit ReadState(ApplicationManagementServer* server) {
+        server_ = server;
+    }
     ServerState* ReceiveMessage() override { return this; }
     ServerState* HandleMessage() override;
     ServerState* SendMessage() override;
@@ -188,7 +204,9 @@ class ReadState : public ::ServerState {
 
 class WriteState : public ::ServerState {
    public:
-    explicit WriteState(ApplicationManagementServer* server);
+    explicit WriteState(ApplicationManagementServer* server) {
+        server_ = server;
+    }
     ServerState* ReceiveMessage() override { return this; }
     ServerState* HandleMessage() override;
     ServerState* SendMessage() override;

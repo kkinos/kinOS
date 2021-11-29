@@ -21,28 +21,19 @@ extern "C" void main() {
     }
 }
 
-ErrState::ErrState(FileSystemServer *server) : server_{server} {}
-
 ServerState *ErrState::SendMessage() {
     return server_->GetServerState(State::StateInit);
 }
 
-InitState::InitState(FileSystemServer *server) : server_{server} {}
-
 ServerState *InitState::ReceiveMessage() {
-    auto [am_id, err] = SyscallFindServer("servers/am");
-    if (err) {
-        Print("[ fs ] cannot find  application management server\n");
-        return server_->GetServerState(State::StateErr);
-    }
-    server_->am_id_ = am_id;
-
     while (1) {
-        SyscallClosedReceiveMessage(&server_->received_message_, 1, am_id);
+        SyscallClosedReceiveMessage(&server_->received_message_, 1,
+                                    server_->am_id_);
         switch (server_->received_message_.type) {
             case Message::kError: {
                 if (server_->received_message_.arg.error.retry) {
-                    SyscallSendMessage(&server_->send_message_, am_id);
+                    SyscallSendMessage(&server_->send_message_,
+                                       server_->am_id_);
                     break;
                 } else {
                     Print("[ fs ] error at am server\n");
@@ -77,39 +68,6 @@ ServerState *InitState::ReceiveMessage() {
 ServerState *InitState::SendMessage() {
     SyscallSendMessage(&server_->send_message_, server_->am_id_);
     return this;
-}
-
-ExecFileState::ExecFileState(FileSystemServer *server) : server_{server} {}
-
-ServerState *ExecFileState::ReceiveMessage() {
-    auto [am_id, err] = SyscallFindServer("servers/am");
-    if (err) {
-        Print("[ fs ] cannot find  application management server\n");
-        return server_->GetServerState(State::StateErr);
-    }
-    server_->am_id_ = am_id;
-
-    while (1) {
-        SyscallClosedReceiveMessage(&server_->received_message_, 1, am_id);
-        switch (server_->received_message_.type) {
-            case Message::kError: {
-                if (server_->received_message_.arg.error.retry) {
-                    SyscallSendMessage(&server_->send_message_, am_id);
-                    continue;
-                } else {
-                    Print("[ fs ] error at am server\n");
-                    return server_->GetServerState(State::StateErr);
-                }
-            } break;
-
-            case Message::kExecuteFile: {
-                return server_->GetServerState(State::StateExpandBuffer);
-            }
-            default:
-                Print("[ fs ] unknown message from am server\n");
-                return server_->GetServerState(State::StateErr);
-        }
-    }
 }
 
 ServerState *ExecFileState::HandleMessage() {
@@ -149,8 +107,45 @@ ServerState *ExecFileState::SendMessage() {
     return this;
 }
 
-ExpandBufferState::ExpandBufferState(FileSystemServer *server)
-    : server_{server} {}
+ServerState *ExecFileState::ReceiveMessage() {
+    while (1) {
+        SyscallClosedReceiveMessage(&server_->received_message_, 1,
+                                    server_->am_id_);
+        switch (server_->received_message_.type) {
+            case Message::kError: {
+                if (server_->received_message_.arg.error.retry) {
+                    SyscallSendMessage(&server_->send_message_,
+                                       server_->am_id_);
+                    continue;
+                } else {
+                    Print("[ fs ] error at am server\n");
+                    return server_->GetServerState(State::StateErr);
+                }
+            } break;
+
+            case Message::kExecuteFile: {
+                return server_->GetServerState(State::StateExpandBuffer);
+            }
+            default:
+                Print("[ fs ] unknown message from am server\n");
+                return server_->GetServerState(State::StateErr);
+        }
+    }
+}
+
+ServerState *ExpandBufferState::HandleMessage() {
+    server_->target_task_id_ = server_->received_message_.arg.executefile.id;
+    server_->send_message_.type = Message::kExpandTaskBuffer;
+    server_->send_message_.arg.expand.id = server_->target_task_id_;
+    server_->send_message_.arg.expand.bytes =
+        server_->target_file_entry_->file_size;
+    return this;
+}
+
+ServerState *ExpandBufferState::SendMessage() {
+    SyscallSendMessage(&server_->send_message_, 1);
+    return this;
+}
 
 ServerState *ExpandBufferState::ReceiveMessage() {
     while (1) {
@@ -175,22 +170,6 @@ ServerState *ExpandBufferState::ReceiveMessage() {
         }
     }
 }
-ServerState *ExpandBufferState::HandleMessage() {
-    server_->target_task_id_ = server_->received_message_.arg.executefile.id;
-    server_->send_message_.type = Message::kExpandTaskBuffer;
-    server_->send_message_.arg.expand.id = server_->target_task_id_;
-    server_->send_message_.arg.expand.bytes =
-        server_->target_file_entry_->file_size;
-    return this;
-}
-
-ServerState *ExpandBufferState::SendMessage() {
-    SyscallSendMessage(&server_->send_message_, 1);
-    return this;
-}
-
-CopyToBufferState::CopyToBufferState(FileSystemServer *server)
-    : server_{server} {}
 
 ServerState *CopyToBufferState::HandleMessage() {
     auto cluster = server->target_file_entry_->FirstCluster();
@@ -222,8 +201,6 @@ ServerState *CopyToBufferState::SendMessage() {
     SyscallSendMessage(&server_->send_message_, server_->am_id_);
     return server_->GetServerState(State::StateInit);
 }
-
-OpenState::OpenState(FileSystemServer *server) : server_{server} {}
 
 ServerState *OpenState::HandleMessage() {
     if (server_->received_message_.type == Message::kOpen)
@@ -320,8 +297,6 @@ ServerState *OpenState::HandleMessage() {
             break;
     }
 }
-
-ReadState::ReadState(FileSystemServer *server) : server_{server} {}
 
 ServerState *ReadState::HandleMessage() {
     const char *path = server_->received_message_.arg.read.filename;
@@ -492,8 +467,6 @@ finish:
     return server_->GetServerState(State::StateInit);
 }
 
-WriteState::WriteState(FileSystemServer *server) : server_{server} {}
-
 ServerState *WriteState::HandleMessage() {
     const char *path = server_->received_message_.arg.write.filename;
 
@@ -505,11 +478,17 @@ ServerState *WriteState::HandleMessage() {
 FileSystemServer::FileSystemServer() {}
 
 void FileSystemServer::Initialize() {
-    auto [ret, err] = SyscallReadVolumeImage(&boot_volume_image_, 0, 1);
-    if (err) {
+    auto [ret, err1] = SyscallReadVolumeImage(&boot_volume_image_, 0, 1);
+    if (err1) {
         Print("[ fs ] cannnot read volume image");
         exit(1);
     }
+
+    auto [am_id, err2] = SyscallFindServer("servers/am");
+    if (err2) {
+        Print("[ am ] cannnot find file system server\n");
+    }
+    am_id_ = am_id;
 
     // supports only FAT32 TODO:supports other fat
     if (boot_volume_image_.total_sectors_16 == 0) {

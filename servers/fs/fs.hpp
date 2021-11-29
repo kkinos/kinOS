@@ -98,7 +98,7 @@ class ServerState {
 
 class ErrState : public ::ServerState {
    public:
-    explicit ErrState(FileSystemServer *server);
+    explicit ErrState(FileSystemServer *server) { server_ = server; }
     ServerState *ReceiveMessage() override { return this; }
     ServerState *HandleMessage() override { return this; }
     ServerState *SendMessage() override;
@@ -109,7 +109,7 @@ class ErrState : public ::ServerState {
 
 class InitState : public ::ServerState {
    public:
-    explicit InitState(FileSystemServer *server);
+    explicit InitState(FileSystemServer *server) { server_ = server; }
     ServerState *ReceiveMessage() override;
     ServerState *HandleMessage() override { return this; }
     ServerState *SendMessage() override;
@@ -120,7 +120,7 @@ class InitState : public ::ServerState {
 
 class ExecFileState : public ::ServerState {
    public:
-    explicit ExecFileState(FileSystemServer *server);
+    explicit ExecFileState(FileSystemServer *server) { server_ = server; }
     ServerState *ReceiveMessage() override;
     ServerState *HandleMessage() override;
     ServerState *SendMessage() override;
@@ -131,7 +131,7 @@ class ExecFileState : public ::ServerState {
 
 class ExpandBufferState : public ::ServerState {
    public:
-    explicit ExpandBufferState(FileSystemServer *server);
+    explicit ExpandBufferState(FileSystemServer *server) { server_ = server; }
     ServerState *ReceiveMessage() override;
     ServerState *HandleMessage() override;
     ServerState *SendMessage() override;
@@ -142,7 +142,7 @@ class ExpandBufferState : public ::ServerState {
 
 class CopyToBufferState : public ::ServerState {
    public:
-    explicit CopyToBufferState(FileSystemServer *server);
+    explicit CopyToBufferState(FileSystemServer *server) { server_ = server; }
     ServerState *ReceiveMessage() override { return this; }
     ServerState *HandleMessage() override;
     ServerState *SendMessage() override;
@@ -153,7 +153,7 @@ class CopyToBufferState : public ::ServerState {
 
 class OpenState : public ::ServerState {
    public:
-    explicit OpenState(FileSystemServer *server);
+    explicit OpenState(FileSystemServer *server) { server_ = server; }
     ServerState *ReceiveMessage() override { return this; }
     ServerState *HandleMessage() override;
     ServerState *SendMessage() override { return this; }
@@ -167,7 +167,7 @@ class OpenState : public ::ServerState {
 
 class ReadState : public ::ServerState {
    public:
-    explicit ReadState(FileSystemServer *server);
+    explicit ReadState(FileSystemServer *server) { server_ = server; }
     ServerState *ReceiveMessage() override { return this; }
     ServerState *HandleMessage() override;
     ServerState *SendMessage() override { return this; }
@@ -178,7 +178,7 @@ class ReadState : public ::ServerState {
 
 class WriteState : public ::ServerState {
    public:
-    explicit WriteState(FileSystemServer *server);
+    explicit WriteState(FileSystemServer *server) { server_ = server; }
     ServerState *ReceiveMessage() override { return this; }
     ServerState *HandleMessage() override;
     ServerState *SendMessage() override { return this; }

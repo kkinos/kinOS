@@ -17,13 +17,9 @@ extern "C" void main() {
     }
 }
 
-ErrState::ErrState(ApplicationManagementServer* server) : server_{server} {}
-
 ServerState* ErrState::SendMessage() {
     return server_->GetServerState(State::StateInit);
 };
-
-InitState::InitState(ApplicationManagementServer* server) : server_{server} {}
 
 ServerState* InitState::ReceiveMessage() {
     SyscallOpenReceiveMessage(&server_->received_message_, 1);
@@ -58,7 +54,6 @@ ServerState* InitState::ReceiveMessage() {
             } break;
             default:
                 Print("[ am ] unknown message type\n");
-                return this;
                 break;
         }
     }
@@ -69,17 +64,40 @@ ServerState* InitState::SendMessage() {
     return this;
 }
 
-ExecFileState::ExecFileState(ApplicationManagementServer* server)
-    : server_{server} {}
+ServerState* ExecFileState::HandleMessage() {
+    server_->target_id_ = server_->received_message_.src_task;
+    strcpy(server_->task_argument_,
+           server_->received_message_.arg.executefile.arg);
+    strcpy(server_->task_command_,
+           server_->received_message_.arg.executefile.filename);
 
-ServerState* ExecFileState::ReceiveMessage() {
+    server_->send_message_.type = Message::kExecuteFile;
+    strcpy(server_->send_message_.arg.executefile.filename,
+           server_->received_message_.arg.executefile.filename);
+
     auto [fs_id, err] = SyscallFindServer("servers/fs");
     if (err) {
+        server_->send_message_.type = Message::kError;
+        server_->send_message_.arg.error.retry = false;
+        server_->send_message_.arg.error.err = EAGAIN;
         Print("[ am ] cannnot find file system server\n");
+        SyscallSendMessage(&server_->send_message_, server_->target_id_);
+
         return server_->GetServerState(State::StateErr);
     }
     server_->fs_id_ = fs_id;
 
+    Print("[ am ] execute %s\n", server_->task_command_);
+
+    return this;
+}
+
+ServerState* ExecFileState::SendMessage() {
+    SyscallSendMessage(&server_->send_message_, server_->fs_id_);
+    return this;
+}
+
+ServerState* ExecFileState::ReceiveMessage() {
     while (1) {
         SyscallClosedReceiveMessage(&server_->received_message_, 1,
                                     server_->fs_id_);
@@ -107,60 +125,35 @@ ServerState* ExecFileState::ReceiveMessage() {
 
             default:
                 Print("[ am ] unknown message from fs\n");
-                return server_->GetServerState(State::StateErr);
+                break;
         }
     }
 }
 
-ServerState* ExecFileState::HandleMessage() {
-    server_->target_id_ = server_->received_message_.src_task;
-    strcpy(server_->task_argument_,
-           server_->received_message_.arg.executefile.arg);
-    strcpy(server_->task_command_,
-           server_->received_message_.arg.executefile.filename);
-
-    server_->send_message_.type = Message::kExecuteFile;
-    strcpy(server_->send_message_.arg.executefile.filename,
-           server_->received_message_.arg.executefile.filename);
-
-    Print("[ am ] execute application %s\n",
-          server_->received_message_.arg.executefile.filename);
-
-    return this;
-}
-
-ServerState* ExecFileState::SendMessage() {
-    auto [fs_id, err] = SyscallFindServer("servers/fs");
+ServerState* CreateTaskState::HandleMessage() {
+    auto [id, err] = SyscallCreateNewTask();
     if (err) {
+        Print("[ am ] syscall error\n");
         server_->send_message_.type = Message::kError;
         server_->send_message_.arg.error.retry = false;
         server_->send_message_.arg.error.err = EAGAIN;
-        Print("[ am ] cannnot find file system server\n");
         SyscallSendMessage(&server_->send_message_, server_->target_id_);
-        return server_->GetServerState(State::StateInit);
-    } else {
-        server_->fs_id_ = fs_id;
-
         SyscallSendMessage(&server_->send_message_, server_->fs_id_);
+        return server_->GetServerState(State::StateErr);
+    } else {
+        server_->send_message_.type = Message::kExecuteFile;
+        server_->send_message_.arg.executefile.id = id;
+        server_->new_task_id_ = id;
         return this;
     }
 }
 
-CreateTaskState::CreateTaskState(ApplicationManagementServer* server)
-    : server_{server} {}
+ServerState* CreateTaskState::SendMessage() {
+    SyscallSendMessage(&server_->send_message_, server_->fs_id_);
+    return this;
+}
 
 ServerState* CreateTaskState::ReceiveMessage() {
-    auto [fs_id, err] = SyscallFindServer("servers/fs");
-    if (err) {
-        server_->send_message_.type = Message::kError;
-        server_->send_message_.arg.error.retry = false;
-        server_->send_message_.arg.error.err = EAGAIN;
-        Print("[ am ] cannnot find file system server\n");
-        SyscallSendMessage(&server_->send_message_, server_->target_id_);
-        return server_->GetServerState(State::StateErr);
-    }
-    server_->fs_id_ = fs_id;
-
     while (1) {
         SyscallClosedReceiveMessage(&server_->received_message_, 1,
                                     server_->fs_id_);
@@ -194,32 +187,6 @@ ServerState* CreateTaskState::ReceiveMessage() {
     }
 }
 
-ServerState* CreateTaskState::HandleMessage() {
-    auto [id, err] = SyscallCreateNewTask();
-    if (err) {
-        Print("[ am ] syscall error\n");
-        server_->send_message_.type = Message::kError;
-        server_->send_message_.arg.error.retry = false;
-        server_->send_message_.arg.error.err = EAGAIN;
-        SyscallSendMessage(&server_->send_message_, server_->target_id_);
-        SyscallSendMessage(&server_->send_message_, server_->fs_id_);
-        return server_->GetServerState(State::StateErr);
-    } else {
-        server_->send_message_.type = Message::kExecuteFile;
-        server_->send_message_.arg.executefile.id = id;
-        server_->new_task_id_ = id;
-        return this;
-    }
-}
-
-ServerState* CreateTaskState::SendMessage() {
-    SyscallSendMessage(&server_->send_message_, server_->fs_id_);
-    return this;
-}
-
-StartTaskState::StartTaskState(ApplicationManagementServer* server)
-    : server_{server} {}
-
 ServerState* StartTaskState::HandleMessage() {
     SyscallSetCommand(server_->new_task_id_, server_->task_command_);
     SyscallSetArgument(server_->new_task_id_, server_->task_argument_);
@@ -233,8 +200,6 @@ ServerState* StartTaskState::SendMessage() {
     SyscallSendMessage(&server_->send_message_, 1);
     return server_->GetServerState(State::StateInit);
 }
-
-ExitState::ExitState(ApplicationManagementServer* server) : server_{server} {}
 
 ServerState* ExitState::HandleMessage() {
     server_->target_id_ = server_->app_manager_->GetPID(
@@ -255,50 +220,6 @@ ServerState* ExitState::SendMessage() {
     SyscallSendMessage(&server_->send_message_,
                        server_->received_message_.arg.exitapp.id);
     return server_->GetServerState(State::StateInit);
-}
-
-OpenState::OpenState(ApplicationManagementServer* server) : server_{server} {}
-
-ServerState* OpenState::ReceiveMessage() {
-    auto [fs_id, err] = SyscallFindServer("servers/fs");
-    if (err) {
-        Print("[ am ] cannnot find file system server\n");
-        return server_->GetServerState(State::StateErr);
-    }
-    server_->fs_id_ = fs_id;
-
-    while (1) {
-        SyscallClosedReceiveMessage(&server_->received_message_, 1,
-                                    server_->fs_id_);
-        switch (server_->received_message_.type) {
-            case Message::kError: {
-                if (server_->received_message_.arg.error.retry) {
-                    SyscallSendMessage(&server_->send_message_,
-                                       server_->fs_id_);
-                    continue;
-                } else {
-                    Print("[ am ] error at fs server\n");
-                    server_->send_message_.type = Message::kError;
-                    server_->send_message_.arg.error.retry = false;
-                    server_->send_message_.arg.error.err =
-                        server_->received_message_.arg.error.err;
-                    SyscallSendMessage(&server_->send_message_,
-                                       server_->target_id_);
-                    return server_->GetServerState(State::StateErr);
-                }
-            } break;
-
-            case Message::kOpen:
-            case Message::kOpenDir: {
-                return server_->GetServerState(State::StateAllcateFD);
-            } break;
-
-            default:
-                Print("[ am ] unknown message from fs\n");
-                return server_->GetServerState(State::StateErr);
-                break;
-        }
-    }
 }
 
 ServerState* OpenState::HandleMessage() {
@@ -341,23 +262,44 @@ ServerState* OpenState::HandleMessage() {
 }
 
 ServerState* OpenState::SendMessage() {
-    auto [fs_id, err] = SyscallFindServer("servers/fs");
-    if (err) {
-        server_->send_message_.type = Message::kError;
-        server_->send_message_.arg.error.retry = false;
-        server_->send_message_.arg.error.err = EAGAIN;
-        Print("[ am ] cannnot find file system server\n");
-        SyscallSendMessage(&server_->send_message_, server_->target_id_);
-        return server_->GetServerState(State::StateInit);
-    } else {
-        server_->fs_id_ = fs_id;
-        SyscallSendMessage(&server_->send_message_, server_->fs_id_);
-        return this;
-    }
+    SyscallSendMessage(&server_->send_message_, server_->fs_id_);
+    return this;
 }
 
-AllocateFDState::AllocateFDState(ApplicationManagementServer* server)
-    : server_{server} {}
+ServerState* OpenState::ReceiveMessage() {
+    while (1) {
+        SyscallClosedReceiveMessage(&server_->received_message_, 1,
+                                    server_->fs_id_);
+        switch (server_->received_message_.type) {
+            case Message::kError: {
+                if (server_->received_message_.arg.error.retry) {
+                    SyscallSendMessage(&server_->send_message_,
+                                       server_->fs_id_);
+                    continue;
+                } else {
+                    Print("[ am ] error at fs server\n");
+                    server_->send_message_.type = Message::kError;
+                    server_->send_message_.arg.error.retry = false;
+                    server_->send_message_.arg.error.err =
+                        server_->received_message_.arg.error.err;
+                    SyscallSendMessage(&server_->send_message_,
+                                       server_->target_id_);
+                    return server_->GetServerState(State::StateErr);
+                }
+            } break;
+
+            case Message::kOpen:
+            case Message::kOpenDir: {
+                return server_->GetServerState(State::StateAllcateFD);
+            } break;
+
+            default:
+                Print("[ am ] unknown message from fs\n");
+                return server_->GetServerState(State::StateErr);
+                break;
+        }
+    }
+}
 
 ServerState* AllocateFDState::HandleMessage() {
     if (server_->received_message_.type == Message::kOpen) {
@@ -400,8 +342,6 @@ ServerState* AllocateFDState::HandleMessage() {
     }
 }
 
-ReadState::ReadState(ApplicationManagementServer* server) : server_{server} {}
-
 ServerState* ReadState::HandleMessage() {
     server_->target_id_ = server_->received_message_.src_task;
 
@@ -424,8 +364,6 @@ ServerState* ReadState::HandleMessage() {
 ServerState* ReadState::SendMessage() {
     return server_->GetServerState(State::StateInit);
 }
-
-WriteState::WriteState(ApplicationManagementServer* server) : server_{server} {}
 
 ServerState* WriteState::HandleMessage() {
     server_->target_id_ = server_->received_message_.src_task;
