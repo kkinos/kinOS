@@ -23,6 +23,18 @@ ServerState* ErrState::SendMessage() {
 
 ServerState* InitState::ReceiveMessage() {
     SyscallOpenReceiveMessage(&server_->received_message_, 1);
+
+    auto [fs_id, err] = SyscallFindServer("servers/fs");
+    if (err) {
+        server_->send_message_.type = Message::kError;
+        server_->send_message_.arg.error.retry = false;
+        server_->send_message_.arg.error.err = EAGAIN;
+        Print("[ am ] cannnot find file system server\n");
+        return server_->GetServerState(State::StateErr);
+    }
+
+    server_->fs_id_ = fs_id;
+
     if (server_->received_message_.src_task == 1) {
         // message from kernel
         switch (server_->received_message_.type) {
@@ -75,20 +87,7 @@ ServerState* ExecFileState::HandleMessage() {
     strcpy(server_->send_message_.arg.executefile.filename,
            server_->received_message_.arg.executefile.filename);
 
-    auto [fs_id, err] = SyscallFindServer("servers/fs");
-    if (err) {
-        server_->send_message_.type = Message::kError;
-        server_->send_message_.arg.error.retry = false;
-        server_->send_message_.arg.error.err = EAGAIN;
-        Print("[ am ] cannnot find file system server\n");
-        SyscallSendMessage(&server_->send_message_, server_->target_id_);
-
-        return server_->GetServerState(State::StateErr);
-    }
-    server_->fs_id_ = fs_id;
-
     Print("[ am ] execute %s\n", server_->task_command_);
-
     return this;
 }
 
@@ -574,7 +573,6 @@ size_t FatFileDescriptor::Read(Message msg) {
 }
 
 size_t FatFileDescriptor::Write(Message msg) {
-    strcpy(msg.arg.write.filename, filename_);
     auto [fs_id, err] = SyscallFindServer("servers/fs");
     if (err) {
         msg.type = Message::kError;
@@ -583,12 +581,30 @@ size_t FatFileDescriptor::Write(Message msg) {
         SyscallSendMessage(&msg, id_);
         return 0;
     } else {
-        wr_off_ += msg.arg.write.len;
+        strcpy(msg.arg.write.filename, filename_);
         msg.arg.write.offset = wr_off_;
         SyscallSendMessage(&msg, fs_id);
+        wr_off_ += msg.arg.write.len;
 
         Message smsg;
         smsg.type = Message::kReceived;
         SyscallSendMessage(&smsg, id_);
+        while (1) {
+            Message rmsg;
+            SyscallClosedReceiveMessage(&rmsg, 1, id_);
+            if (rmsg.type == Message::kWrite) {
+                strcpy(rmsg.arg.write.filename, filename_);
+                rmsg.arg.write.offset = wr_off_;
+                SyscallSendMessage(&rmsg, fs_id);
+                wr_off_ += rmsg.arg.write.len;
+
+                if (rmsg.arg.write.len == 0) {
+                    break;
+                }
+                smsg.type = Message::kReceived;
+                SyscallSendMessage(&smsg, id_);
+            }
+        }
+        return 0;
     }
 }

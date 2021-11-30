@@ -469,9 +469,73 @@ finish:
 
 ServerState *WriteState::HandleMessage() {
     const char *path = server_->received_message_.arg.write.filename;
+    size_t num_cluster = (server_->received_message_.arg.write.count +
+                          server_->bytes_per_cluster_ - 1) /
+                         server_->bytes_per_cluster_;
 
     auto [file_entry, post_slash] = server_->FindFile(path);
+    server_->target_file_entry_ = file_entry;
+    unsigned long cluster;
+    if (server_->target_file_entry_->FirstCluster() != 0) {
+        cluster = server_->target_file_entry_->FirstCluster();
+    } else {
+        cluster = server_->AllocateClusterChain(num_cluster);
+        server_->target_file_entry_->first_cluster_low = cluster & 0xffff;
+        server_->target_file_entry_->first_cluster_high =
+            (cluster >> 16) & 0xffff;
+        server_->UpdateCluster();
+    }
+    size_t len = server_->received_message_.arg.write.len;
 
+    // finish writing
+    if (len == 0) {
+        server_->target_file_entry_->file_size =
+            server_->received_message_.arg.write.offset;
+        server_->UpdateCluster();
+        return server_->GetServerState(State::StateWrite);
+    }
+
+    size_t data_off = 0;
+    size_t write_off = server_->received_message_.arg.write.offset %
+                       server_->bytes_per_cluster_;
+    size_t cluster_off = server_->received_message_.arg.write.offset /
+                         server_->bytes_per_cluster_;
+
+    for (int i = 0; i < cluster_off; ++i) {
+        auto next_cluster = server_->NextCluster(cluster);
+        if (next_cluster == 0x0ffffffflu) {
+            cluster = server_->ExtendCluster(cluster, 1);
+        } else {
+            cluster = next_cluster;
+        }
+    }
+
+    while (data_off < len) {
+        if (write_off == server_->bytes_per_cluster_) {
+            auto next_cluster = server_->NextCluster(cluster);
+            if (next_cluster == 0x0ffffffflu) {
+                cluster = server_->ExtendCluster(cluster, 1);
+            } else {
+                cluster = next_cluster;
+            }
+            write_off = 0;
+        }
+
+        uint8_t *sec =
+            reinterpret_cast<uint8_t *>(server_->ReadCluster(cluster));
+        size_t n = std::min(len, server_->bytes_per_cluster_ - write_off);
+        memcpy(&sec[write_off],
+               &server_->received_message_.arg.write.data[data_off], n);
+        data_off += n;
+
+        write_off += n;
+        server_->UpdateCluster(cluster);
+    }
+
+    return server_->GetServerState(State::StateWrite);
+}
+
+ServerState *WriteState::SendMessage() {
     return server_->GetServerState(State::StateInit);
 }
 
@@ -548,6 +612,8 @@ unsigned long FileSystemServer::NextCluster(unsigned long cluster) {
 }
 
 uint32_t *FileSystemServer::ReadCluster(unsigned long cluster) {
+    cluster_num_ = cluster;
+
     unsigned long sector_offset =
         boot_volume_image_.reserved_sector_count +
         boot_volume_image_.num_fats * boot_volume_image_.fat_size_32 +
@@ -563,6 +629,9 @@ uint32_t *FileSystemServer::ReadCluster(unsigned long cluster) {
 }
 
 void FileSystemServer::UpdateCluster(unsigned long cluster) {
+    if (cluster == 0) {
+        cluster = cluster_num_;
+    }
     unsigned long sector_offset =
         boot_volume_image_.reserved_sector_count +
         boot_volume_image_.num_fats * boot_volume_image_.fat_size_32 +
@@ -713,10 +782,10 @@ unsigned long FileSystemServer::ExtendCluster(unsigned long eoc_cluster,
                                               size_t n) {
     while (1) {
         auto index = GetFAT(eoc_cluster);
-        eoc_cluster = fat_[index];
-        if (eoc_cluster == 0x0ffffffflu) {
+        if (fat_[index] >= 0x0ffffff8ul) {
             break;
         }
+        eoc_cluster = fat_[index];
     }
 
     size_t num_allocated = 0;
@@ -727,6 +796,7 @@ unsigned long FileSystemServer::ExtendCluster(unsigned long eoc_cluster,
         if (fat_[i] != 0) {
             continue;  // candidate cluster is not free
         }
+
         auto j = GetFAT(current);
         fat_[j] = candidate;
         UpdateFAT(current);
@@ -737,6 +807,23 @@ unsigned long FileSystemServer::ExtendCluster(unsigned long eoc_cluster,
     fat_[j] = 0x0ffffffflu;
     UpdateFAT(current);
     return current;
+}
+
+unsigned long FileSystemServer::AllocateClusterChain(size_t n) {
+    unsigned long first_cluster;
+    for (first_cluster = 2;; ++first_cluster) {
+        auto i = GetFAT(first_cluster);
+        if (fat_[i] == 0) {
+            fat_[i] = 0x0ffffffflu;
+            break;
+        }
+    }
+    UpdateFAT(first_cluster);
+
+    if (n > 1) {
+        ExtendCluster(first_cluster, n - 1);
+    }
+    return first_cluster;
 }
 
 void FileSystemServer::SetFileName(DirectoryEntry &entry, const char *name) {
