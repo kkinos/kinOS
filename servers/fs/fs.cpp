@@ -77,11 +77,22 @@ ServerState *ExecFileState::HandleMessage() {
     auto [file_entry, post_slash] = server_->FindFile(path);
     // the file doesn't exist
     if (!file_entry) {
-        server_->send_message_.type = Message::kError;
-        server_->send_message_.arg.error.retry = false;
-        server_->send_message_.arg.error.err = ENOENT;
-        Print("[ fs ] cannnot find  %s\n", path);
-        return server_->GetServerState(State::StateInit);
+        // find file in apps directory
+        auto apps = server_->FindFile("apps");
+        auto command = server_->FindFile(path, apps.first->FirstCluster());
+        if (command.first) {
+            server_->target_file_entry_ = command.first;
+            server_->send_message_.type = Message::kExecuteFile;
+            server_->send_message_.arg.executefile.exist = true;
+            server_->send_message_.arg.executefile.isdirectory = false;
+            return this;
+        } else {
+            server_->send_message_.type = Message::kError;
+            server_->send_message_.arg.error.retry = false;
+            server_->send_message_.arg.error.err = ENOENT;
+            Print("[ fs ] cannnot find  %s\n", path);
+            return server_->GetServerState(State::StateInit);
+        }
     }
 
     // is a directory

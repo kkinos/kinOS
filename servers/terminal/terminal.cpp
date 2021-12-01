@@ -201,7 +201,7 @@ void ExecuteLine(uint64_t layer_id) {
     char *command = &linebuf_[0];
 
     if (strcmp(command, "help") == 0) {
-        Print(layer_id, "command [apps/ls apps] show applications\n");
+        Print(layer_id, "command [ls apps] show applications\n");
     } else if (strcmp(command, "clear") == 0) {
         WinFillRectangle(layer_id, true, Marginx, Marginy, kCanvasWidth,
                          kCanvasHeight, 0);
