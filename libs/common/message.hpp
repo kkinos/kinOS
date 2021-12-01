@@ -49,6 +49,7 @@ struct Message {
         kRead,
         kCreateTask,
         kExecuteFile,
+        kRedirect,
     } type;
 
     uint64_t src_task;
@@ -185,10 +186,15 @@ struct Message {
         struct {
             char filename[32];
             char arg[32];
+            int redirect;     // 1: true, 0: false
             uint64_t id;      // target task id
             int exist;        // 1: true, 0: false
             int isdirectory;  // 1: true, 0: false
         } executefile;
+
+        struct {
+            char filename[32];
+        } redirect;
 
         struct {
             uint64_t id;

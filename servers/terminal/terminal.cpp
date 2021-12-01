@@ -214,9 +214,14 @@ void ExecuteLine(uint64_t layer_id) {
 void ExecuteFile(uint64_t layer_id) {
     char *command = &linebuf_[0];
     char *first_arg = strchr(&linebuf_[0], ' ');
+    char *redir_char = strchr(&linebuf_[0], '>');
     if (first_arg) {
         *first_arg = 0;
         ++first_arg;
+    }
+    if (redir_char) {
+        *redir_char = 0;
+        ++redir_char;
     }
 
     auto [am_id, err] = SyscallFindServer("servers/am");
@@ -225,21 +230,24 @@ void ExecuteFile(uint64_t layer_id) {
         return;
     }
 
-    sent_messsage[0].type = Message::kExecuteFile;
-    memset(sent_messsage[0].arg.executefile.filename, 0,
-           sizeof(sent_messsage[0].arg.executefile.filename));
+    send_message[0].type = Message::kExecuteFile;
+    memset(send_message[0].arg.executefile.filename, 0,
+           sizeof(send_message[0].arg.executefile.filename));
     int i = 0;
     while (*command) {
-        sent_messsage[0].arg.executefile.filename[i] = *command;
-        ++i;
-        ++command;
         if (i > 25) {
             PrintT(layer_id, "too long file name\n");
             return;
         }
-    }
-    sent_messsage[0].arg.executefile.filename[i] = '\0';
 
+        send_message[0].arg.executefile.filename[i] = *command;
+        ++i;
+        ++command;
+    }
+    send_message[0].arg.executefile.filename[i] = '\0';
+
+    memset(send_message[0].arg.executefile.arg, 0,
+           sizeof(send_message[0].arg.executefile.arg));
     i = 0;
     if (first_arg) {
         while (*first_arg) {
@@ -247,21 +255,52 @@ void ExecuteFile(uint64_t layer_id) {
                 PrintT(layer_id, "too long argument\n");
                 return;
             }
-            sent_messsage[0].arg.executefile.arg[i] = *first_arg;
+            send_message[0].arg.executefile.arg[i] = *first_arg;
             ++i;
             ++first_arg;
         }
     }
-    sent_messsage[0].arg.executefile.arg[i] = '\0';
+    send_message[0].arg.executefile.arg[i] = '\0';
 
-    SyscallSendMessage(sent_messsage, am_id);
+    if (redir_char) {
+        send_message[0].arg.executefile.redirect = true;
+    } else {
+        send_message[0].arg.executefile.redirect = false;
+    }
+
+    SyscallSendMessage(send_message, am_id);
+
+    if (redir_char) {
+        char *redir_filename = &redir_char[0];
+        while (isspace(*redir_filename)) {
+            ++redir_filename;
+        }
+
+        send_message[0].type = Message::kRedirect;
+        memset(send_message[0].arg.redirect.filename, 0,
+               sizeof(send_message[0].arg.redirect.filename));
+        i = 0;
+        if (redir_filename) {
+            while (*redir_filename) {
+                if (i > 25) {
+                    PrintT(layer_id, "too long file name\n");
+                    return;
+                }
+                send_message[0].arg.redirect.filename[i] = *redir_filename;
+                ++i;
+                ++redir_filename;
+            }
+        }
+        SyscallSendMessage(send_message, am_id);
+    }
+
     while (true) {
         SyscallClosedReceiveMessage(received_message, 1, am_id);
 
         switch (received_message[0].type) {
             case Message::kError:
                 if (received_message[0].arg.error.retry) {
-                    SyscallSendMessage(sent_messsage, am_id);
+                    SyscallSendMessage(send_message, am_id);
                     break;
                 } else {
                     if (received_message[0].arg.error.err == ENOENT) {
@@ -292,20 +331,20 @@ void ExecuteFile(uint64_t layer_id) {
                                 toupper(received_message[0].arg.keyboard.ascii);
                             if (received_message[0].arg.keyboard.keycode ==
                                 7 /* D */) {
-                                sent_messsage[0].type = Message::kRead;
-                                sent_messsage[0].arg.read.len = 0;  // EOT
+                                send_message[0].type = Message::kRead;
+                                send_message[0].arg.read.len = 0;  // EOT
                                 PrintT(layer_id, "%s\n", s);
-                                SyscallSendMessage(sent_messsage, am_id);
+                                SyscallSendMessage(send_message, am_id);
                                 break;
                             }
                         } else {
                             PrintT(layer_id,
                                    &received_message[0].arg.keyboard.ascii);
-                            sent_messsage[0].type = Message::kRead;
-                            sent_messsage[0].arg.read.data[0] =
+                            send_message[0].type = Message::kRead;
+                            send_message[0].arg.read.data[0] =
                                 received_message[0].arg.keyboard.ascii;
-                            sent_messsage[0].arg.read.len = 1;
-                            SyscallSendMessage(sent_messsage, am_id);
+                            send_message[0].arg.read.len = 1;
+                            SyscallSendMessage(send_message, am_id);
                             break;
                         }
                     }

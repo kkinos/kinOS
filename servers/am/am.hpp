@@ -56,6 +56,7 @@ enum State {
     StateExecFile,
     StateCreateTask,
     StateStartTask,
+    StateRedirect,
     StateExit,
     StateOpen,
     StateAllcateFD,
@@ -134,6 +135,19 @@ class StartTaskState : public ::ServerState {
         server_ = server;
     }
     ServerState* ReceiveMessage() override { return this; }
+    ServerState* HandleMessage() override;
+    ServerState* SendMessage() override;
+
+   private:
+    ApplicationManagementServer* server_;
+};
+
+class RedirectState : public ::ServerState {
+   public:
+    explicit RedirectState(ApplicationManagementServer* server) {
+        server_ = server;
+    }
+    ServerState* ReceiveMessage() override;
     ServerState* HandleMessage() override;
     ServerState* SendMessage() override;
 
@@ -240,6 +254,9 @@ class ApplicationManagementServer {
 
     char task_command_[32];
     char task_argument_[32];
+    bool redirect = false;
+    char redirect_filename_[32];
+
     uint64_t fs_id_;
     size_t AllocateFD(AppInfo* app_info);
 
@@ -248,6 +265,7 @@ class ApplicationManagementServer {
     friend ExecFileState;
     friend CreateTaskState;
     friend StartTaskState;
+    friend RedirectState;
     friend ExitState;
     friend OpenState;
     friend AllocateFDState;

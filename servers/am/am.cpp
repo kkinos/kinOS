@@ -1,6 +1,7 @@
 #include "am.hpp"
 
 #include <errno.h>
+#include <fcntl.h>
 
 #include <cstdio>
 
@@ -78,14 +79,25 @@ ServerState* InitState::SendMessage() {
 
 ServerState* ExecFileState::HandleMessage() {
     server_->target_id_ = server_->received_message_.src_task;
+
     strcpy(server_->task_argument_,
            server_->received_message_.arg.executefile.arg);
     strcpy(server_->task_command_,
            server_->received_message_.arg.executefile.filename);
 
+    if (server_->received_message_.arg.executefile.redirect) {
+        server_->redirect = true;
+        SyscallClosedReceiveMessage(&server_->received_message_, 1,
+                                    server_->target_id_);
+        strcpy(server_->redirect_filename_,
+               server_->received_message_.arg.redirect.filename);
+    } else {
+        server_->redirect = false;
+    }
+
     server_->send_message_.type = Message::kExecuteFile;
     strcpy(server_->send_message_.arg.executefile.filename,
-           server_->received_message_.arg.executefile.filename);
+           server_->task_command_);
 
     Print("[ am ] execute %s\n", server_->task_command_);
     return this;
@@ -174,6 +186,9 @@ ServerState* CreateTaskState::ReceiveMessage() {
             } break;
 
             case Message::kReady: {
+                if (server_->redirect) {
+                    return server_->GetServerState(State::StateRedirect);
+                }
                 return server_->GetServerState(State::StateStartTask);
             } break;
 
@@ -187,9 +202,18 @@ ServerState* CreateTaskState::ReceiveMessage() {
 }
 
 ServerState* StartTaskState::HandleMessage() {
+    server_->app_manager_->NewApp(server_->new_task_id_, server_->target_id_);
+
+    if (server_->redirect) {
+        auto app_info =
+            server_->app_manager_->GetAppInfo(server_->new_task_id_);
+        app_info->Files()[1] = std::make_unique<FatFileDescriptor>(
+            server_->new_task_id_, server_->redirect_filename_);
+    }
+
     SyscallSetCommand(server_->new_task_id_, server_->task_command_);
     SyscallSetArgument(server_->new_task_id_, server_->task_argument_);
-    server_->app_manager_->NewApp(server_->new_task_id_, server_->target_id_);
+
     server_->send_message_.type = Message::kStartApp;
     server_->send_message_.arg.starttask.id = server_->new_task_id_;
     return this;
@@ -198,6 +222,53 @@ ServerState* StartTaskState::HandleMessage() {
 ServerState* StartTaskState::SendMessage() {
     SyscallSendMessage(&server_->send_message_, 1);
     return server_->GetServerState(State::StateInit);
+}
+
+ServerState* RedirectState::HandleMessage() {
+    server_->send_message_.type = Message::kOpen;
+    strcpy(server_->send_message_.arg.open.filename,
+           server_->redirect_filename_);
+    server_->send_message_.arg.open.flags = O_CREAT;
+    return this;
+}
+
+ServerState* RedirectState::SendMessage() {
+    SyscallSendMessage(&server_->send_message_, server_->fs_id_);
+    return this;
+}
+
+ServerState* RedirectState::ReceiveMessage() {
+    while (1) {
+        SyscallClosedReceiveMessage(&server_->received_message_, 1,
+                                    server_->fs_id_);
+        switch (server_->received_message_.type) {
+            case Message::kError: {
+                if (server_->received_message_.arg.error.retry) {
+                    SyscallSendMessage(&server_->send_message_,
+                                       server_->fs_id_);
+                    continue;
+                } else {
+                    Print("[ am ] error at fs server\n");
+                    server_->send_message_.type = Message::kError;
+                    server_->send_message_.arg.error.retry = false;
+                    server_->send_message_.arg.error.err =
+                        server_->received_message_.arg.error.err;
+                    SyscallSendMessage(&server_->send_message_,
+                                       server_->target_id_);
+                    return server_->GetServerState(State::StateErr);
+                }
+            } break;
+
+            case Message::kOpen: {
+                return server_->GetServerState(State::StateStartTask);
+            } break;
+
+            default:
+                Print("[ am ] unknown message from fs\n");
+                return server_->GetServerState(State::StateErr);
+                break;
+        }
+    }
 }
 
 ServerState* ExitState::HandleMessage() {
@@ -396,6 +467,7 @@ void ApplicationManagementServer::Initialize() {
     state_pool_.emplace_back(new ExecFileState(this));
     state_pool_.emplace_back(new CreateTaskState(this));
     state_pool_.emplace_back(new StartTaskState(this));
+    state_pool_.emplace_back(new RedirectState(this));
     state_pool_.emplace_back(new ExitState(this));
     state_pool_.emplace_back(new OpenState(this));
     state_pool_.emplace_back(new AllocateFDState(this));
