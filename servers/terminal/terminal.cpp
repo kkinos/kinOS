@@ -255,11 +255,28 @@ void ExecuteFile(uint64_t layer_id) {
                 PrintT(layer_id, "too long argument\n");
                 return;
             }
-            send_message[0].arg.executefile.arg[i] = *first_arg;
-            ++i;
-            ++first_arg;
+
+            if (first_arg[0] == '$' && first_arg[1] == '?') {
+                char exit_code[16];
+                char *p;
+                sprintf(exit_code, "%d", last_exit_code_);
+                p = &exit_code[0];
+                while (*p) {
+                    send_message[0].arg.executefile.arg[i] = *p;
+                    ++p;
+                    ++i;
+                }
+                ++first_arg;
+                ++first_arg;
+
+            } else {
+                send_message[0].arg.executefile.arg[i] = *first_arg;
+                ++i;
+                ++first_arg;
+            }
         }
     }
+
     send_message[0].arg.executefile.arg[i] = '\0';
 
     if (redir_char) {
@@ -304,12 +321,15 @@ void ExecuteFile(uint64_t layer_id) {
                     break;
                 } else {
                     if (received_message[0].arg.error.err == ENOENT) {
+                        last_exit_code_ = 1;
                         PrintT(layer_id, "no such file\n");
                         return;
                     } else if (received_message[0].arg.error.err == EISDIR) {
+                        last_exit_code_ = 1;
                         PrintT(layer_id, "this is a directory\n");
                         return;
                     } else {
+                        last_exit_code_ = 1;
                         PrintT(layer_id, "error at other server\n");
                         return;
                     }
