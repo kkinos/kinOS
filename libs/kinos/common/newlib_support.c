@@ -187,6 +187,9 @@ ssize_t write(int fd, const void* buf, size_t count) {
                     if (rmsg.arg.error.retry) {
                         SyscallSendMessage(&smsg, id.value);
                         continue;
+                    } else {
+                        errno = EAGAIN;
+                        return -1;
                     }
                 } else if (rmsg.type == kReceived) {
                     break;

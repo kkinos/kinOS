@@ -207,14 +207,15 @@ void ExecuteLine(uint64_t layer_id) {
                          kCanvasHeight, 0);
         cursory = 0;
     } else {
-        ExecuteFile(layer_id);
+        ExecuteFile(layer_id, &linebuf_[0]);
     }
 }
 
-void ExecuteFile(uint64_t layer_id) {
-    char *command = &linebuf_[0];
-    char *first_arg = strchr(&linebuf_[0], ' ');
-    char *redir_char = strchr(&linebuf_[0], '>');
+void ExecuteFile(uint64_t layer_id, char *line) {
+    char *command = line;
+    char *first_arg = strchr(line, ' ');
+    char *redir_char = strchr(line, '>');
+    char *pipe_char = strchr(line, '|');
     if (first_arg) {
         *first_arg = 0;
         ++first_arg;
@@ -222,6 +223,10 @@ void ExecuteFile(uint64_t layer_id) {
     if (redir_char) {
         *redir_char = 0;
         ++redir_char;
+    }
+    if (pipe_char) {
+        *pipe_char = 0;
+        ++pipe_char;
     }
 
     auto [am_id, err] = SyscallFindServer("servers/am");
@@ -279,36 +284,83 @@ void ExecuteFile(uint64_t layer_id) {
 
     send_message[0].arg.executefile.arg[i] = '\0';
 
-    if (redir_char) {
-        send_message[0].arg.executefile.redirect = true;
-    } else {
-        send_message[0].arg.executefile.redirect = false;
-    }
-
-    SyscallSendMessage(send_message, am_id);
-
-    if (redir_char) {
-        char *redir_filename = &redir_char[0];
-        while (isspace(*redir_filename)) {
-            ++redir_filename;
+    // pipe
+    if (pipe_char) {
+        subcommand = &pipe_char[0];
+        while (isspace(*subcommand)) {
+            ++subcommand;
         }
+        send_message[0].arg.executefile.pipe = true;
+        send_message[0].arg.executefile.redirect = false;
+        SyscallSendMessage(send_message, am_id);
 
-        send_message[0].type = Message::kRedirect;
-        memset(send_message[0].arg.redirect.filename, 0,
-               sizeof(send_message[0].arg.redirect.filename));
-        i = 0;
-        if (redir_filename) {
-            while (*redir_filename) {
-                if (i > 25) {
-                    PrintT(layer_id, "too long file name\n");
+        // pipe processing
+        while (true) {
+            SyscallClosedReceiveMessage(received_message, 1, am_id);
+            switch (received_message[0].type) {
+                case Message::kError:
+                    if (received_message[0].arg.error.retry) {
+                        SyscallSendMessage(send_message, am_id);
+                        break;
+                    } else {
+                        if (received_message[0].arg.error.err == ENOENT) {
+                            last_exit_code_ = 1;
+                            PrintT(layer_id, "no such file\n");
+                            return;
+                        } else if (received_message[0].arg.error.err ==
+                                   EISDIR) {
+                            last_exit_code_ = 1;
+                            PrintT(layer_id, "this is a directory\n");
+                            return;
+                        } else {
+                            last_exit_code_ = 1;
+                            PrintT(layer_id, "error at other server\n");
+                            return;
+                        }
+                    }
+                case Message::kReady:
+                    ExecuteFile(layer_id, subcommand);
                     return;
-                }
-                send_message[0].arg.redirect.filename[i] = *redir_filename;
-                ++i;
-                ++redir_filename;
+                    break;
+                default:
+                    break;
             }
         }
+
+    } else {
+        send_message[0].arg.executefile.pipe = false;
+        if (redir_char) {
+            send_message[0].arg.executefile.redirect = true;
+        } else {
+            send_message[0].arg.executefile.redirect = false;
+        }
+
         SyscallSendMessage(send_message, am_id);
+
+        // redirect
+        if (redir_char) {
+            char *redir_filename = &redir_char[0];
+            while (isspace(*redir_filename)) {
+                ++redir_filename;
+            }
+
+            send_message[0].type = Message::kRedirect;
+            memset(send_message[0].arg.redirect.filename, 0,
+                   sizeof(send_message[0].arg.redirect.filename));
+            i = 0;
+            if (redir_filename) {
+                while (*redir_filename) {
+                    if (i > 25) {
+                        PrintT(layer_id, "too long file name\n");
+                        return;
+                    }
+                    send_message[0].arg.redirect.filename[i] = *redir_filename;
+                    ++i;
+                    ++redir_filename;
+                }
+            }
+            SyscallSendMessage(send_message, am_id);
+        }
     }
 
     while (true) {
@@ -334,6 +386,11 @@ void ExecuteFile(uint64_t layer_id) {
                         return;
                     }
                 }
+
+            case Message::kExecuteFile: {
+                waiting_task_id_ = received_message[0].arg.executefile.id;
+            } break;
+
             case Message::kWrite:
                 Print(layer_id, received_message[0].arg.write.data,
                       received_message[0].arg.write.len);
@@ -374,7 +431,10 @@ void ExecuteFile(uint64_t layer_id) {
 
             case Message::kExitApp:
                 last_exit_code_ = received_message[0].arg.exitapp.result;
-                return;
+                if (waiting_task_id_ == received_message[0].arg.exitapp.id) {
+                    return;
+                }
+                break;
 
             default:
                 PrintT(layer_id, "Unknown message type: %d\n",

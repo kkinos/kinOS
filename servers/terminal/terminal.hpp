@@ -27,6 +27,8 @@ std::deque<std::array<char, kLineMax>> cmd_history_{};
 int cmd_history_index_{-1};
 
 int last_exit_code_{0};
+char* subcommand;
+uint64_t waiting_task_id_;
 
 static const int kLControlBitMask = 0b00000001u;
 static const int kRControlBitMask = 0b00010000u;
@@ -52,4 +54,4 @@ Rectangle<int> InputKey(uint64_t layer_id, uint8_t modifier, uint8_t keycode,
                         char ascii);
 
 void ExecuteLine(uint64_t layer_id);
-void ExecuteFile(uint64_t layer_id);
+void ExecuteFile(uint64_t layer_id, char* line);

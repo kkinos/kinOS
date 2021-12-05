@@ -80,19 +80,25 @@ ServerState* InitState::SendMessage() {
 ServerState* ExecFileState::HandleMessage() {
     server_->target_id_ = server_->received_message_.src_task;
 
-    strcpy(server_->task_argument_,
-           server_->received_message_.arg.executefile.arg);
     strcpy(server_->task_command_,
            server_->received_message_.arg.executefile.filename);
+    strcpy(server_->task_argument_,
+           server_->received_message_.arg.executefile.arg);
+
+    if (server_->received_message_.arg.executefile.pipe) {
+        server_->pipe_ = true;
+    } else {
+        server_->pipe_ = false;
+    }
 
     if (server_->received_message_.arg.executefile.redirect) {
-        server_->redirect = true;
+        server_->redirect_ = true;
         SyscallClosedReceiveMessage(&server_->received_message_, 1,
                                     server_->target_id_);
         strcpy(server_->redirect_filename_,
                server_->received_message_.arg.redirect.filename);
     } else {
-        server_->redirect = false;
+        server_->redirect_ = false;
     }
 
     server_->send_message_.type = Message::kExecuteFile;
@@ -186,7 +192,7 @@ ServerState* CreateTaskState::ReceiveMessage() {
             } break;
 
             case Message::kReady: {
-                if (server_->redirect) {
+                if (server_->redirect_) {
                     return server_->GetServerState(State::StateRedirect);
                 }
                 return server_->GetServerState(State::StateStartTask);
@@ -204,15 +210,30 @@ ServerState* CreateTaskState::ReceiveMessage() {
 ServerState* StartTaskState::HandleMessage() {
     server_->app_manager_->NewApp(server_->new_task_id_, server_->target_id_);
 
-    if (server_->redirect) {
-        auto app_info =
-            server_->app_manager_->GetAppInfo(server_->new_task_id_);
+    auto app_info = server_->app_manager_->GetAppInfo(server_->new_task_id_);
+
+    if (server_->redirect_) {
         app_info->Files()[1] = std::make_unique<FatFileDescriptor>(
             server_->new_task_id_, server_->redirect_filename_);
     }
 
+    if (server_->piped_) {
+        app_info->Files()[0] = server_->pipe_fd_;
+        server_->piped_ = false;
+    }
+
+    if (server_->pipe_) {
+        server_->pipe_fd_ =
+            std::make_unique<PipeFileDescriptor>(server_->new_task_id_);
+        app_info->Files()[1] = server_->pipe_fd_;
+    }
+
     SyscallSetCommand(server_->new_task_id_, server_->task_command_);
     SyscallSetArgument(server_->new_task_id_, server_->task_argument_);
+
+    server_->send_message_.type = Message::kExecuteFile;
+    server_->send_message_.arg.executefile.id = server_->new_task_id_;
+    SyscallSendMessage(&server_->send_message_, server_->target_id_);
 
     server_->send_message_.type = Message::kStartApp;
     server_->send_message_.arg.starttask.id = server_->new_task_id_;
@@ -221,6 +242,11 @@ ServerState* StartTaskState::HandleMessage() {
 
 ServerState* StartTaskState::SendMessage() {
     SyscallSendMessage(&server_->send_message_, 1);
+    if (server_->pipe_) {
+        server_->send_message_.type = Message::kReady;
+        SyscallSendMessage(&server_->send_message_, server_->target_id_);
+        return server->GetServerState(State::StatePipe);
+    }
     return server_->GetServerState(State::StateInit);
 }
 
@@ -271,6 +297,22 @@ ServerState* RedirectState::ReceiveMessage() {
     }
 }
 
+ServerState* PipeState::ReceiveMessage() {
+    while (1) {
+        SyscallClosedReceiveMessage(&server_->received_message_, 1,
+                                    server_->target_id_);
+        switch (server_->received_message_.type) {
+            case Message::kExecuteFile: {
+                server_->piped_ = true;
+                return server_->GetServerState(State::StateExecFile);
+            } break;
+
+            default:
+                break;
+        }
+    }
+}
+
 ServerState* ExitState::HandleMessage() {
     server_->target_id_ = server_->app_manager_->GetPID(
         server_->received_message_.arg.exitapp.id);
@@ -280,12 +322,16 @@ ServerState* ExitState::HandleMessage() {
         server_->send_message_.type = Message::kExitApp;
         server_->send_message_.arg.exitapp.result =
             server_->received_message_.arg.exitapp.result;
+        server_->send_message_.arg.exitapp.id =
+            server_->received_message_.arg.exitapp.id;
         return this;
     }
+    return server_->GetServerState(State::StateErr);
 }
 
 ServerState* ExitState::SendMessage() {
     SyscallSendMessage(&server_->send_message_, server_->target_id_);
+
     server_->send_message_.type = Message::kReceived;
     SyscallSendMessage(&server_->send_message_,
                        server_->received_message_.arg.exitapp.id);
@@ -468,6 +514,7 @@ void ApplicationManagementServer::Initialize() {
     state_pool_.emplace_back(new CreateTaskState(this));
     state_pool_.emplace_back(new StartTaskState(this));
     state_pool_.emplace_back(new RedirectState(this));
+    state_pool_.emplace_back(new PipeState(this));
     state_pool_.emplace_back(new ExitState(this));
     state_pool_.emplace_back(new OpenState(this));
     state_pool_.emplace_back(new AllocateFDState(this));
@@ -543,9 +590,13 @@ void AppManager::ExitApp(uint64_t task_id) {
             });
         if (it == apps_.end()) {
             break;
+        } else {
+            for (int i = 0; i < (*it)->Files().size(); ++i) {
+                (*it)->Files()[i]->Close();
+            }
+            (*it)->Files().clear();
+            (*it)->SetState(AppState::Kill);
         }
-        (*it)->Files().clear();
-        (*it)->SetState(AppState::Kill);
     }
 }
 
@@ -678,5 +729,38 @@ size_t FatFileDescriptor::Write(Message msg) {
             }
         }
         return 0;
+    }
+}
+
+PipeFileDescriptor::PipeFileDescriptor(uint64_t id) : id_{id} {}
+
+size_t PipeFileDescriptor::Write(Message msg) {
+    if (closed_) {
+        Message smsg;
+        smsg.type = Message::kError;
+        smsg.arg.error.retry = false;
+        SyscallSendMessage(&smsg, id_);
+        return 0;
+    } else {
+        if (len_ == 0) {
+            len_ = msg.arg.write.len;
+            memcpy(data_, msg.arg.write.data, len_);
+        } else {
+            Message smsg;
+            smsg.type = Message::kError;
+            smsg.arg.error.retry = true;
+            SyscallSendMessage(&smsg, id_);
+        }
+        return 0;
+    }
+}
+
+size_t PipeFileDescriptor::Read(Message msg) {
+    if (closed_) {
+        Message smsg;
+        smsg.type = Message::kRead;
+        smsg.arg.read.len = 0;
+        SyscallSendMessage(&smsg, msg.src_task);
+    } else {
     }
 }

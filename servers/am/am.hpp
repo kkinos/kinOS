@@ -57,6 +57,7 @@ enum State {
     StateCreateTask,
     StateStartTask,
     StateRedirect,
+    StatePipe,
     StateExit,
     StateOpen,
     StateAllcateFD,
@@ -150,6 +151,19 @@ class RedirectState : public ::ServerState {
     ServerState* ReceiveMessage() override;
     ServerState* HandleMessage() override;
     ServerState* SendMessage() override;
+
+   private:
+    ApplicationManagementServer* server_;
+};
+
+class PipeState : public ::ServerState {
+   public:
+    explicit PipeState(ApplicationManagementServer* server) {
+        server_ = server;
+    }
+    ServerState* ReceiveMessage() override;
+    ServerState* HandleMessage() override { return this; }
+    ServerState* SendMessage() override { return this; }
 
    private:
     ApplicationManagementServer* server_;
@@ -252,10 +266,16 @@ class ApplicationManagementServer {
     uint64_t target_id_;
     uint64_t new_task_id_;
 
+    uint64_t pipe_task_id_;
+
     char task_command_[32];
     char task_argument_[32];
-    bool redirect = false;
+    bool redirect_;
+    bool pipe_;
+    bool piped_ = false;
     char redirect_filename_[32];
+
+    std::shared_ptr<PipeFileDescriptor> pipe_fd_;
 
     uint64_t fs_id_;
     size_t AllocateFD(AppInfo* app_info);
@@ -266,6 +286,7 @@ class ApplicationManagementServer {
     friend CreateTaskState;
     friend StartTaskState;
     friend RedirectState;
+    friend PipeState;
     friend ExitState;
     friend OpenState;
     friend AllocateFDState;

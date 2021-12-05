@@ -187,6 +187,7 @@ struct Message {
             char filename[32];
             char arg[32];
             int redirect;     // 1: true, 0: false
+            int pipe;         // 1: true, 0: false
             uint64_t id;      // target task id
             int exist;        // 1: true, 0: false
             int isdirectory;  // 1: true, 0: false
