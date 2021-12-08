@@ -446,7 +446,7 @@ void TaskApp(uint64_t task_id, int64_t am_id) {
     // if exit application or some error at executing application return here
     Message msg;
     msg.type = Message::kExitApp;
-    msg.src_task = 1;
+    msg.src_task = task.ID();
     msg.arg.exitapp.id = task.ID();
     msg.arg.exitapp.result = ec;
     task_manager->SendMessage(am_id, msg);

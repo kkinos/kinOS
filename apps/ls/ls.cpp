@@ -26,8 +26,9 @@ extern "C" void main(int argc, char* argv[]) {
     }
 
     while (readdir(fd, dirname)) {
-        printf("%s\n", dirname);
+        printf("%s", dirname);
     }
+
     exit(0);
 }
 
@@ -62,9 +63,10 @@ int opendir(const char* name) {
                     return -1;
                 }
             } else if (rmsg.type == Message::kOpenDir) {
-                return rmsg.arg.opendir.fd;
+                break;
             }
         }
+        return rmsg.arg.opendir.fd;
     }
 
     errno = id.error;
@@ -76,6 +78,8 @@ ssize_t readdir(int fd, void* buf) {
     if (id.error == 0) {
         struct Message smsg;
         struct Message rmsg;
+
+        char* bufc = reinterpret_cast<char*>(buf);
 
         smsg.type = Message::kRead;
         smsg.arg.read.fd = fd;
@@ -95,8 +99,8 @@ ssize_t readdir(int fd, void* buf) {
                 }
             } else if (rmsg.type == Message::kRead) {
                 if (rmsg.arg.read.len) {
-                    memcpy(buf, rmsg.arg.read.data, 8);
-                    read_bytes += rmsg.arg.read.len;
+                    memcpy(&bufc[read_bytes], rmsg.arg.read.data, 9);
+                    read_bytes += 8;
                 } else {
                     break;
                 }

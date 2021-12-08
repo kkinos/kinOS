@@ -36,39 +36,29 @@ ServerState* InitState::ReceiveMessage() {
 
     server_->fs_id_ = fs_id;
 
-    if (server_->received_message_.src_task == 1) {
-        // message from kernel
-        switch (server_->received_message_.type) {
-            case Message::kExitApp: {
-                return server_->GetServerState(State::StateExit);
-            } break;
+    // message from others
+    switch (server_->received_message_.type) {
+        case Message::kExecuteFile: {
+            return server_->GetServerState(State::StateExecFile);
+        } break;
+        case Message::kWrite: {
+            return server_->GetServerState(State::StateWrite);
+        } break;
+        case Message::kOpen:
+        case Message::kOpenDir: {
+            return server_->GetServerState(State::StateOpen);
+        } break;
 
-            default: {
-                Print("[ am ] unknown message type from kernel");
-                return server_->GetServerState(State::StateErr);
-            } break;
-        }
-    } else {
-        // message from others
-        switch (server_->received_message_.type) {
-            case Message::kExecuteFile: {
-                return server_->GetServerState(State::StateExecFile);
-            } break;
-            case Message::kWrite: {
-                return server_->GetServerState(State::StateWrite);
-            } break;
-            case Message::kOpen:
-            case Message::kOpenDir: {
-                return server_->GetServerState(State::StateOpen);
-            } break;
+        case Message::kRead: {
+            return server_->GetServerState(State::StateRead);
+        } break;
+        case Message::kExitApp: {
+            return server_->GetServerState(State::StateExit);
+        } break;
 
-            case Message::kRead: {
-                return server_->GetServerState(State::StateRead);
-            } break;
-            default:
-                Print("[ am ] unknown message type\n");
-                break;
-        }
+        default:
+            Print("[ am ] unknown message type\n");
+            break;
     }
 }
 
@@ -440,6 +430,7 @@ ServerState* AllocateFDState::HandleMessage() {
         } break;
 
         case Target::Dir: {
+            server_->send_message_.type = Message::kOpenDir;
             auto app_info =
                 server_->app_manager_->GetAppInfo(server_->target_id_);
             size_t fd = server_->AllocateFD(app_info);
@@ -653,10 +644,21 @@ size_t TerminalFileDescriptor::Read(Message msg) {
     Message smsg;
 
     SyscallClosedReceiveMessage(&rmsg, 1, terminal_server_id_);
-    SyscallSendMessage(&rmsg, id_);
-    smsg.type = Message::kRead;
-    smsg.arg.read.len = 0;
-    SyscallSendMessage(&smsg, id_);
+    switch (rmsg.type) {
+        case Message::kRead:
+            SyscallSendMessage(&rmsg, id_);
+            smsg.type = Message::kRead;
+            smsg.arg.read.len = 0;
+            SyscallSendMessage(&smsg, id_);
+            break;
+
+        default:
+            Print("[ am ] unknown message from terminal\n");
+            smsg.type = Message::kError;
+            smsg.arg.error.retry = false;
+            SyscallSendMessage(&smsg, terminal_server_id_);
+            break;
+    }
     return 0;
 }
 
@@ -734,6 +736,52 @@ size_t FatFileDescriptor::Write(Message msg) {
 
 PipeFileDescriptor::PipeFileDescriptor(uint64_t id) : id_{id} {}
 
+size_t PipeFileDescriptor::Read(Message msg) {
+    if (closed_) {
+        Message smsg;
+        smsg.type = Message::kRead;
+        smsg.arg.read.len = 0;
+        SyscallSendMessage(&smsg, msg.src_task);
+        return 0;
+    } else {
+        size_t count = msg.arg.read.count;
+        Message smsg;
+
+        if (len_ == 0) {
+            smsg.type = Message::kError;
+            SyscallSendMessage(&smsg, msg.src_task);
+            return 0;
+
+        } else if (len_ <= count) {
+            smsg.type = Message::kRead;
+            memcpy(smsg.arg.read.data, data_, len_);
+            smsg.arg.read.len = len_;
+            len_ = 0;
+            memset(data_, 0, sizeof(data_));
+            SyscallSendMessage(&smsg, msg.src_task);
+
+            smsg.type = Message::kRead;
+            smsg.arg.read.len = 0;
+            SyscallSendMessage(&smsg, msg.src_task);
+
+            smsg.type = Message::kReceived;
+            SyscallSendMessage(&smsg, id_);
+            return 0;
+        } else if (len_ > count) {
+            smsg.type = Message::kRead;
+            memcpy(smsg.arg.read.data, data_, count);
+            smsg.arg.read.len = count;
+            len_ -= count;
+            SyscallSendMessage(&smsg, msg.src_task);
+            smsg.arg.read.len = 0;
+            SyscallSendMessage(&smsg, msg.src_task);
+
+            memmove(data_, &data_[count], len_);
+            return 0;
+        }
+    }
+}
+
 size_t PipeFileDescriptor::Write(Message msg) {
     if (closed_) {
         Message smsg;
@@ -743,8 +791,10 @@ size_t PipeFileDescriptor::Write(Message msg) {
         return 0;
     } else {
         if (len_ == 0) {
-            len_ = msg.arg.write.len;
-            memcpy(data_, msg.arg.write.data, len_);
+            if (msg.arg.write.len) {
+                len_ = msg.arg.write.len;
+                memcpy(data_, msg.arg.write.data, len_);
+            }
         } else {
             Message smsg;
             smsg.type = Message::kError;
@@ -755,12 +805,11 @@ size_t PipeFileDescriptor::Write(Message msg) {
     }
 }
 
-size_t PipeFileDescriptor::Read(Message msg) {
-    if (closed_) {
-        Message smsg;
-        smsg.type = Message::kRead;
-        smsg.arg.read.len = 0;
-        SyscallSendMessage(&smsg, msg.src_task);
-    } else {
-    }
+void PipeFileDescriptor::Close() {
+    closed_ = true;
+    Message smsg;
+    smsg.type = Message::kError;
+    smsg.arg.error.retry = false;
+
+    SyscallSendMessage(&smsg, id_);
 }

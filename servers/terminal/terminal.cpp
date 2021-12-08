@@ -284,7 +284,6 @@ void ExecuteFile(uint64_t layer_id, char *line) {
 
     send_message[0].arg.executefile.arg[i] = '\0';
 
-    // pipe
     if (pipe_char) {
         subcommand = &pipe_char[0];
         while (isspace(*subcommand)) {
@@ -294,7 +293,6 @@ void ExecuteFile(uint64_t layer_id, char *line) {
         send_message[0].arg.executefile.redirect = false;
         SyscallSendMessage(send_message, am_id);
 
-        // pipe processing
         while (true) {
             SyscallClosedReceiveMessage(received_message, 1, am_id);
             switch (received_message[0].type) {

@@ -126,7 +126,8 @@ extern "C" void KernelMainNewStack(
                 break;
 
             default:
-                printk("[ kinOS ] Unknown message type: %d\n", rmsg->type);
+                printk("[ kinOS ] Unknown message type: %d from task %d\n",
+                       rmsg->type, rmsg->src_task);
         }
     }
 }
