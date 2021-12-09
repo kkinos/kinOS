@@ -427,6 +427,20 @@ void ExecuteFile(uint64_t layer_id, char *line) {
 
             } break;
 
+            case Message::kWaitingKey: {
+                while (1) {
+                    SyscallOpenReceiveMessage(received_message, 1);
+                    if (received_message[0].type == Message::kKeyPush &&
+                        received_message[0].arg.keyboard.press) {
+                        SyscallSendMessage(received_message, am_id);
+                        break;
+                    } else if (received_message[0].type == Message::kQuit) {
+                        SyscallSendMessage(received_message, am_id);
+                        break;
+                    }
+                }
+            } break;
+
             case Message::kExitApp:
                 last_exit_code_ = received_message[0].arg.exitapp.result;
                 if (waiting_task_id_ == received_message[0].arg.exitapp.id) {

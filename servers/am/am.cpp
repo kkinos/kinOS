@@ -52,6 +52,11 @@ ServerState* InitState::ReceiveMessage() {
         case Message::kRead: {
             return server_->GetServerState(State::StateRead);
         } break;
+
+        case Message::kWaitingKey: {
+            return server_->GetServerState(State::StateWaitingKey);
+        } break;
+
         case Message::kExitApp: {
             return server_->GetServerState(State::StateExit);
         } break;
@@ -494,6 +499,49 @@ ServerState* WriteState::SendMessage() {
     return server_->GetServerState(State::StateInit);
 }
 
+ServerState* WaitingKeyState::HandleMessage() {
+    server_->target_id_ = server_->received_message_.src_task;
+    server_->send_message_.type = Message::kReceived;
+    SyscallSendMessage(&server_->send_message_, server_->target_id_);
+    server_->waiting_task_id_ = server_->target_id_;
+
+    auto app_info = server_->app_manager_->GetAppInfo(server_->target_id_);
+    uint64_t pid = app_info->PID();
+
+    server_->target_id_ = pid;
+    server_->send_message_.type = Message::kWaitingKey;
+    return this;
+}
+
+ServerState* WaitingKeyState::SendMessage() {
+    SyscallSendMessage(&server_->send_message_, server_->target_id_);
+    return this;
+}
+
+ServerState* WaitingKeyState::ReceiveMessage() {
+    while (1) {
+        SyscallClosedReceiveMessage(&server_->received_message_, 1,
+                                    server_->target_id_);
+        switch (server_->received_message_.type) {
+            case Message::kKeyPush:
+            case Message::kQuit: {
+                SyscallSendMessage(&server_->received_message_,
+                                   server_->waiting_task_id_);
+                return server_->GetServerState(State::StateErr);
+
+            } break;
+
+            default: {
+                Message m;
+                m.type = Message::kError;
+                m.arg.error.retry = false;
+                SyscallSendMessage(&m, server_->target_id_);
+                return server_->GetServerState(State::StateErr);
+            } break;
+        }
+    }
+}
+
 ApplicationManagementServer::ApplicationManagementServer() {}
 
 void ApplicationManagementServer::Initialize() {
@@ -511,6 +559,7 @@ void ApplicationManagementServer::Initialize() {
     state_pool_.emplace_back(new AllocateFDState(this));
     state_pool_.emplace_back(new ReadState(this));
     state_pool_.emplace_back(new WriteState(this));
+    state_pool_.emplace_back(new WaitingKeyState(this));
 
     state_ = GetServerState(State::StateInit);
 

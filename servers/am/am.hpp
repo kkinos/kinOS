@@ -63,6 +63,8 @@ enum State {
     StateAllcateFD,
     StateRead,
     StateWrite,
+    StateWaitingKey,
+    StateSendEvent,
 };
 
 enum Target {
@@ -243,6 +245,19 @@ class WriteState : public ::ServerState {
     ApplicationManagementServer* server_;
 };
 
+class WaitingKeyState : public ::ServerState {
+   public:
+    explicit WaitingKeyState(ApplicationManagementServer* server) {
+        server_ = server;
+    }
+    ServerState* ReceiveMessage() override;
+    ServerState* HandleMessage() override;
+    ServerState* SendMessage() override;
+
+   private:
+    ApplicationManagementServer* server_;
+};
+
 class ApplicationManagementServer {
    public:
     ApplicationManagementServer();
@@ -275,6 +290,8 @@ class ApplicationManagementServer {
     bool piped_ = false;
     char redirect_filename_[32];
 
+    uint64_t waiting_task_id_;
+
     std::shared_ptr<PipeFileDescriptor> pipe_fd_;
 
     uint64_t fs_id_;
@@ -292,6 +309,7 @@ class ApplicationManagementServer {
     friend AllocateFDState;
     friend ReadState;
     friend WriteState;
+    friend WaitingKeyState;
 };
 
 ApplicationManagementServer* server;

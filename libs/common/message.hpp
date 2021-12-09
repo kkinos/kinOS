@@ -50,6 +50,7 @@ struct Message {
         kCreateTask,
         kExecuteFile,
         kRedirect,
+        kWaitingKey,
     } type;
 
     uint64_t src_task;
