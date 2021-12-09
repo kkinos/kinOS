@@ -26,7 +26,7 @@ extern "C" void main(int argc, char* argv[]) {
     }
 
     while (readdir(fd, dirname)) {
-        printf("%s", dirname);
+        printf("%s\n", dirname);
     }
 
     exit(0);

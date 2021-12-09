@@ -199,6 +199,20 @@ ssize_t write(int fd, const void* buf, size_t count) {
         smsg.type = kWrite;
         smsg.arg.write.len = 0;
         SyscallSendMessage(&smsg, id.value);
+        while (1) {
+            SyscallClosedReceiveMessage(&rmsg, 1, id.value);
+            if (rmsg.type == kError) {
+                if (rmsg.arg.error.retry) {
+                    SyscallSendMessage(&smsg, id.value);
+                    continue;
+                } else {
+                    errno = EAGAIN;
+                    return -1;
+                }
+            } else if (rmsg.type == kReceived) {
+                break;
+            }
+        }
         return sent_bytes;
     }
 

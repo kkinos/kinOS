@@ -629,13 +629,11 @@ TerminalFileDescriptor::TerminalFileDescriptor(uint64_t id) : id_{id} {
 }
 
 size_t TerminalFileDescriptor::Write(Message msg) {
-    if (msg.arg.write.len != 0) {
-        SyscallSendMessage(&msg, terminal_server_id_);
+    SyscallSendMessage(&msg, terminal_server_id_);
 
-        Message smsg;
-        smsg.type = Message::kReceived;
-        SyscallSendMessage(&smsg, id_);
-    }
+    Message smsg;
+    smsg.type = Message::kReceived;
+    SyscallSendMessage(&smsg, id_);
     return 0;
 }
 size_t TerminalFileDescriptor::Read(Message msg) {
@@ -723,11 +721,12 @@ size_t FatFileDescriptor::Write(Message msg) {
                 SyscallSendMessage(&rmsg, fs_id);
                 wr_off_ += rmsg.arg.write.len;
 
+                smsg.type = Message::kReceived;
+                SyscallSendMessage(&smsg, id_);
+
                 if (rmsg.arg.write.len == 0) {
                     break;
                 }
-                smsg.type = Message::kReceived;
-                SyscallSendMessage(&smsg, id_);
             }
         }
         return 0;
@@ -749,6 +748,7 @@ size_t PipeFileDescriptor::Read(Message msg) {
 
         if (len_ == 0) {
             smsg.type = Message::kError;
+            smsg.arg.error.retry = true;
             SyscallSendMessage(&smsg, msg.src_task);
             return 0;
 
@@ -794,6 +794,10 @@ size_t PipeFileDescriptor::Write(Message msg) {
             if (msg.arg.write.len) {
                 len_ = msg.arg.write.len;
                 memcpy(data_, msg.arg.write.data, len_);
+            } else {
+                Message smsg;
+                smsg.type = Message::kReceived;
+                SyscallSendMessage(&smsg, id_);
             }
         } else {
             Message smsg;
