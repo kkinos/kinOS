@@ -11,6 +11,8 @@
 #include "../../libs/kinos/common/print.hpp"
 #include "../../libs/kinos/common/syscall.h"
 
+FileSystemServer *server;
+
 extern "C" void main() {
     server = new FileSystemServer;
     server->Initialize();
@@ -21,539 +23,10 @@ extern "C" void main() {
     }
 }
 
-ServerState *ErrState::SendMessage() {
-    return server_->GetServerState(State::StateInit);
-}
-
-ServerState *InitState::ReceiveMessage() {
-    while (1) {
-        SyscallClosedReceiveMessage(&server_->received_message_, 1,
-                                    server_->am_id_);
-        switch (server_->received_message_.type) {
-            case Message::kError: {
-                if (server_->received_message_.arg.error.retry) {
-                    SyscallSendMessage(&server_->send_message_,
-                                       server_->am_id_);
-                    break;
-                } else {
-                    Print("[ fs ] error at am server\n");
-                    return server_->GetServerState(State::StateErr);
-                }
-            } break;
-
-            case Message::kExecuteFile: {
-                return server_->GetServerState(State::StateExecFile);
-            } break;
-
-            case Message::kOpen:
-            case Message::kOpenDir: {
-                return server_->GetServerState(State::StateOpen);
-            } break;
-
-            case Message::kRead: {
-                return server_->GetServerState(State::StateRead);
-            } break;
-
-            case Message::kWrite: {
-                return server_->GetServerState(State::StateWrite);
-            } break;
-
-            default:
-                Print("[ fs ] unknown message from am server");
-                break;
-        }
-    }
-}
-
-ServerState *InitState::SendMessage() {
-    SyscallSendMessage(&server_->send_message_, server_->am_id_);
-    return this;
-}
-
-ServerState *ExecFileState::HandleMessage() {
-    const char *path = server_->received_message_.arg.executefile.filename;
-    Print("[ fs ] find  %s\n", path);
-
-    auto [file_entry, post_slash] = server_->FindFile(path);
-    // the file doesn't exist
-    if (!file_entry) {
-        // find file in apps directory
-        auto apps = server_->FindFile("apps");
-        auto command = server_->FindFile(path, apps.first->FirstCluster());
-        if (command.first) {
-            server_->target_file_entry_ = command.first;
-            server_->send_message_.type = Message::kExecuteFile;
-            server_->send_message_.arg.executefile.exist = true;
-            server_->send_message_.arg.executefile.isdirectory = false;
-            return this;
-        } else {
-            server_->send_message_.type = Message::kError;
-            server_->send_message_.arg.error.retry = false;
-            server_->send_message_.arg.error.err = ENOENT;
-            Print("[ fs ] cannnot find  %s\n", path);
-            return server_->GetServerState(State::StateInit);
-        }
-    }
-
-    // is a directory
-    else if (file_entry->attr == Attribute::kDirectory) {
-        server_->send_message_.type = Message::kError;
-        server_->send_message_.arg.error.retry = false;
-        server_->send_message_.arg.error.err = EISDIR;
-        return server_->GetServerState(State::StateInit);
-    }
-
-    // exists and is not a directory
-    else {
-        server_->target_file_entry_ = file_entry;
-        server_->send_message_.type = Message::kExecuteFile;
-        server_->send_message_.arg.executefile.exist = true;
-        server_->send_message_.arg.executefile.isdirectory = false;
-        return this;
-    }
-}
-
-ServerState *ExecFileState::SendMessage() {
-    SyscallSendMessage(&server_->send_message_, server_->am_id_);
-    return this;
-}
-
-ServerState *ExecFileState::ReceiveMessage() {
-    while (1) {
-        SyscallClosedReceiveMessage(&server_->received_message_, 1,
-                                    server_->am_id_);
-        switch (server_->received_message_.type) {
-            case Message::kError: {
-                if (server_->received_message_.arg.error.retry) {
-                    SyscallSendMessage(&server_->send_message_,
-                                       server_->am_id_);
-                    continue;
-                } else {
-                    Print("[ fs ] error at am server\n");
-                    return server_->GetServerState(State::StateErr);
-                }
-            } break;
-
-            case Message::kExecuteFile: {
-                return server_->GetServerState(State::StateExpandBuffer);
-            }
-            default:
-                Print("[ fs ] unknown message from am server\n");
-                return server_->GetServerState(State::StateErr);
-        }
-    }
-}
-
-ServerState *ExpandBufferState::HandleMessage() {
-    server_->target_task_id_ = server_->received_message_.arg.executefile.id;
-    server_->send_message_.type = Message::kExpandTaskBuffer;
-    server_->send_message_.arg.expand.id = server_->target_task_id_;
-    server_->send_message_.arg.expand.bytes =
-        server_->target_file_entry_->file_size;
-    return this;
-}
-
-ServerState *ExpandBufferState::SendMessage() {
-    SyscallSendMessage(&server_->send_message_, 1);
-    return this;
-}
-
-ServerState *ExpandBufferState::ReceiveMessage() {
-    while (1) {
-        SyscallClosedReceiveMessage(&server_->received_message_, 1, 1);
-        switch (server_->received_message_.type) {
-            case Message::kError: {
-                if (server_->received_message_.arg.error.retry) {
-                    SyscallSendMessage(&server_->send_message_, 1);
-                    break;
-                } else {
-                    Print("[ fs ] error at kernel \n");
-                    return server_->GetServerState(State::StateErr);
-                }
-            } break;
-
-            case Message::kExpandTaskBuffer: {
-                return server_->GetServerState(State::StateCopyToBuffer);
-            }
-            default:
-                Print("[ fs ] unknown message from am server");
-                return server_->GetServerState(State::StateErr);
-        }
-    }
-}
-
-ServerState *CopyToBufferState::HandleMessage() {
-    auto cluster = server->target_file_entry_->FirstCluster();
-    auto remain_bytes = server->target_file_entry_->file_size;
-    int offset = 0;
-    Print("[ fs ] copy %s to task buffer\n", server->target_file_entry_->name);
-
-    while (cluster != 0 && cluster != 0x0ffffffflu) {
-        char *p = reinterpret_cast<char *>(server->ReadCluster(cluster));
-        if (remain_bytes >= server_->bytes_per_cluster_) {
-            auto [res, err] =
-                SyscallCopyToTaskBuffer(server->target_task_id_, p, offset,
-                                        server_->bytes_per_cluster_);
-            offset += server_->bytes_per_cluster_;
-            remain_bytes -= server_->bytes_per_cluster_;
-            cluster = server->NextCluster(cluster);
-
-        } else {
-            auto [res, err] = SyscallCopyToTaskBuffer(server->target_task_id_,
-                                                      p, offset, remain_bytes);
-            cluster = server->NextCluster(cluster);
-        }
-    }
-    server->send_message_.type = Message::kReady;
-    return this;
-}
-
-ServerState *CopyToBufferState::SendMessage() {
-    SyscallSendMessage(&server_->send_message_, server_->am_id_);
-    return server_->GetServerState(State::StateInit);
-}
-
-ServerState *OpenState::HandleMessage() {
-    if (server_->received_message_.type == Message::kOpen)
-        SetTarget(Target::File);
-    if (server_->received_message_.type == Message::kOpenDir)
-        SetTarget(Target::Dir);
-    switch (target_) {
-        case Target::File: {
-            const char *path = server_->received_message_.arg.open.filename;
-            Print("[ fs ] find file %s\n", path);
-            auto [file_entry, post_slash] = server_->FindFile(path);
-            // the file doesn't exist
-            if (!file_entry) {
-                if ((server_->received_message_.arg.open.flags & O_CREAT) ==
-                    0) {
-                    server_->send_message_.type = Message::kError;
-                    server_->send_message_.arg.error.retry = false;
-                    server_->send_message_.arg.error.err = ENOENT;
-                    Print("[ fs ] cannnot find  %s\n", path);
-                } else {
-                    auto [new_file, err] = server_->CreateFile(path);
-                    if (err) {
-                        server_->send_message_.type = Message::kError;
-                        server_->send_message_.arg.error.retry = false;
-                        server_->send_message_.arg.error.err = err;
-                        Print("[ fs ] cannnot create file \n");
-                    } else {
-                        // success to create file
-                        Print("[ fs ] create file %s\n", path);
-                        server_->send_message_.type = Message::kOpen;
-                        strcpy(server_->send_message_.arg.open.filename,
-                               server_->received_message_.arg.open.filename);
-                        server_->send_message_.arg.open.exist = true;
-                        server_->send_message_.arg.open.isdirectory = false;
-                    }
-                }
-            }
-            // is a directory
-            else if (file_entry->attr == Attribute::kDirectory) {
-                server_->send_message_.type = Message::kError;
-                server_->send_message_.arg.error.retry = false;
-                server_->send_message_.arg.error.err = EISDIR;
-            }
-            // exists and is not a directory
-            else {
-                server_->send_message_.type = Message::kOpen;
-                strcpy(server_->send_message_.arg.open.filename,
-                       server_->received_message_.arg.open.filename);
-                server_->send_message_.arg.open.exist = true;
-                server_->send_message_.arg.open.isdirectory = false;
-            }
-            return server_->GetServerState(State::StateInit);
-        } break;
-
-        case Target::Dir: {
-            const char *path = server_->received_message_.arg.opendir.dirname;
-            Print("[ fs ] find directory %s\n", path);
-            // is root directory
-            if (strcmp(path, "/") == 0) {
-                server_->send_message_.type = Message::kOpenDir;
-                strcpy(server_->send_message_.arg.opendir.dirname,
-                       server_->received_message_.arg.opendir.dirname);
-                server_->send_message_.arg.opendir.exist = true;
-                server_->send_message_.arg.opendir.isdirectory = true;
-            } else {
-                auto [file_entry, post_slash] = server_->FindFile(path);
-                // the directory doesn't exist
-                if (!file_entry) {
-                    server_->send_message_.type = Message::kError;
-                    server_->send_message_.arg.error.retry = false;
-                    server_->send_message_.arg.error.err = ENOENT;
-                    Print("[ fs ] cannnot find  %s\n", path);
-                }
-                //  is directory
-                else if (file_entry->attr == Attribute::kDirectory) {
-                    server_->send_message_.type = Message::kOpenDir;
-                    strcpy(server_->send_message_.arg.opendir.dirname,
-                           server_->received_message_.arg.opendir.dirname);
-                    server_->send_message_.arg.opendir.exist = true;
-                    server_->send_message_.arg.opendir.isdirectory = true;
-                }
-                // not directory
-                else {
-                    server_->send_message_.type = Message::kError;
-                    server_->send_message_.arg.error.retry = false;
-                    server_->send_message_.arg.error.err = ENOTDIR;
-                    Print("[ fs ] not directory  %s\n", path);
-                }
-            }
-            return server_->GetServerState(State::StateInit);
-        } break;
-
-        default:
-            break;
-    }
-}
-
-ServerState *ReadState::HandleMessage() {
-    const char *path = server_->received_message_.arg.read.filename;
-    // root directory
-    if (strcmp(path, "/") == 0) {
-        auto cluster = server_->boot_volume_image_.root_cluster;
-        size_t read_cluster = server_->received_message_.arg.read.cluster;
-        for (int i = 0; i < read_cluster; ++i) {
-            cluster = server_->NextCluster(cluster);
-        }
-        size_t entry_index = server_->received_message_.arg.read.offset;
-        auto num_entries_per_cluster =
-            (server_->boot_volume_image_.bytes_per_sector *
-             server_->boot_volume_image_.sectors_per_cluster) /
-            sizeof(DirectoryEntry);
-        if (num_entries_per_cluster <= entry_index) {
-            read_cluster = entry_index / num_entries_per_cluster;
-            entry_index = entry_index % num_entries_per_cluster;
-        }
-
-        if (cluster != 0 && cluster != 0x0ffffffflu) {
-            DirectoryEntry *dir_entry = reinterpret_cast<DirectoryEntry *>(
-                server_->ReadCluster(cluster));
-
-            char name[9];
-            char ext[4];
-            while (1) {
-                server_->ReadName(dir_entry[entry_index], name, ext);
-                if (name[0] == 0x00) {
-                    break;
-                } else if (static_cast<uint8_t>(name[0]) == 0xe5) {
-                    ++entry_index;
-                    continue;
-                } else if (dir_entry[entry_index].attr ==
-                           Attribute::kLongName) {
-                    ++entry_index;
-                    continue;
-                } else {
-                    ++entry_index;
-                    server_->send_message_.type = Message::kRead;
-                    memcpy(&server_->send_message_.arg.read.data[0], &name[0],
-                           9);
-                    server_->send_message_.arg.read.len =
-                        (entry_index + num_entries_per_cluster * read_cluster) -
-                        server_->received_message_.arg.read.offset;
-                    server_->send_message_.arg.read.cluster = read_cluster;
-                    SyscallSendMessage(&server_->send_message_,
-                                       server_->am_id_);
-                    break;
-                }
-            }
-        }
-        goto finish;
-
-    } else {
-        auto [file_entry, post_slash] = server_->FindFile(path);
-
-        if (file_entry->attr == Attribute::kDirectory) {
-            server_->target_file_entry_ = file_entry;
-            auto cluster = server_->target_file_entry_->FirstCluster();
-            size_t read_cluster = server_->received_message_.arg.read.cluster;
-            for (int i = 0; i < read_cluster; ++i) {
-                cluster = server_->NextCluster(cluster);
-            }
-
-            size_t entry_index = server_->received_message_.arg.read.offset;
-            auto num_entries_per_cluster =
-                (server_->boot_volume_image_.bytes_per_sector *
-                 server_->boot_volume_image_.sectors_per_cluster) /
-                sizeof(DirectoryEntry);
-            if (num_entries_per_cluster <= entry_index) {
-                read_cluster = entry_index / num_entries_per_cluster;
-                entry_index = entry_index % num_entries_per_cluster;
-            }
-
-            if (cluster != 0 && cluster != 0x0ffffffflu) {
-                DirectoryEntry *dir_entry = reinterpret_cast<DirectoryEntry *>(
-                    server_->ReadCluster(cluster));
-
-                char name[9];
-                char ext[4];
-                while (1) {
-                    server_->ReadName(dir_entry[entry_index], name, ext);
-                    if (name[0] == 0x00) {
-                        break;
-                    } else if (static_cast<uint8_t>(name[0]) == 0xe5) {
-                        ++entry_index;
-                        continue;
-                    } else if (dir_entry[entry_index].attr ==
-                               Attribute::kLongName) {
-                        ++entry_index;
-                        continue;
-                    } else {
-                        ++entry_index;
-                        server_->send_message_.type = Message::kRead;
-                        memcpy(&server_->send_message_.arg.read.data[0],
-                               &name[0], 9);
-                        server_->send_message_.arg.read.len =
-                            (entry_index +
-                             num_entries_per_cluster * read_cluster) -
-                            server_->received_message_.arg.read.offset;
-                        server_->send_message_.arg.read.cluster = read_cluster;
-                        SyscallSendMessage(&server_->send_message_,
-                                           server_->am_id_);
-                        break;
-                    }
-                }
-            }
-            goto finish;
-
-        } else {
-            server_->target_file_entry_ = file_entry;
-
-            size_t count = server_->received_message_.arg.read.count;
-            size_t sent_bytes = 0;
-            size_t read_offset = server_->received_message_.arg.read.offset;
-
-            size_t total = 0;
-            auto cluster = server_->target_file_entry_->FirstCluster();
-            auto remain_bytes = server_->target_file_entry_->file_size;
-            int msg_offset = 0;
-
-            while (cluster != 0 && cluster != 0x0ffffffflu &&
-                   sent_bytes < count) {
-                char *p =
-                    reinterpret_cast<char *>(server_->ReadCluster(cluster));
-                int i = 0;
-                for (; i < server_->bytes_per_cluster_ && i < remain_bytes &&
-                       sent_bytes < count;
-                     ++i) {
-                    if (total >= read_offset) {
-                        memcpy(
-                            &server_->send_message_.arg.read.data[msg_offset],
-                            p, 1);
-                        ++p;
-                        ++msg_offset;
-                        ++sent_bytes;
-
-                        if (msg_offset ==
-                            sizeof(server_->send_message_.arg.read.data)) {
-                            server_->send_message_.type = Message::kRead;
-                            server_->send_message_.arg.read.len = msg_offset;
-                            SyscallSendMessage(&server_->send_message_,
-                                               server_->am_id_);
-                            msg_offset = 0;
-                        }
-                    }
-                    ++total;
-                }
-                remain_bytes -= i;
-                cluster = server_->NextCluster(cluster);
-            }
-
-            if (msg_offset) {
-                server_->send_message_.type = Message::kRead;
-                server_->send_message_.arg.read.len = msg_offset;
-                SyscallSendMessage(&server_->send_message_, server_->am_id_);
-                msg_offset = 0;
-            }
-            goto finish;
-        }
-    }
-
-finish:
-    // finish reading
-    server_->send_message_.type = Message::kRead;
-    server_->send_message_.arg.read.len = 0;
-    return server_->GetServerState(State::StateInit);
-}
-
-ServerState *WriteState::HandleMessage() {
-    const char *path = server_->received_message_.arg.write.filename;
-    size_t num_cluster = (server_->received_message_.arg.write.count +
-                          server_->bytes_per_cluster_ - 1) /
-                         server_->bytes_per_cluster_;
-
-    auto [file_entry, post_slash] = server_->FindFile(path);
-    server_->target_file_entry_ = file_entry;
-    unsigned long cluster;
-    if (server_->target_file_entry_->FirstCluster() != 0) {
-        cluster = server_->target_file_entry_->FirstCluster();
-    } else {
-        cluster = server_->AllocateClusterChain(num_cluster);
-        server_->target_file_entry_->first_cluster_low = cluster & 0xffff;
-        server_->target_file_entry_->first_cluster_high =
-            (cluster >> 16) & 0xffff;
-        server_->UpdateCluster();
-    }
-    size_t len = server_->received_message_.arg.write.len;
-
-    // finish writing
-    if (len == 0) {
-        server_->target_file_entry_->file_size =
-            server_->received_message_.arg.write.offset;
-        server_->UpdateCluster();
-        return server_->GetServerState(State::StateWrite);
-    }
-
-    size_t data_off = 0;
-    size_t write_off = server_->received_message_.arg.write.offset %
-                       server_->bytes_per_cluster_;
-    size_t cluster_off = server_->received_message_.arg.write.offset /
-                         server_->bytes_per_cluster_;
-
-    for (int i = 0; i < cluster_off; ++i) {
-        auto next_cluster = server_->NextCluster(cluster);
-        if (next_cluster == 0x0ffffffflu) {
-            cluster = server_->ExtendCluster(cluster, 1);
-        } else {
-            cluster = next_cluster;
-        }
-    }
-
-    while (data_off < len) {
-        if (write_off == server_->bytes_per_cluster_) {
-            auto next_cluster = server_->NextCluster(cluster);
-            if (next_cluster == 0x0ffffffflu) {
-                cluster = server_->ExtendCluster(cluster, 1);
-            } else {
-                cluster = next_cluster;
-            }
-            write_off = 0;
-        }
-
-        uint8_t *sec =
-            reinterpret_cast<uint8_t *>(server_->ReadCluster(cluster));
-        size_t n = std::min(len, server_->bytes_per_cluster_ - write_off);
-        memcpy(&sec[write_off],
-               &server_->received_message_.arg.write.data[data_off], n);
-        data_off += n;
-
-        write_off += n;
-        server_->UpdateCluster(cluster);
-    }
-
-    return server_->GetServerState(State::StateWrite);
-}
-
-ServerState *WriteState::SendMessage() {
-    return server_->GetServerState(State::StateInit);
-}
-
 FileSystemServer::FileSystemServer() {}
 
 void FileSystemServer::Initialize() {
-    auto [ret, err1] = SyscallReadVolumeImage(&boot_volume_image_, 0, 1);
+    auto [ret, err1] = SyscallReadVolumeImage(&bpb_, 0, 1);
     if (err1) {
         Print("[ fs ] cannnot read volume image");
         exit(1);
@@ -566,12 +39,10 @@ void FileSystemServer::Initialize() {
     am_id_ = am_id;
 
     // supports only FAT32 TODO:supports other fat
-    if (boot_volume_image_.total_sectors_16 == 0) {
-        bytes_per_cluster_ = boot_volume_image_.bytes_per_sector *
-                             boot_volume_image_.sectors_per_cluster;
+    if (bpb_.total_sectors_16 == 0) {
+        bytes_per_cluster_ = bpb_.bytes_per_sector * bpb_.sectors_per_cluster;
 
-        fat_ = reinterpret_cast<uint32_t *>(
-            new char[boot_volume_image_.bytes_per_sector]);
+        fat_ = reinterpret_cast<uint32_t *>(new char[bpb_.bytes_per_sector]);
         cluster_buf_ =
             reinterpret_cast<uint32_t *>(new char[bytes_per_cluster_]);
 
@@ -592,24 +63,23 @@ void FileSystemServer::Initialize() {
 
 unsigned long FileSystemServer::GetFAT(unsigned long cluster) {
     unsigned long sector_offset =
-        cluster / (boot_volume_image_.bytes_per_sector / sizeof(uint32_t));
+        cluster / (bpb_.bytes_per_sector / sizeof(uint32_t));
 
     // copy only 1 block
     auto [ret, err] = SyscallReadVolumeImage(
-        fat_, boot_volume_image_.reserved_sector_count + sector_offset, 1);
+        fat_, bpb_.reserved_sector_count + sector_offset, 1);
 
     unsigned long index =
-        cluster - ((boot_volume_image_.bytes_per_sector / sizeof(uint32_t)) *
-                   sector_offset);
+        cluster - ((bpb_.bytes_per_sector / sizeof(uint32_t)) * sector_offset);
     return index;
 }
 
 void FileSystemServer::UpdateFAT(unsigned long cluster) {
     unsigned long sector_offset =
-        cluster / (boot_volume_image_.bytes_per_sector / sizeof(uint32_t));
+        cluster / (bpb_.bytes_per_sector / sizeof(uint32_t));
 
     auto [ret, err] = SyscallCopyToVolumeImage(
-        fat_, boot_volume_image_.reserved_sector_count + sector_offset, 1);
+        fat_, bpb_.reserved_sector_count + sector_offset, 1);
 }
 
 unsigned long FileSystemServer::NextCluster(unsigned long cluster) {
@@ -625,13 +95,12 @@ unsigned long FileSystemServer::NextCluster(unsigned long cluster) {
 uint32_t *FileSystemServer::ReadCluster(unsigned long cluster) {
     cluster_num_ = cluster;
 
-    unsigned long sector_offset =
-        boot_volume_image_.reserved_sector_count +
-        boot_volume_image_.num_fats * boot_volume_image_.fat_size_32 +
-        (cluster - 2) * boot_volume_image_.sectors_per_cluster;
+    unsigned long sector_offset = bpb_.reserved_sector_count +
+                                  bpb_.num_fats * bpb_.fat_size_32 +
+                                  (cluster - 2) * bpb_.sectors_per_cluster;
 
-    auto [ret, err] = SyscallReadVolumeImage(
-        cluster_buf_, sector_offset, boot_volume_image_.sectors_per_cluster);
+    auto [ret, err] = SyscallReadVolumeImage(cluster_buf_, sector_offset,
+                                             bpb_.sectors_per_cluster);
     if (err) {
         return nullptr;
     }
@@ -643,13 +112,12 @@ void FileSystemServer::UpdateCluster(unsigned long cluster) {
     if (cluster == 0) {
         cluster = cluster_num_;
     }
-    unsigned long sector_offset =
-        boot_volume_image_.reserved_sector_count +
-        boot_volume_image_.num_fats * boot_volume_image_.fat_size_32 +
-        (cluster - 2) * boot_volume_image_.sectors_per_cluster;
+    unsigned long sector_offset = bpb_.reserved_sector_count +
+                                  bpb_.num_fats * bpb_.fat_size_32 +
+                                  (cluster - 2) * bpb_.sectors_per_cluster;
 
-    auto [ret, err] = SyscallCopyToVolumeImage(
-        cluster_buf_, sector_offset, boot_volume_image_.sectors_per_cluster);
+    auto [ret, err] = SyscallCopyToVolumeImage(cluster_buf_, sector_offset,
+                                               bpb_.sectors_per_cluster);
 }
 
 bool FileSystemServer::NameIsEqual(DirectoryEntry &entry, const char *name) {
@@ -685,10 +153,10 @@ std::pair<const char *, bool> FileSystemServer::NextPathElement(
 std::pair<DirectoryEntry *, bool> FileSystemServer::FindFile(
     const char *path, unsigned long directory_cluster) {
     if (path[0] == '/') {
-        directory_cluster = boot_volume_image_.root_cluster;
+        directory_cluster = bpb_.root_cluster;
         ++path;
     } else if (directory_cluster == 0) {
-        directory_cluster = boot_volume_image_.root_cluster;
+        directory_cluster = bpb_.root_cluster;
     }
 
     char path_elem[13];
@@ -699,8 +167,7 @@ std::pair<DirectoryEntry *, bool> FileSystemServer::FindFile(
         DirectoryEntry *dir =
             reinterpret_cast<DirectoryEntry *>(ReadCluster(directory_cluster));
 
-        for (int i = 0; i < (boot_volume_image_.bytes_per_sector *
-                             boot_volume_image_.sectors_per_cluster) /
+        for (int i = 0; i < (bpb_.bytes_per_sector * bpb_.sectors_per_cluster) /
                                 sizeof(DirectoryEntry);
              ++i) {
             if (dir[i].name == 0x00) {
@@ -736,7 +203,7 @@ void FileSystemServer::ReadName(DirectoryEntry &entry, char *base, char *ext) {
 
 std::pair<DirectoryEntry *, int> FileSystemServer::CreateFile(
     const char *path) {
-    auto parent_dir_cluster = boot_volume_image_.root_cluster;
+    auto parent_dir_cluster = bpb_.root_cluster;
     const char *filename = path;
 
     if (const char *slash_pos = strrchr(path, '/')) {

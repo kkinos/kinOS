@@ -9,6 +9,7 @@
 
 #include "../../libs/common/message.hpp"
 #include "../../libs/common/template.hpp"
+#include "serverstate.hpp"
 
 struct BPB {
     uint8_t jump_boot[3];
@@ -70,123 +71,6 @@ struct DirectoryEntry {
     }
 } __attribute__((packed));
 
-class FileSystemServer;
-
-enum State {
-    StateErr,
-    StateInit,
-    StateExecFile,
-    StateExpandBuffer,
-    StateCopyToBuffer,
-    StateOpen,
-    StateRead,
-    StateWrite,
-};
-
-enum Target {
-    File,
-    Dir,
-};
-
-class ServerState {
-   public:
-    virtual ~ServerState() = default;
-    virtual ServerState *ReceiveMessage() = 0;
-    virtual ServerState *HandleMessage() = 0;
-    virtual ServerState *SendMessage() = 0;
-};
-
-class ErrState : public ::ServerState {
-   public:
-    explicit ErrState(FileSystemServer *server) { server_ = server; }
-    ServerState *ReceiveMessage() override { return this; }
-    ServerState *HandleMessage() override { return this; }
-    ServerState *SendMessage() override;
-
-   private:
-    FileSystemServer *server_;
-};
-
-class InitState : public ::ServerState {
-   public:
-    explicit InitState(FileSystemServer *server) { server_ = server; }
-    ServerState *ReceiveMessage() override;
-    ServerState *HandleMessage() override { return this; }
-    ServerState *SendMessage() override;
-
-   private:
-    FileSystemServer *server_;
-};
-
-class ExecFileState : public ::ServerState {
-   public:
-    explicit ExecFileState(FileSystemServer *server) { server_ = server; }
-    ServerState *ReceiveMessage() override;
-    ServerState *HandleMessage() override;
-    ServerState *SendMessage() override;
-
-   private:
-    FileSystemServer *server_;
-};
-
-class ExpandBufferState : public ::ServerState {
-   public:
-    explicit ExpandBufferState(FileSystemServer *server) { server_ = server; }
-    ServerState *ReceiveMessage() override;
-    ServerState *HandleMessage() override;
-    ServerState *SendMessage() override;
-
-   private:
-    FileSystemServer *server_;
-};
-
-class CopyToBufferState : public ::ServerState {
-   public:
-    explicit CopyToBufferState(FileSystemServer *server) { server_ = server; }
-    ServerState *ReceiveMessage() override { return this; }
-    ServerState *HandleMessage() override;
-    ServerState *SendMessage() override;
-
-   private:
-    FileSystemServer *server_;
-};
-
-class OpenState : public ::ServerState {
-   public:
-    explicit OpenState(FileSystemServer *server) { server_ = server; }
-    ServerState *ReceiveMessage() override { return this; }
-    ServerState *HandleMessage() override;
-    ServerState *SendMessage() override { return this; }
-
-    void SetTarget(Target target) { target_ = target; }
-
-   private:
-    FileSystemServer *server_;
-    Target target_;
-};
-
-class ReadState : public ::ServerState {
-   public:
-    explicit ReadState(FileSystemServer *server) { server_ = server; }
-    ServerState *ReceiveMessage() override { return this; }
-    ServerState *HandleMessage() override;
-    ServerState *SendMessage() override { return this; }
-
-   private:
-    FileSystemServer *server_;
-};
-
-class WriteState : public ::ServerState {
-   public:
-    explicit WriteState(FileSystemServer *server) { server_ = server; }
-    ServerState *ReceiveMessage() override { return this; }
-    ServerState *HandleMessage() override;
-    ServerState *SendMessage() override;
-
-   private:
-    FileSystemServer *server_;
-};
-
 class FileSystemServer {
    public:
     FileSystemServer();
@@ -198,22 +82,24 @@ class FileSystemServer {
 
    private:
     ServerState *GetServerState(State state) { return state_pool_[state]; }
-
-    Message send_message_;
-    Message received_message_;
-
     std::vector<::ServerState *> state_pool_{};
-
-    BPB boot_volume_image_;
-    DirectoryEntry *target_file_entry_;
-    uint64_t target_task_id_;
-    unsigned long bytes_per_cluster_;
-    uint32_t *fat_;  // 1 block = 512 bytes
-    uint32_t *cluster_buf_;
-    size_t cluster_num_;
 
     uint64_t am_id_;
     ServerState *state_ = nullptr;
+
+    Message sm_;
+    Message rm_;
+
+    BPB bpb_;
+    uint32_t *fat_;  // 1 block = 512 bytes
+    uint32_t *cluster_buf_;
+
+    unsigned long bytes_per_cluster_;
+
+    DirectoryEntry *target_entry_;
+    uint64_t target_id_;
+
+    size_t cluster_num_;
 
     unsigned long GetFAT(unsigned long cluster);
     void UpdateFAT(unsigned long cluster);
@@ -248,4 +134,4 @@ class FileSystemServer {
     friend WriteState;
 };
 
-FileSystemServer *server;
+extern FileSystemServer *server;
