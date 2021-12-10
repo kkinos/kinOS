@@ -1,4 +1,4 @@
 TARGET = am
-OBJS = am.o 
+OBJS = am.o filedescriptor.o appmanager.o serverstate.o
 
 include ../Makefile.elfserver
