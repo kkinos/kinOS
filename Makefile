@@ -30,7 +30,7 @@ server:
 
 .PHONY: run
 run:
-		APPS_DIR=apps  SERVS_DIR=servers KINOS_DIR=$(WORKDIR) $(WORKDIR)/tools/run_kinos.sh
+		APPS_DIR=apps  SERVS_DIR=servers RESOURCE_DIR=resouce KINOS_DIR=$(WORKDIR) $(WORKDIR)/tools/run_kinos.sh
 
 
 .PHONY: clean
