@@ -33,7 +33,7 @@ void InitializeMainWindow() {
 
 void PrintMessage() {
     printk("\n");
-    printk("###    ###                            #######       #######  \n");
+    printk("###                                   #######       #######  \n");
     printk("###   ###                           ###     ###   ###     ###\n");
     printk("###  ###       ###                  ###     ###    ###       \n");
     printk("### ###        ###     ##########   ###     ###      ###     \n");
