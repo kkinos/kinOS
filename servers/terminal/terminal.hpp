@@ -26,15 +26,15 @@ Vector2D<int> kTopLeftMargin = {4, 24};
 std::deque<std::array<char, kLineMax>> cmd_history_{};
 int cmd_history_index_{-1};
 
-int last_exit_code_{0};
-char* subcommand;
-uint64_t waiting_task_id_;
-
 static const int kLControlBitMask = 0b00000001u;
 static const int kRControlBitMask = 0b00010000u;
 
-Message send_message[1];
-Message received_message[1];
+Message sm[1];
+Message rm[1];
+
+int last_exit_code_{0};
+char* subcommand;
+uint64_t waiting_id;
 
 Vector2D<int> CalcCursorPos();
 void DrawCursor(uint64_t layer_id, bool visible);

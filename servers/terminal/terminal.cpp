@@ -235,9 +235,9 @@ void ExecuteFile(uint64_t layer_id, char *line) {
         return;
     }
 
-    send_message[0].type = Message::kExecuteFile;
-    memset(send_message[0].arg.executefile.filename, 0,
-           sizeof(send_message[0].arg.executefile.filename));
+    sm[0].type = Message::kExecuteFile;
+    memset(sm[0].arg.executefile.filename, 0,
+           sizeof(sm[0].arg.executefile.filename));
     int i = 0;
     while (*command) {
         if (i > 25) {
@@ -245,14 +245,13 @@ void ExecuteFile(uint64_t layer_id, char *line) {
             return;
         }
 
-        send_message[0].arg.executefile.filename[i] = *command;
+        sm[0].arg.executefile.filename[i] = *command;
         ++i;
         ++command;
     }
-    send_message[0].arg.executefile.filename[i] = '\0';
+    sm[0].arg.executefile.filename[i] = '\0';
 
-    memset(send_message[0].arg.executefile.arg, 0,
-           sizeof(send_message[0].arg.executefile.arg));
+    memset(sm[0].arg.executefile.arg, 0, sizeof(sm[0].arg.executefile.arg));
     i = 0;
     if (first_arg) {
         while (*first_arg) {
@@ -267,7 +266,7 @@ void ExecuteFile(uint64_t layer_id, char *line) {
                 sprintf(exit_code, "%d", last_exit_code_);
                 p = &exit_code[0];
                 while (*p) {
-                    send_message[0].arg.executefile.arg[i] = *p;
+                    sm[0].arg.executefile.arg[i] = *p;
                     ++p;
                     ++i;
                 }
@@ -275,38 +274,37 @@ void ExecuteFile(uint64_t layer_id, char *line) {
                 ++first_arg;
 
             } else {
-                send_message[0].arg.executefile.arg[i] = *first_arg;
+                sm[0].arg.executefile.arg[i] = *first_arg;
                 ++i;
                 ++first_arg;
             }
         }
     }
 
-    send_message[0].arg.executefile.arg[i] = '\0';
+    sm[0].arg.executefile.arg[i] = '\0';
 
     if (pipe_char) {
         subcommand = &pipe_char[0];
         while (isspace(*subcommand)) {
             ++subcommand;
         }
-        send_message[0].arg.executefile.pipe = true;
-        send_message[0].arg.executefile.redirect = false;
-        SyscallSendMessage(send_message, am_id);
+        sm[0].arg.executefile.pipe = true;
+        sm[0].arg.executefile.redirect = false;
+        SyscallSendMessage(sm, am_id);
 
         while (true) {
-            SyscallClosedReceiveMessage(received_message, 1, am_id);
-            switch (received_message[0].type) {
+            SyscallClosedReceiveMessage(rm, 1, am_id);
+            switch (rm[0].type) {
                 case Message::kError:
-                    if (received_message[0].arg.error.retry) {
-                        SyscallSendMessage(send_message, am_id);
+                    if (rm[0].arg.error.retry) {
+                        SyscallSendMessage(sm, am_id);
                         break;
                     } else {
-                        if (received_message[0].arg.error.err == ENOENT) {
+                        if (rm[0].arg.error.err == ENOENT) {
                             last_exit_code_ = 1;
                             PrintT(layer_id, "no such file\n");
                             return;
-                        } else if (received_message[0].arg.error.err ==
-                                   EISDIR) {
+                        } else if (rm[0].arg.error.err == EISDIR) {
                             last_exit_code_ = 1;
                             PrintT(layer_id, "this is a directory\n");
                             return;
@@ -326,14 +324,14 @@ void ExecuteFile(uint64_t layer_id, char *line) {
         }
 
     } else {
-        send_message[0].arg.executefile.pipe = false;
+        sm[0].arg.executefile.pipe = false;
         if (redir_char) {
-            send_message[0].arg.executefile.redirect = true;
+            sm[0].arg.executefile.redirect = true;
         } else {
-            send_message[0].arg.executefile.redirect = false;
+            sm[0].arg.executefile.redirect = false;
         }
 
-        SyscallSendMessage(send_message, am_id);
+        SyscallSendMessage(sm, am_id);
 
         // redirect
         if (redir_char) {
@@ -342,9 +340,9 @@ void ExecuteFile(uint64_t layer_id, char *line) {
                 ++redir_filename;
             }
 
-            send_message[0].type = Message::kRedirect;
-            memset(send_message[0].arg.redirect.filename, 0,
-                   sizeof(send_message[0].arg.redirect.filename));
+            sm[0].type = Message::kRedirect;
+            memset(sm[0].arg.redirect.filename, 0,
+                   sizeof(sm[0].arg.redirect.filename));
             i = 0;
             if (redir_filename) {
                 while (*redir_filename) {
@@ -352,29 +350,29 @@ void ExecuteFile(uint64_t layer_id, char *line) {
                         PrintT(layer_id, "too long file name\n");
                         return;
                     }
-                    send_message[0].arg.redirect.filename[i] = *redir_filename;
+                    sm[0].arg.redirect.filename[i] = *redir_filename;
                     ++i;
                     ++redir_filename;
                 }
             }
-            SyscallSendMessage(send_message, am_id);
+            SyscallSendMessage(sm, am_id);
         }
     }
 
     while (true) {
-        SyscallClosedReceiveMessage(received_message, 1, am_id);
+        SyscallClosedReceiveMessage(rm, 1, am_id);
 
-        switch (received_message[0].type) {
+        switch (rm[0].type) {
             case Message::kError:
-                if (received_message[0].arg.error.retry) {
-                    SyscallSendMessage(send_message, am_id);
+                if (rm[0].arg.error.retry) {
+                    SyscallSendMessage(sm, am_id);
                     break;
                 } else {
-                    if (received_message[0].arg.error.err == ENOENT) {
+                    if (rm[0].arg.error.err == ENOENT) {
                         last_exit_code_ = 1;
                         PrintT(layer_id, "no such file\n");
                         return;
-                    } else if (received_message[0].arg.error.err == EISDIR) {
+                    } else if (rm[0].arg.error.err == EISDIR) {
                         last_exit_code_ = 1;
                         PrintT(layer_id, "this is a directory\n");
                         return;
@@ -386,40 +384,35 @@ void ExecuteFile(uint64_t layer_id, char *line) {
                 }
 
             case Message::kExecuteFile: {
-                waiting_task_id_ = received_message[0].arg.executefile.id;
+                waiting_id = rm[0].arg.executefile.id;
             } break;
 
             case Message::kWrite:
-                Print(layer_id, received_message[0].arg.write.data,
-                      received_message[0].arg.write.len);
+                Print(layer_id, rm[0].arg.write.data, rm[0].arg.write.len);
                 break;
 
             case Message::kRead: {
                 while (1) {
-                    SyscallOpenReceiveMessage(received_message, 1);
-                    if (received_message[0].type == Message::kKeyPush &&
-                        received_message[0].arg.keyboard.press) {
-                        if (received_message[0].arg.keyboard.modifier &
+                    SyscallOpenReceiveMessage(rm, 1);
+                    if (rm[0].type == Message::kKeyPush &&
+                        rm[0].arg.keyboard.press) {
+                        if (rm[0].arg.keyboard.modifier &
                             (kLControlBitMask | kRControlBitMask)) {
                             char s[3] = "^ ";
-                            s[1] =
-                                toupper(received_message[0].arg.keyboard.ascii);
-                            if (received_message[0].arg.keyboard.keycode ==
-                                7 /* D */) {
-                                send_message[0].type = Message::kRead;
-                                send_message[0].arg.read.len = 0;  // EOT
+                            s[1] = toupper(rm[0].arg.keyboard.ascii);
+                            if (rm[0].arg.keyboard.keycode == 7 /* D */) {
+                                sm[0].type = Message::kRead;
+                                sm[0].arg.read.len = 0;  // EOT
                                 PrintT(layer_id, "%s\n", s);
-                                SyscallSendMessage(send_message, am_id);
+                                SyscallSendMessage(sm, am_id);
                                 break;
                             }
                         } else {
-                            PrintT(layer_id,
-                                   &received_message[0].arg.keyboard.ascii);
-                            send_message[0].type = Message::kRead;
-                            send_message[0].arg.read.data[0] =
-                                received_message[0].arg.keyboard.ascii;
-                            send_message[0].arg.read.len = 1;
-                            SyscallSendMessage(send_message, am_id);
+                            PrintT(layer_id, &rm[0].arg.keyboard.ascii);
+                            sm[0].type = Message::kRead;
+                            sm[0].arg.read.data[0] = rm[0].arg.keyboard.ascii;
+                            sm[0].arg.read.len = 1;
+                            SyscallSendMessage(sm, am_id);
                             break;
                         }
                     }
@@ -429,28 +422,27 @@ void ExecuteFile(uint64_t layer_id, char *line) {
 
             case Message::kWaitingKey: {
                 while (1) {
-                    SyscallOpenReceiveMessage(received_message, 1);
-                    if (received_message[0].type == Message::kKeyPush &&
-                        received_message[0].arg.keyboard.press) {
-                        SyscallSendMessage(received_message, am_id);
+                    SyscallOpenReceiveMessage(rm, 1);
+                    if (rm[0].type == Message::kKeyPush &&
+                        rm[0].arg.keyboard.press) {
+                        SyscallSendMessage(rm, am_id);
                         break;
-                    } else if (received_message[0].type == Message::kQuit) {
-                        SyscallSendMessage(received_message, am_id);
+                    } else if (rm[0].type == Message::kQuit) {
+                        SyscallSendMessage(rm, am_id);
                         break;
                     }
                 }
             } break;
 
             case Message::kExitApp:
-                last_exit_code_ = received_message[0].arg.exitapp.result;
-                if (waiting_task_id_ == received_message[0].arg.exitapp.id) {
+                last_exit_code_ = rm[0].arg.exitapp.result;
+                if (waiting_id == rm[0].arg.exitapp.id) {
                     return;
                 }
                 break;
 
             default:
-                PrintT(layer_id, "Unknown message type: %d\n",
-                       received_message[0].type);
+                PrintT(layer_id, "Unknown message type: %d\n", rm[0].type);
                 break;
         }
     }
@@ -473,14 +465,13 @@ extern "C" void main() {
     SyscallWriteKernelLog("[ terminal ] ready\n");
 
     while (true) {
-        SyscallOpenReceiveMessage(received_message, 1);
+        SyscallOpenReceiveMessage(rm, 1);
 
-        if (received_message[0].type == Message::kKeyPush) {
-            if (received_message[0].arg.keyboard.press) {
+        if (rm[0].type == Message::kKeyPush) {
+            if (rm[0].arg.keyboard.press) {
                 const auto area = InputKey(
-                    layer_id, received_message[0].arg.keyboard.modifier,
-                    received_message[0].arg.keyboard.keycode,
-                    received_message[0].arg.keyboard.ascii);
+                    layer_id, rm[0].arg.keyboard.modifier,
+                    rm[0].arg.keyboard.keycode, rm[0].arg.keyboard.ascii);
             }
         }
     }
