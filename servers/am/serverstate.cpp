@@ -460,22 +460,33 @@ ServerState* WriteState::SendMessage() {
 }
 
 ServerState* WaitingKeyState::HandleMessage() {
-    server_->target_id_ = server_->rm_.src_task;
-    server_->sm_.type = Message::kReceived;
-    SyscallSendMessage(&server_->sm_, server_->target_id_);
-    server_->waiting_task_id_ = server_->target_id_;
+    if (waiting_) {
+        server_->sm_ = server_->rm_;
+        waiting_ = false;
+        return this;
+    } else {
+        waiting_id_ = server_->rm_.src_task;
+        server_->sm_.type = Message::kReceived;
+        SyscallSendMessage(&server_->sm_, waiting_id_);
 
-    auto app_info = server_->app_manager_->GetAppInfo(server_->target_id_);
-    uint64_t pid = app_info->PID();
+        auto app_info = server_->app_manager_->GetAppInfo(waiting_id_);
+        uint64_t pid = app_info->PID();
 
-    server_->target_id_ = pid;
-    server_->sm_.type = Message::kWaitingKey;
-    return this;
+        server_->target_id_ = pid;
+        server_->sm_.type = Message::kWaitingKey;
+        waiting_ = true;
+        return this;
+    }
 }
 
 ServerState* WaitingKeyState::SendMessage() {
-    SyscallSendMessage(&server_->sm_, server_->target_id_);
-    return this;
+    if (waiting_) {
+        SyscallSendMessage(&server_->sm_, server_->target_id_);
+        return this;
+    } else {
+        SyscallSendMessage(&server_->sm_, waiting_id_);
+        return server_->GetServerState(State::StateInit);
+    }
 }
 
 ServerState* WaitingKeyState::ReceiveMessage() {
@@ -483,11 +494,9 @@ ServerState* WaitingKeyState::ReceiveMessage() {
         SyscallClosedReceiveMessage(&server_->rm_, 1, server_->target_id_);
         switch (server_->rm_.type) {
             case Message::kKeyPush:
-            case Message::kQuit: {
-                SyscallSendMessage(&server_->rm_, server_->waiting_task_id_);
-                return server_->GetServerState(State::StateErr);
-
-            } break;
+            case Message::kQuit:
+                return this;
+                break;
 
             default: {
                 Message m;

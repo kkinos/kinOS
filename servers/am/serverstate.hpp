@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdio>
 
 enum State {
     StateErr,
@@ -206,4 +207,6 @@ class WaitingKeyState : public ::ServerState {
 
    private:
     ApplicationManagementServer* server_;
+    uint64_t waiting_id_;
+    bool waiting_{false};
 };

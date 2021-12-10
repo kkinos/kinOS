@@ -51,8 +51,6 @@ class ApplicationManagementServer {
     uint64_t pipe_task_id_;
     std::shared_ptr<PipeFileDescriptor> pipe_fd_;
 
-    uint64_t waiting_task_id_;
-
     friend ErrState;
     friend InitState;
     friend ExecFileState;
