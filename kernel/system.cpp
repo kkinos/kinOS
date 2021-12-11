@@ -389,6 +389,10 @@ WithError<int> ExecuteApp(Elf64_Ehdr *elf_header, char *command,
     return {ret, FreePML4(task)};
 };
 
+extern const uint8_t _binary____servers_init_init_start;
+extern const uint8_t _binary____servers_init_init_end;
+extern const uint8_t _binary____servers_init_init_size;
+
 void TaskInitServer(uint64_t task_id, int64_t data) {
     const auto task_of_server_data = reinterpret_cast<DataOfServer *>(data);
 
@@ -396,17 +400,18 @@ void TaskInitServer(uint64_t task_id, int64_t data) {
     auto &task = task_manager->CurrentTask();
     __asm__("sti");
 
-    auto [file_entry, post_slash] =
-        fat::FindFile(task_of_server_data->file_name);
-    if (!file_entry) {
-        printk("[ kinOS ] no such server %s\n", task_of_server_data->file_name);
-    } else {
-        auto [ec, err] =
-            ExecuteInitServer(*file_entry, task_of_server_data->file_name, "");
-        if (err) {
-            printk("[ kinOS ] cannnot execute server\n");
-        }
+    size_t binary_init_size =
+        reinterpret_cast<size_t>(&_binary____servers_init_init_size);
+    std::vector<uint8_t> file_buf(binary_init_size);
+
+    memcpy(&file_buf[0], &_binary____servers_init_init_start, binary_init_size);
+    auto elf_header = reinterpret_cast<Elf64_Ehdr *>(&file_buf[0]);
+
+    auto [ec, err] = ExecuteServer(elf_header, task_of_server_data->file_name);
+    if (err) {
+        printk("[ kinOS ] cannnot execute server\n");
     }
+
     while (true) __asm__("hlt");
 }
 

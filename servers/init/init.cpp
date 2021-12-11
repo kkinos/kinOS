@@ -12,7 +12,7 @@ InitServer::InitServer() {}
 void InitServer::Initialize() {
     auto [ret, err] = SyscallReadVolumeImage(&boot_volume_image_, 0, 1);
     if (err) {
-        Print("[ init ] cannnot read volume image");
+        Print("[ init ] cannnot read volume image\n");
     }
 
     // supports only FAT32 TODO:supports other fat

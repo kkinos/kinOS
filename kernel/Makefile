@@ -1,8 +1,8 @@
 TARGET = kernel.elf
-OBJS = main.o graphics.o mouse.o font.o hankaku.o newlib_support.o \
+OBJS = main.o graphics.o mouse.o font.o hankaku.o newlib_support.o  init.o \
        pci.o asmfunc.o libcxx_support.o logger.o interrupt.o segment.o paging.o memory_manager.o \
        timer.o frame_buffer.o acpi.o keyboard.o task.o shell.o \
-       fat.o syscall.o file.o system.o\
+       fat.o syscall.o file.o system.o  \
        usb/memory.o usb/device.o usb/xhci/ring.o usb/xhci/trb.o usb/xhci/xhci.o \
        usb/xhci/port.o usb/xhci/device.o usb/xhci/devmgr.o usb/xhci/registers.o \
        usb/classdriver/base.o usb/classdriver/hid.o usb/classdriver/keyboard.o \
@@ -14,6 +14,7 @@ WORK_DIR=..
 LIBC_DIR=$(WORK_DIR)/tools/x86_64-elf
 EDK2_DIR=$(WORK_DIR)/tools/edk2
 MKFONT_CMD=$(WORK_DIR)/tools/mkfont/makefont.py
+INIT_SERV_DIR=$(WORK_DIR)/servers/init
 
 
 CPPFLAGS += -I$(LIBC_DIR)/include/c++/v1 -I$(LIBC_DIR)/include -I$(LIBC_DIR)/include/freetype2 \
@@ -62,6 +63,13 @@ hankaku.bin: hankaku.txt
 
 hankaku.o: hankaku.bin
 	objcopy -I binary -O elf64-x86-64 -B i386:x86-64 $< $@
+
+init:
+	make -C $(INIT_SERV_DIR)
+
+init.o: init
+	objcopy -I binary -O elf64-x86-64 -B i386:x86-64 $(INIT_SERV_DIR)/$< $@
+
 
 .%.d: %.bin
 	touch $@
