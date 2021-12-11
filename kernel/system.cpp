@@ -6,7 +6,6 @@
 #include "asmfunc.h"
 #include "memory_manager.hpp"
 #include "paging.hpp"
-#include "shell.hpp"
 
 /*--------------------------------------------------------------------------
  * functions to execute file
@@ -143,52 +142,6 @@ Error FreePML4(Task &current_task) {
 }
 
 /**
- * @brief set up a paging structure for the task and copy the LOAD segment into
- * memory
- *
- * @param file_entry
- * @param task task for server
- * @return WithError<AppLoadInfo>
- */
-WithError<AppLoadInfo> LoadServer(fat::DirectoryEntry &file_entry, Task &task) {
-    PageMapEntry *temp_pml4;
-
-    // set up a new PML4. the first half is for OS the second half is for
-    // application
-    if (auto [pml4, err] = SetupPML4(task); err) {
-        return {{}, err};
-    } else {
-        temp_pml4 = pml4;
-    }
-
-    std::vector<uint8_t> file_buf(file_entry.file_size);
-    fat::LoadFile(&file_buf[0], file_buf.size(), file_entry);
-
-    auto elf_header = reinterpret_cast<Elf64_Ehdr *>(&file_buf[0]);
-    if (memcmp(elf_header->e_ident,
-               "\x7f"
-               "ELF",
-               4) != 0) {
-        return {{}, MAKE_ERROR(Error::kInvalidFile)};
-    }
-
-    auto [last_addr, err_load] = LoadELF(elf_header);
-    if (err_load) {
-        return {{}, err_load};
-    }
-
-    AppLoadInfo app_load{last_addr, elf_header->e_entry, temp_pml4};
-
-    if (auto [pml4, err] = SetupPML4(task); err) {
-        return {app_load, err};
-    } else {
-        app_load.pml4 = pml4;
-    }
-    auto err = CopyPageMaps(app_load.pml4, temp_pml4, 4, 256);
-    return {app_load, err};
-}
-
-/**
  * @brief
  *
  * @param elf_header
@@ -228,60 +181,7 @@ WithError<AppLoadInfo> LoadApp(Elf64_Ehdr *elf_header, Task &task) {
 }
 }  // namespace
 
-WithError<int> ExecuteInitServer(fat::DirectoryEntry &file_entry, char *command,
-                                 char *first_arg) {
-    __asm__("cli");
-    auto &task = task_manager->CurrentTask();
-    __asm__("sti");
-
-    auto [app_load, err] = LoadServer(file_entry, task);
-    if (err) {
-        return {0, err};
-    }
-
-    task.SetName(command);
-
-    LinearAddress4Level args_frame_addr{0xffff'ffff'ffff'f000};
-    if (auto err = SetupPageMaps(args_frame_addr, 1)) {
-        return {0, err};
-    }
-    auto argv = reinterpret_cast<char **>(args_frame_addr.value);
-    int argv_len = 32;  // argv = 8x32 = 256 bytes
-    auto argbuf = reinterpret_cast<char *>(args_frame_addr.value +
-                                           sizeof(char **) * argv_len);
-    int argbuf_len = 4096 - sizeof(char **) * argv_len;
-    auto argc =
-        MakeArgVector(command, first_arg, argv, argv_len, argbuf, argbuf_len);
-    if (argc.error) {
-        return {0, argc.error};
-    }
-
-    const int stack_size = 16 * 4096;
-    LinearAddress4Level stack_frame_addr{0xffff'ffff'ffff'f000 - stack_size};
-    if (auto err = SetupPageMaps(stack_frame_addr, stack_size / 4096)) {
-        return {0, err};
-    }
-
-    const uint64_t elf_next_page =
-        (app_load.vaddr_end + 4095) & 0xffff'ffff'ffff'f000;
-    task.SetDPagingBegin(elf_next_page);
-    task.SetDPagingEnd(elf_next_page);
-
-    task.SetFileMapEnd(stack_frame_addr.value);
-
-    int ret =
-        CallApp(argc.value, argv, 3 << 3 | 3, app_load.entry,
-                stack_frame_addr.value + 4096 - 8, &task.OSStackPointer());
-
-    // task.Files().clear();
-    task.FileMaps().clear();
-
-    if (auto err = CleanPageMaps(LinearAddress4Level{0xffff'8000'0000'0000})) {
-        return {ret, err};
-    }
-
-    return {ret, FreePML4(task)};
-}
+std::map<fat::DirectoryEntry*, AppLoadInfo>* app_loads;
 
 WithError<int> ExecuteServer(Elf64_Ehdr *elf_header, char *server_name) {
     __asm__("cli");

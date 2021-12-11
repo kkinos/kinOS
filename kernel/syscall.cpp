@@ -13,7 +13,6 @@
 #include "keyboard.hpp"
 #include "logger.hpp"
 #include "msr.hpp"
-#include "shell.hpp"
 #include "system.hpp"
 #include "task.hpp"
 #include "timer.hpp"

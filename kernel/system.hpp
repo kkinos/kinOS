@@ -15,12 +15,17 @@ struct DataOfServer {
     char *file_name;
 };
 
+struct AppLoadInfo {
+    uint64_t vaddr_end, entry;
+    PageMapEntry *pml4;
+};
+
+extern std::map<fat::DirectoryEntry *, AppLoadInfo> *app_loads;
+
 void TaskInitServer(uint64_t task_id, int64_t data);
 void TaskServer(uint64_t task_id, int64_t init_id);
 void TaskApp(uint64_t task_id, int64_t am_id);
 
-WithError<int> ExecuteInitServer(fat::DirectoryEntry &file_entry, char *command,
-                                 char *first_arg);
 WithError<int> ExecuteServer(Elf64_Ehdr *elf_header, char *server_name);
 WithError<int> ExecuteApp(Elf64_Ehdr *elf_header, char *command,
                           char *first_arg);

@@ -28,7 +28,6 @@
 #include "paging.hpp"
 #include "pci.hpp"
 #include "segment.hpp"
-#include "shell.hpp"
 #include "syscall.hpp"
 #include "system.hpp"
 #include "task.hpp"

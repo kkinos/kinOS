@@ -2,7 +2,6 @@
 
 #include "asmfunc.h"
 #include "segment.hpp"
-#include "shell.hpp"
 #include "system.hpp"
 #include "timer.hpp"
 
