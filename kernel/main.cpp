@@ -15,7 +15,6 @@
 #include "../libs/common/message.hpp"
 #include "acpi.hpp"
 #include "asmfunc.h"
-#include "fat.hpp"
 #include "font.hpp"
 #include "frame_buffer_config.hpp"
 #include "graphics.hpp"
@@ -73,10 +72,6 @@ extern "C" void KernelMainNewStack(
     usb::xhci::Initialize();
     InitializeKeyboard();
     InitializeMouse();
-
-    app_loads = new std::map<fat::DirectoryEntry*, AppLoadInfo>;
-
-    fat::Initialize(volume_image);
 
     InitializeSystemTask(volume_image);
 

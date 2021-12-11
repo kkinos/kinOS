@@ -181,8 +181,6 @@ WithError<AppLoadInfo> LoadApp(Elf64_Ehdr *elf_header, Task &task) {
 }
 }  // namespace
 
-std::map<fat::DirectoryEntry*, AppLoadInfo>* app_loads;
-
 WithError<int> ExecuteServer(Elf64_Ehdr *elf_header, char *server_name) {
     __asm__("cli");
     auto &task = task_manager->CurrentTask();
@@ -220,14 +218,9 @@ WithError<int> ExecuteServer(Elf64_Ehdr *elf_header, char *server_name) {
     task.SetDPagingBegin(elf_next_page);
     task.SetDPagingEnd(elf_next_page);
 
-    task.SetFileMapEnd(stack_frame_addr.value);
-
     int ret =
         CallApp(argc.value, argv, 3 << 3 | 3, app_load.entry,
                 stack_frame_addr.value + 4096 - 8, &task.OSStackPointer());
-
-    // task.Files().clear();
-    task.FileMaps().clear();
 
     if (auto err = CleanPageMaps(LinearAddress4Level{0xffff'8000'0000'0000})) {
         return {ret, err};
@@ -273,14 +266,9 @@ WithError<int> ExecuteApp(Elf64_Ehdr *elf_header, char *command,
     task.SetDPagingBegin(elf_next_page);
     task.SetDPagingEnd(elf_next_page);
 
-    task.SetFileMapEnd(stack_frame_addr.value);
-
     int ret =
         CallApp(argc.value, argv, 3 << 3 | 3, app_load.entry,
                 stack_frame_addr.value + 4096 - 8, &task.OSStackPointer());
-
-    // task.Files().clear();
-    task.FileMaps().clear();
 
     if (auto err = CleanPageMaps(LinearAddress4Level{0xffff'8000'0000'0000})) {
         return {ret, err};

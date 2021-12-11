@@ -6,21 +6,18 @@
 #include <optional>
 
 #include "elf.hpp"
-#include "fat.hpp"
 #include "task.hpp"
 
 #define SECTOR_SIZE 512
-
-struct DataOfServer {
-    char *file_name;
-};
 
 struct AppLoadInfo {
     uint64_t vaddr_end, entry;
     PageMapEntry *pml4;
 };
 
-extern std::map<fat::DirectoryEntry *, AppLoadInfo> *app_loads;
+struct DataOfServer {
+    char *file_name;
+};
 
 void TaskInitServer(uint64_t task_id, int64_t data);
 void TaskServer(uint64_t task_id, int64_t init_id);
