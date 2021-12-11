@@ -58,78 +58,6 @@ SYSCALL(CreateTimer) {
     return {timeout * 1000 / kTimerFreq, 0};
 }
 
-namespace {
-size_t AllocateFD(Task &task) {
-    const size_t num_files = task.Files().size();
-    for (size_t i = 0; i < num_files; ++i) {
-        if (!task.Files()[i]) {
-            return i;
-        }
-    }
-    task.Files().emplace_back();
-    return num_files;
-}
-
-std::pair<fat::DirectoryEntry *, int> CreateFile(const char *path) {
-    auto [file, err] = fat::CreateFile(path);
-    switch (err.Cause()) {
-        case Error::kIsDirectory:
-            return {file, EISDIR};
-        case Error::kNoSuchEntry:
-            return {file, ENOENT};
-        case Error::kNoEnoughMemory:
-            return {file, ENOSPC};
-        default:
-            return {file, 0};
-    }
-}
-
-}  // namespace
-
-SYSCALL(OpenFile) {
-    const char *path = reinterpret_cast<const char *>(arg1);
-    const int flags = arg2;
-    __asm__("cli");
-    auto &task = task_manager->CurrentTask();
-    __asm__("sti");
-
-    if (strcmp(path, "@stdin") == 0) {
-        return {0, 0};
-    }
-
-    auto [file, post_slash] = fat::FindFile(path);
-    if (file == nullptr) {
-        if ((flags & O_CREAT) == 0) {
-            return {0, ENOENT};
-        }
-        auto [new_file, err] = CreateFile(path);
-        if (err) {
-            return {0, err};
-        }
-        file = new_file;
-    } else if (file->attr != fat::Attribute::kDirectory && post_slash) {
-        return {0, ENOENT};
-    }
-
-    size_t fd = AllocateFD(task);
-    task.Files()[fd] = std::make_unique<fat::FileDescriptor>(*file);
-    return {fd, 0};
-}
-
-SYSCALL(ReadFile) {
-    const int fd = arg1;
-    void *buf = reinterpret_cast<void *>(arg2);
-    size_t count = arg3;
-    __asm__("cli");
-    auto &task = task_manager->CurrentTask();
-    __asm__("sti");
-
-    if (fd < 0 || task.Files().size() <= fd || !task.Files()[fd]) {
-        return {0, EBADF};
-    }
-    return {task.Files()[fd]->Read(buf, count), 0};
-}
-
 SYSCALL(DemandPages) {
     const size_t num_pages = arg1;
     __asm__("cli");
@@ -139,26 +67,6 @@ SYSCALL(DemandPages) {
     const uint64_t dp_end = task.DPagingEnd();
     task.SetDPagingEnd(dp_end + 4096 * num_pages);
     return {dp_end, 0};
-}
-
-SYSCALL(MapFile) {
-    const int fd = arg1;
-    size_t *file_size = reinterpret_cast<size_t *>(arg2);
-    __asm__("cli");
-    auto &task = task_manager->CurrentTask();
-    __asm__("sti");
-
-    if (fd < 0 || task.Files().size() <= fd || !task.Files()[fd]) {
-        return {0, EBADF};
-    }
-
-    *file_size = task.Files()[fd]->Size();
-    const uint64_t vaddr_end = task.FileMapEnd();
-    const uint64_t vaddr_begin =
-        (vaddr_end - *file_size) & 0xffff'ffff'ffff'f000;
-    task.SetFileMapEnd(vaddr_begin);
-    task.FileMaps().push_back(FileMapping{fd, vaddr_begin, vaddr_end});
-    return {vaddr_begin, 0};
 }
 
 SYSCALL(CreateNewTask) { return {task_manager->NewTask().ID(), 0}; }
@@ -382,30 +290,27 @@ SYSCALL(WriteKernelLog) {
 
 using SyscallFuncType = syscall::Result(uint64_t, uint64_t, uint64_t, uint64_t,
                                         uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType *, 0x17> syscall_table{
+extern "C" std::array<SyscallFuncType *, 0x14> syscall_table{
     /* 0x00 */ syscall::Exit,
     /* 0x01 */ syscall::GetCurrentTick,
     /* 0x02 */ syscall::CreateTimer,
-    /* 0x03 */ syscall::OpenFile,
-    /* 0x04 */ syscall::ReadFile,
-    /* 0x05 */ syscall::DemandPages,
-    /* 0x06 */ syscall::MapFile,
-    /* 0x07 */ syscall::CreateNewTask,
-    /* 0x08 */ syscall::CopyToTaskBuffer,
-    /* 0x09 */ syscall::SetCommand,
-    /* 0x0a */ syscall::SetArgument,
-    /* 0x0b */ syscall::FindServer,
-    /* 0x0c */ syscall::OpenReceiveMessage,
-    /* 0x0d */ syscall::ClosedReceiveMessage,
-    /* 0x0e */ syscall::SendMessage,
-    /* 0x0f */ syscall::WritePixel,
-    /* 0x10 */ syscall::GetFrameBufferWitdth,
-    /* 0x11 */ syscall::GetFrameBufferHeight,
-    /* 0x12 */ syscall::CopyToFrameBuffer,
-    /* 0x13 */ syscall::ReadVolumeImage,
-    /* 0x14 */ syscall::CopyToVolumeImage,
-    /* 0x15 */ syscall::ReadKernelLog,
-    /* 0x16 */ syscall::WriteKernelLog,
+    /* 0x03 */ syscall::DemandPages,
+    /* 0x04 */ syscall::CreateNewTask,
+    /* 0x05 */ syscall::CopyToTaskBuffer,
+    /* 0x06 */ syscall::SetCommand,
+    /* 0x07 */ syscall::SetArgument,
+    /* 0x08 */ syscall::FindServer,
+    /* 0x09 */ syscall::OpenReceiveMessage,
+    /* 0x0a */ syscall::ClosedReceiveMessage,
+    /* 0x0b */ syscall::SendMessage,
+    /* 0x0c */ syscall::WritePixel,
+    /* 0x0d */ syscall::GetFrameBufferWitdth,
+    /* 0x0e */ syscall::GetFrameBufferHeight,
+    /* 0x0f */ syscall::CopyToFrameBuffer,
+    /* 0x10 */ syscall::ReadVolumeImage,
+    /* 0x11 */ syscall::CopyToVolumeImage,
+    /* 0x12 */ syscall::ReadKernelLog,
+    /* 0x13 */ syscall::WriteKernelLog,
 
 };
 
