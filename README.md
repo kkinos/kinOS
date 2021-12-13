@@ -2,6 +2,8 @@
 
 kinOS is a microkernel-like operating system based on [MikanOS](https://github.com/uchan-nos/mikanos).
 
+![screenshot](screenshot.png)
+
 ## Build
 
 The tools required for building are the same as for [MikanOS](https://github.com/uchan-nos/mikanos)
@@ -53,11 +55,3 @@ ln -s /path/to/kinos/kinLoaderPkg ./
 ```bash
 make
 ```
-
-## Reference
-
-- 『ゼロからの OS 自作入門』マイナビ出版 内田公太 (2021)
-- [MikanOS](https://github.com/uchan-nos/mikanos)
-- [SaintOS](https://github.com/rkarsnk/SaintOS)
-- [フルスクラッチで作る!x86_64 自作 OS](http://yuma.ohgami.jp/x86_64-Jisaku-OS/index.html)
-- [EDK2](https://github.com/tianocore/edk2)
