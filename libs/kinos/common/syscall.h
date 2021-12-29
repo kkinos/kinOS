@@ -23,12 +23,24 @@ struct SyscallResult SyscallCreateTimer(unsigned int type, int timer_value,
                                         unsigned long timeout_ms);
 
 struct SyscallResult SyscallDemandPages(size_t num_pages, int flags);
+/*--------------------------------------------------------------------------
+ * system calls for task
+ *--------------------------------------------------------------------------
+ */
 
 struct SyscallResult SyscallCreateNewTask();
 struct SyscallResult SyscallCopyToTaskBuffer(uint64_t id, void *buf,
                                              size_t offset, size_t len);
 struct SyscallResult SyscallSetArgument(uint64_t id, char *buf);
 struct SyscallResult SyscallSetCommand(uint64_t id, char *buf);
+
+/*--------------------------------------------------------------------------
+ * system calls for IO
+ *--------------------------------------------------------------------------
+ */
+
+struct SyscallResult SyscallIOOut32(uint16_t addr, uint32_t data);
+struct SyscallResult SyscallIOIn32(uint16_t addr);
 
 /*--------------------------------------------------------------------------
  * system calls for ipc

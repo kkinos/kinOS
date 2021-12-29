@@ -1,17 +1,11 @@
-/**
- * @file pci.cpp
- *
- * PCI バス制御のプログラムを集めたファイル．
- */
-
 #include "pci.hpp"
 
-#include "asmfunc.h"
+#include "../../libs/kinos/common/syscall.h"
 
 namespace {
 using namespace pci;
 
-/** @brief CONFIG_ADDRESS 用の 32 ビット整数を生成する */
+/** @brief Make 32bit for CONFIG_ADDRESS */
 uint32_t MakeAddress(uint8_t bus, uint8_t device, uint8_t function,
                      uint8_t reg_addr) {
     auto shl = [](uint32_t x, unsigned int bits) { return x << bits; };
@@ -21,8 +15,7 @@ uint32_t MakeAddress(uint8_t bus, uint8_t device, uint8_t function,
            (reg_addr & 0xfcu);
 }
 
-/** @brief devices[num_device] に情報を書き込み num_device
- * をインクリメントする． */
+/** @brief write data to devices[num_device]  and increment num_device */
 Error AddDevice(const Device& device) {
     if (num_device == devices.size()) {
         return MAKE_ERROR(Error::kFull);
@@ -35,8 +28,8 @@ Error AddDevice(const Device& device) {
 
 Error ScanBus(uint8_t bus);
 
-/** @brief 指定のファンクションを devices に追加する．
- * もし PCI-PCI ブリッジなら，セカンダリバスに対し ScanBus を実行する
+/** @brief add target function to devices
+ * if it is PCI-PCI brige, execute ScanBus to secondary bus
  */
 Error ScanFunction(uint8_t bus, uint8_t device, uint8_t function) {
     auto class_code = ReadClassCode(bus, device, function);
@@ -56,9 +49,6 @@ Error ScanFunction(uint8_t bus, uint8_t device, uint8_t function) {
     return MAKE_ERROR(Error::kSuccess);
 }
 
-/** @brief 指定のデバイス番号の各ファンクションをスキャンする．
- * 有効なファンクションを見つけたら ScanFunction を実行する．
- */
 Error ScanDevice(uint8_t bus, uint8_t device) {
     if (auto err = ScanFunction(bus, device, 0)) {
         return err;
@@ -78,9 +68,6 @@ Error ScanDevice(uint8_t bus, uint8_t device) {
     return MAKE_ERROR(Error::kSuccess);
 }
 
-/** @brief 指定のバス番号の各デバイスをスキャンする．
- * 有効なデバイスを見つけたら ScanDevice を実行する．
- */
 Error ScanBus(uint8_t bus) {
     for (uint8_t device = 0; device < 32; ++device) {
         if (ReadVendorId(bus, device, 0) == 0xffffu) {
@@ -93,11 +80,6 @@ Error ScanBus(uint8_t bus) {
     return MAKE_ERROR(Error::kSuccess);
 }
 
-/** @brief 指定された MSI ケーパビリティ構造を読み取る
- *
- * @param dev  MSI ケーパビリティを読み込む PCI デバイス
- * @param cap_addr  MSI ケーパビリティレジスタのコンフィグレーション空間アドレス
- */
 MSICapability ReadMSICapability(const Device& dev, uint8_t cap_addr) {
     MSICapability msi_cap{};
 
@@ -120,12 +102,6 @@ MSICapability ReadMSICapability(const Device& dev, uint8_t cap_addr) {
     return msi_cap;
 }
 
-/** @brief 指定された MSI ケーパビリティ構造に書き込む
- *
- * @param dev  MSI ケーパビリティを読み込む PCI デバイス
- * @param cap_addr  MSI ケーパビリティレジスタのコンフィグレーション空間アドレス
- * @param msi_cap  書き込む値
- */
 void WriteMSICapability(const Device& dev, uint8_t cap_addr,
                         const MSICapability& msi_cap) {
     WriteConfReg(dev, cap_addr, msi_cap.header.data);
@@ -145,7 +121,6 @@ void WriteMSICapability(const Device& dev, uint8_t cap_addr,
     }
 }
 
-/** @brief 指定された MSI レジスタを設定する */
 Error ConfigureMSIRegister(const Device& dev, uint8_t cap_addr,
                            uint32_t msg_addr, uint32_t msg_data,
                            unsigned int num_vector_exponent) {
@@ -166,7 +141,6 @@ Error ConfigureMSIRegister(const Device& dev, uint8_t cap_addr,
     return MAKE_ERROR(Error::kSuccess);
 }
 
-/** @brief 指定された MSI レジスタを設定する */
 Error ConfigureMSIXRegister(const Device& dev, uint8_t cap_addr,
                             uint32_t msg_addr, uint32_t msg_data,
                             unsigned int num_vector_exponent) {
@@ -175,11 +149,15 @@ Error ConfigureMSIXRegister(const Device& dev, uint8_t cap_addr,
 }  // namespace
 
 namespace pci {
-void WriteAddress(uint32_t address) { IoOut32(kConfigAddress, address); }
+void WriteAddress(uint32_t address) { SyscallIOOut32(kConfigAddress, address); }
 
-void WriteData(uint32_t value) { IoOut32(kConfigData, value); }
+void WriteData(uint32_t value) { SyscallIOOut32(kConfigData, value); }
 
-uint32_t ReadData() { return IoIn32(kConfigData); }
+uint32_t ReadData() {
+    auto [res, err] = SyscallIOIn32(kConfigData);
+
+    return static_cast<uint32_t>(res);
+}
 
 uint16_t ReadVendorId(uint8_t bus, uint8_t device, uint8_t function) {
     WriteAddress(MakeAddress(bus, device, function, 0x00));
@@ -310,20 +288,3 @@ Error ConfigureMSIFixedDestination(const Device& dev, uint8_t apic_id,
     return ConfigureMSI(dev, msg_addr, msg_data, num_vector_exponent);
 }
 }  // namespace pci
-
-void InitializePCI() {
-    if (auto err = pci::ScanAllBus()) {
-        printf("ScanBus :%s\n", err.Name());
-        exit(1);
-    }
-
-    printf("num of device : %d\n", pci::num_device);
-    for (int i = 0; i < pci::num_device; ++i) {
-        const auto& dev = pci::devices[i];
-        auto vendor_id = pci::ReadVendorId(dev.bus, dev.device, dev.function);
-        printf("%02x:%02x.%d vend=%04x head=%02x class=%02x.%02x.%02x\n",
-               dev.bus, dev.device, dev.function, vendor_id, dev.header_type,
-               dev.class_code.base, dev.class_code.sub,
-               dev.class_code.interface);
-    }
-}

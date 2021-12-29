@@ -112,6 +112,18 @@ SYSCALL(SetArgument) {
     return {0, 0};
 }
 
+SYSCALL(IOOut32) {
+    uint16_t addr = arg1;
+    uint32_t data = arg2;
+    IoOut32(addr, data);
+    return {0, 0};
+}
+
+SYSCALL(IOIn32) {
+    uint16_t addr = arg1;
+    return {IoIn32(addr), 0};
+}
+
 SYSCALL(FindServer) {
     const char *name = reinterpret_cast<const char *>(arg1);
     uint64_t task_id = task_manager->FindTask(name);
@@ -290,7 +302,7 @@ SYSCALL(WriteKernelLog) {
 
 using SyscallFuncType = syscall::Result(uint64_t, uint64_t, uint64_t, uint64_t,
                                         uint64_t, uint64_t);
-extern "C" std::array<SyscallFuncType *, 0x14> syscall_table{
+extern "C" std::array<SyscallFuncType *, 0x16> syscall_table{
     /* 0x00 */ syscall::Exit,
     /* 0x01 */ syscall::GetCurrentTick,
     /* 0x02 */ syscall::CreateTimer,
@@ -299,18 +311,20 @@ extern "C" std::array<SyscallFuncType *, 0x14> syscall_table{
     /* 0x05 */ syscall::CopyToTaskBuffer,
     /* 0x06 */ syscall::SetCommand,
     /* 0x07 */ syscall::SetArgument,
-    /* 0x08 */ syscall::FindServer,
-    /* 0x09 */ syscall::OpenReceiveMessage,
-    /* 0x0a */ syscall::ClosedReceiveMessage,
-    /* 0x0b */ syscall::SendMessage,
-    /* 0x0c */ syscall::WritePixel,
-    /* 0x0d */ syscall::GetFrameBufferWitdth,
-    /* 0x0e */ syscall::GetFrameBufferHeight,
-    /* 0x0f */ syscall::CopyToFrameBuffer,
-    /* 0x10 */ syscall::ReadVolumeImage,
-    /* 0x11 */ syscall::CopyToVolumeImage,
-    /* 0x12 */ syscall::ReadKernelLog,
-    /* 0x13 */ syscall::WriteKernelLog,
+    /* 0x08 */ syscall::IOOut32,
+    /* 0x09 */ syscall::IOIn32,
+    /* 0x0a */ syscall::FindServer,
+    /* 0x0b */ syscall::OpenReceiveMessage,
+    /* 0x0c */ syscall::ClosedReceiveMessage,
+    /* 0x0d */ syscall::SendMessage,
+    /* 0x0e */ syscall::WritePixel,
+    /* 0x0f */ syscall::GetFrameBufferWitdth,
+    /* 0x10 */ syscall::GetFrameBufferHeight,
+    /* 0x11 */ syscall::CopyToFrameBuffer,
+    /* 0x12 */ syscall::ReadVolumeImage,
+    /* 0x13 */ syscall::CopyToVolumeImage,
+    /* 0x14 */ syscall::ReadKernelLog,
+    /* 0x15 */ syscall::WriteKernelLog,
 
 };
 
