@@ -2,4 +2,4 @@
 *.efi
 *.elf
 mnt
-settings.json
+.vscode
