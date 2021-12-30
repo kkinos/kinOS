@@ -284,10 +284,6 @@ extern const uint8_t _binary____servers_init_init_size;
 void TaskInitServer(uint64_t task_id, int64_t data) {
     const auto task_of_server_data = reinterpret_cast<DataOfServer *>(data);
 
-    __asm__("cli");
-    auto &task = task_manager->CurrentTask();
-    __asm__("sti");
-
     size_t binary_init_size =
         reinterpret_cast<size_t>(&_binary____servers_init_init_size);
     std::vector<uint8_t> file_buf(binary_init_size);

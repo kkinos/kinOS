@@ -70,13 +70,8 @@ extern "C" void KernelMainNewStack(
     InitializeSystemTask(volume_image);
 
     Message smsg;
-    uint64_t rid;
 
     while (true) {
-        __asm__("cli");
-        const auto tick = timer_manager->CurrentTick();
-        __asm__("sti");
-
         __asm__("cli");
         auto rmsg = system_task.ReceiveMessage();
         if (!rmsg) {

@@ -58,7 +58,6 @@ extern "C" int main() {
     layer_task_map = new std::map<unsigned int, uint64_t>;
 
     Message msg[1];
-    int i = 1;
     while (true) {
         auto [n, err] = SyscallOpenReceiveMessage(msg, 1);
         if (err) {

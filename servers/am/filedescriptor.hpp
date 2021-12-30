@@ -31,10 +31,7 @@ class FatFileDescriptor : public ::FileDescriptor {
     size_t rd_off_ =
         0;  //  for read file ,bytes offset, for read dir , index offset
     unsigned long rd_cluster_ = 0;
-    size_t rd_cluster_off_ = 0;
     size_t wr_off_ = 0;
-    unsigned long wr_cluster_ = 0;
-    size_t wr_cluster_off_ = 0;
 };
 
 class TerminalFileDescriptor : public FileDescriptor {
