@@ -55,16 +55,6 @@ WithError<PageMapEntry*> SetNewPageMapIfNotPresent(PageMapEntry& entry) {
     return {child_map, MAKE_ERROR(Error::kSuccess)};
 }
 
-/**
- * @brief それぞれのページテーブルを設定する
- *
- * @param page_map
- * @param page_map_level 4=pml4 3=pdp 2=pd 1=pt
- * @param addr 設定したい仮想アドレス
- * @param num_4kpages 設定したいページ数
- * @param writable
- * @return WithError<size_t>
- */
 WithError<size_t> SetupPageMap(PageMapEntry* page_map, int page_map_level,
                                LinearAddress4Level addr, size_t num_4kpages,
                                bool writable) {
@@ -178,15 +168,6 @@ Error FreePageMap(PageMapEntry* table) {
     return memory_manager->Free(frame, 1);
 }
 
-/**
- * @brief
- * CR3の値つまりページング構造の最初のアドレスを取得しそれ以降の設定をSetupPageMapに投げる
- *
- * @param addr 設定したい仮想アドレス
- * @param num_4kpages 設定したい物理アドレスのページ数
- * @param writable
- * @return Error
- */
 Error SetupPageMaps(LinearAddress4Level addr, size_t num_4kpages,
                     bool writable) {
     auto pml4_table = reinterpret_cast<PageMapEntry*>(GetCR3());

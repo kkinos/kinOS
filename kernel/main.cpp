@@ -1,9 +1,3 @@
-/**
- * @file main.cpp
- *
- * カーネル本体のプログラムを書いたファイル．
- */
-
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>

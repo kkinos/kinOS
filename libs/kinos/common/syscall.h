@@ -35,14 +35,6 @@ struct SyscallResult SyscallSetArgument(uint64_t id, char *buf);
 struct SyscallResult SyscallSetCommand(uint64_t id, char *buf);
 
 /*--------------------------------------------------------------------------
- * system calls for IO
- *--------------------------------------------------------------------------
- */
-
-struct SyscallResult SyscallIOOut32(uint16_t addr, uint32_t data);
-struct SyscallResult SyscallIOIn32(uint16_t addr);
-
-/*--------------------------------------------------------------------------
  * system calls for ipc
  *--------------------------------------------------------------------------
  */
@@ -80,7 +72,6 @@ struct SyscallResult SyscallCopyToVolumeImage(void *buf,
  * common system calls for application and server
  *--------------------------------------------------------------------------
  */
-
 struct SyscallResult SyscallFindServer(const char *name);
 struct SyscallResult SyscallReadKernelLog(char *buf, size_t len);
 struct SyscallResult SyscallWriteKernelLog(char *buf);
