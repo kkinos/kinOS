@@ -9,6 +9,13 @@
 #include "shadow_buffer.hpp"
 #include "shadow_buffer_config.hpp"
 
+enum class WindowRegion {
+    kTitleBar,
+    kCloseButton,
+    kBorder,
+    kOther,
+};
+
 class Window {
    public:
     class WindowWriter : public PixelWriter {
@@ -53,6 +60,7 @@ class Window {
 
     virtual void Activate() {}
     virtual void Deactivate() {}
+    virtual WindowRegion GetWindowRegion(Vector2D<int> pos);
 
    private:
     int width_, height_;
@@ -91,6 +99,7 @@ class ToplevelWindow : public Window {
 
     virtual void Activate() override;
     virtual void Deactivate() override;
+    virtual WindowRegion GetWindowRegion(Vector2D<int> pos) override;
 
     InnerAreaWriter* InnerWriter() { return &inner_writer_; }
     Vector2D<int> InnerSize() const;

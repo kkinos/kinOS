@@ -474,6 +474,9 @@ extern "C" void main() {
                     layer_id, rm[0].arg.keyboard.modifier,
                     rm[0].arg.keyboard.keycode, rm[0].arg.keyboard.ascii);
             }
+        } else if (rm[0].type == Message::kQuit) {
+            CloseWindow(layer_id);
+            exit(0);
         }
     }
 }

@@ -20,16 +20,27 @@ const char mouse_cursor_shape[kMouseCursorHeight][kMouseCursorWidth + 1] = {
     "@@      @.@    ", "@       @.@    ", "         @.@   ", "         @@@   ",
 };
 
-void SendMouseMessage(Vector2D<int> newpos, Vector2D<int> posdiff,
-                      uint8_t buttons, uint8_t previous_buttons) {
+std::tuple<Layer*, uint64_t> FindActiveLayerTask() {
     const auto act = active_layer->GetActive();
     if (!act) {
-        return;
+        return {nullptr, 0};
     }
     const auto layer = layer_manager->FindLayer(act);
+    if (!layer) {
+        return {nullptr, 0};
+    }
 
     const auto task_it = layer_task_map->find(act);
     if (task_it == layer_task_map->end()) {
+        return {layer, 0};
+    }
+    return {layer, task_it->second};
+}
+
+void SendMouseMessage(Vector2D<int> newpos, Vector2D<int> posdiff,
+                      uint8_t buttons, uint8_t previous_buttons) {
+    const auto [layer, task_id] = FindActiveLayerTask();
+    if (!layer || !task_id) {
         return;
     }
     const auto relpos = newpos - layer->GetPosition();
@@ -40,7 +51,7 @@ void SendMouseMessage(Vector2D<int> newpos, Vector2D<int> posdiff,
         msg.arg.mouse_move.dx = posdiff.x;
         msg.arg.mouse_move.dy = posdiff.y;
         msg.arg.mouse_move.buttons = buttons;
-        SyscallSendMessage(&msg, task_it->second);
+        SyscallSendMessage(&msg, task_id);
     }
 
     if (previous_buttons != buttons) {
@@ -52,10 +63,19 @@ void SendMouseMessage(Vector2D<int> newpos, Vector2D<int> posdiff,
                 msg.arg.mouse_button.y = relpos.y;
                 msg.arg.mouse_button.press = (buttons >> i) & 1;
                 msg.arg.mouse_button.button = i;
-                SyscallSendMessage(&msg, task_it->second);
+                SyscallSendMessage(&msg, task_id);
             }
         }
     }
+}
+void SendCloseMessage() {
+    const auto [layer, task_id] = FindActiveLayerTask();
+    if (!layer || !task_id) {
+        return;
+    }
+
+    Message msg{Message::kQuit};
+    SyscallSendMessage(&msg, task_id);
 }
 }  // namespace
 
@@ -93,16 +113,25 @@ void Mouse::OnInterrupt(uint8_t buttons, int8_t displacement_x,
     const auto posdiff = position_ - oldpos;
     layer_manager->Move(layer_id_, position_);
 
+    unsigned int close_layer_id = 0;
     const bool previous_left_pressed = (previous_buttons_ & 0x01);
     const bool left_pressed = (buttons & 0x01);
     if (!previous_left_pressed && left_pressed) {
         auto layer = layer_manager->FindLayerByPosition(position_, layer_id_);
         if (layer && layer->IsDraggable()) {
-            const auto y_layer = position_.y - layer->GetPosition().y;
-            if (y_layer < ToplevelWindow::kTopLeftMargin.y) {
-                drag_layer_id_ = layer->ID();
+            const auto pos_layer = position_ - layer->GetPosition();
+            switch (layer->GetWindow()->GetWindowRegion(pos_layer)) {
+                case WindowRegion::kTitleBar:
+                    drag_layer_id_ = layer->ID();
+                    break;
+                case WindowRegion::kCloseButton:
+                    close_layer_id = layer_id_;
+                    break;
+                default:
+                    break;
             }
             active_layer->Activate(layer->ID());
+
         } else {
             active_layer->Activate(0);
         }
@@ -115,7 +144,11 @@ void Mouse::OnInterrupt(uint8_t buttons, int8_t displacement_x,
     }
 
     if (drag_layer_id_ == 0) {
-        SendMouseMessage(newpos, posdiff, buttons, previous_buttons_);
+        if (close_layer_id == 0) {
+            SendMouseMessage(newpos, posdiff, buttons, previous_buttons_);
+        } else {
+            SendCloseMessage();
+        }
     }
 
     previous_buttons_ = buttons;
