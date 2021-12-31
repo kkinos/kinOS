@@ -13,7 +13,7 @@ The tools required for building are the same as for [MikanOS](https://github.com
 In `tools/`
 
 ```bash
-git clone https://github.com/tianocore/edk2.git -b edk2-stable202102
+git clone https://github.com/tianocore/edk2.git
 ```
 
 ### Setting
