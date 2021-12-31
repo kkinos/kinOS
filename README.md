@@ -46,7 +46,7 @@ source edksetup.sh
 In `edk2/`
 
 ```bash
-ln -s /path/to/kinos/kinLoaderPkg ./
+ln -s ../../kinLoaderPkg ./
 
 ```
 
